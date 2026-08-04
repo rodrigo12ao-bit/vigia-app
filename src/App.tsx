@@ -87,6 +87,7 @@ export default function App() {
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
   const [isBadgesModalOpen, setIsBadgesModalOpen] = useState(false);
   // Refs for preventing duplicate sends and aborting previous requests
   const sendingRef = useRef(false);
@@ -526,6 +527,7 @@ export default function App() {
         nickname={nickname}
         isGuest={isGuest}
         isAudioMuted={isAudioMuted}
+        chatMode={chatMode}
         setIsAudioMuted={(muted) => {
           setIsAudioMuted(muted);
           if (muted) {
@@ -561,6 +563,7 @@ export default function App() {
                 debugInfo={debugInfo}
                 currentUser={currentUser}
                 isGuest={isGuest}
+                onChatModeChange={setChatMode}
                 onSpeechRecognized={(speechText) => {
                   setDebugInfo((prev) => ({
                     ...prev,

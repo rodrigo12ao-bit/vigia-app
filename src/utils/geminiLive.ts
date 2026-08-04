@@ -118,6 +118,7 @@ export class GeminiLiveSession {
   private serverTurnComplete = false;
   private isInterruptedThisTurn = false;
   private isInitialGreeting = true;
+  private isMuted = false;
   private pcmBuffer: number[] = [];
   private lastInputLevelEmit = 0;
 
@@ -476,7 +477,7 @@ export class GeminiLiveSession {
 
   private playPCMChunk(base64Data: string, generation: number): void {
     const context = this.outputAudioCtx;
-    if (!context || context.state === 'closed' || generation !== this.generation) return;
+    if (!context || context.state === 'closed' || generation !== this.generation || this.isMuted) return;
 
     try {
       if (context.state === 'suspended') void context.resume();
@@ -622,6 +623,13 @@ export class GeminiLiveSession {
    * Usado pelo botão "Interromper" no modo Live. Não cancela a geração no Gemini —
    * apenas para o áudio já enfileirado localmente e aguarda novo turno.
    */
+  public setMuted(muted: boolean): void {
+    this.isMuted = muted;
+    if (muted) {
+      this.stopAudioPlayback();
+    }
+  }
+
   public interruptPlayback(): void {
     if (this.stopped) return;
     Telemetry.log('INTERRUPT_PLAYBACK_LOCAL', { generation: this.generation });

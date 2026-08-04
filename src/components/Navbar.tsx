@@ -35,6 +35,7 @@ interface NavbarProps {
   isGuest: boolean;
   isAudioMuted: boolean;
   setIsAudioMuted: (muted: boolean) => void;
+  chatMode?: 'text' | 'live';
 }
 
 
@@ -55,6 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isGuest,
   isAudioMuted,
   setIsAudioMuted,
+  chatMode = 'text',
 }) => {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
@@ -170,17 +172,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Audio Sound Mute Toggle */}
+          {/* Audio Sound Mute Toggle (Desativado no Modo Voz onde o botão inferior do dock comanda) */}
           <button
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className={`p-2 rounded-full border transition-all active:scale-95 shadow-xs ${
-              isAudioMuted
-                ? 'bg-slate-100 border-slate-200 text-slate-400'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+            onClick={() => {
+              if (chatMode === 'live') return;
+              setIsAudioMuted(!isAudioMuted);
+            }}
+            disabled={chatMode === 'live'}
+            className={`p-2 rounded-full border transition-all shadow-xs ${
+              chatMode === 'live'
+                ? 'bg-slate-100/50 border-slate-200 text-slate-300 opacity-40 cursor-not-allowed'
+                : isAudioMuted
+                ? 'bg-slate-100 border-slate-200 text-slate-400 active:scale-95 cursor-pointer hover:bg-slate-200'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-600 active:scale-95 cursor-pointer hover:bg-emerald-100'
             }`}
-            title={isAudioMuted ? 'Ativar Voz e Som' : 'Silenciar Voz e Som'}
+            title={
+              chatMode === 'live'
+                ? 'No Modo Voz, o som é controlado no botão inferior do dock'
+                : isAudioMuted
+                ? 'Ativar Voz e Som'
+                : 'Silenciar Voz e Som'
+            }
           >
-            {isAudioMuted ? (
+            {isAudioMuted || chatMode === 'live' ? (
               <VolumeX className="w-4 h-4" />
             ) : (
               <Volume2 className="w-4 h-4" />

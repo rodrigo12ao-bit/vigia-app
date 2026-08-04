@@ -85,6 +85,7 @@ interface ChatTabProps {
   onSpeechRecognized?: (text: string) => void;
   currentUser?: any;
   isGuest?: boolean;
+  onChatModeChange?: (mode: 'text' | 'live') => void;
 }
 
 const QUICK_PROMPTS = [
@@ -350,8 +351,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onSpeechRecognized,
   currentUser,
   isGuest = true,
+  onChatModeChange,
 }) => {
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
+  const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [inputText, setInputText] = useState('');
   const [interactionState, setInteractionState] = useState<ConversationState>('IDLE');
@@ -511,13 +514,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // Quando no modo Texto, garante que microfone e voz iniciem 100% desligados por padrão
   useEffect(() => {
+    onChatModeChange?.(chatMode);
     if (chatMode === 'text') {
       stopListening();
       stopSpeaking();
       setInteractionState('IDLE');
       setInterimSpeech('');
     }
-  }, [chatMode]);
+  }, [chatMode, onChatModeChange]);
 
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
@@ -610,6 +614,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     });
 
     liveSessionRef.current = session;
+    session.setMuted(isLiveAudioMuted);
     void session.start();
 
     return () => {
@@ -1859,18 +1864,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <Subtitles className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
-                  {/* Silenciar Áudio */}
-                  {onToggleAudioMute && (
-                    <button
-                      onClick={onToggleAudioMute}
-                      className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-                        isAudioMuted ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
-                      }`}
-                      title={isAudioMuted ? 'Áudio Mutado' : 'Silenciar'}
-                    >
-                      {isAudioMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </button>
-                  )}
+                  {/* Silenciar Áudio Exclusivo do Modo Voz (2º Botão do Dock Inferior) */}
+                  <button
+                    onClick={() => {
+                      const nextMuted = !isLiveAudioMuted;
+                      setIsLiveAudioMuted(nextMuted);
+                      liveSessionRef.current?.setMuted(nextMuted);
+                    }}
+                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
+                      isLiveAudioMuted ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    }`}
+                    title={isLiveAudioMuted ? 'Áudio do Modo Voz Mutado' : 'Silenciar Áudio do Modo Voz'}
+                  >
+                    {isLiveAudioMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+                  </button>
 
                   {/* Botão Principal: MICROFONE / INTERROMPER */}
                   {currentIsSpeaking ? (
