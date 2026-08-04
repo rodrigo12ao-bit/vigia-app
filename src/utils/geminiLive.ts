@@ -265,8 +265,7 @@ export class GeminiLiveSession {
       case 'turn_complete':
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
-        this.isInitialGreeting = false; // Saudação inicial concluída
-        // Não encerra nem reseta o turno se ele tiver sido interrompido
+        this.isInitialGreeting = false;
         if (!this.isInterruptedThisTurn) {
           this.finishTurnWhenPlaybackEnds();
         }
@@ -409,22 +408,17 @@ export class GeminiLiveSession {
       this.pcmBuffer.push(resampled[index]);
     }
 
-    // Durante a saudação inicial sem fala do usuário (rms < 0.035),
-    // ignora envio de ruído de sala para a IA não ficar confusa na abertura.
-    if (this.isInitialGreeting && rms < 0.035) {
-      this.pcmBuffer = [];
-      return;
+    if (rms > 0.015) {
+      this.isInitialGreeting = false;
     }
 
-    // 1024 amostras = ~64 ms em 16 kHz. Mantém boa cadência sem tempestade de mensagens.
+    // 1024 amostras = ~64 ms em 16 kHz. Envia áudio continuamente para o Gemini.
     while (this.pcmBuffer.length >= 1024) {
       const chunk = this.pcmBuffer.splice(0, 1024);
       const base64PCM = this.float32ToBase64Pcm16(chunk);
       try {
         socket.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
-        if (rms > 0.025) {
-          this.isInterruptedThisTurn = false; // Libera trava APENAS quando há fala real do usuário
-        }
+        this.isInterruptedThisTurn = false; // Áudio do usuário enviado: libera o turno para a IA responder
         Telemetry.record('T3', 'Primeiro buffer enviado ao backend');
       } catch (error) {
         console.error('[GeminiLive] Falha ao enviar áudio:', error);
@@ -468,8 +462,8 @@ export class GeminiLiveSession {
 
   private handleAudioChunk(base64Data: string): void {
     Telemetry.record('T4', 'Primeiro audio_chunk recebido');
+    this.isInitialGreeting = false;
     if (this.isInterruptedThisTurn) {
-      // A frase foi cancelada. Descarta na portaria todos os pacotes remanescentes da mesma frase.
       return;
     }
     if (!this.hasReceivedFirstAudioChunk) {
