@@ -221,53 +221,50 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
   micVolume,
   outputVolume,
 }) => {
-  const bars = [
-    { base: 6, mult: 18, delay: 0.1 },
-    { base: 10, mult: 26, delay: 0.2 },
-    { base: 14, mult: 36, delay: 0.05 },
-    { base: 20, mult: 46, delay: 0.15 },
-    { base: 26, mult: 54, delay: 0 },
-    { base: 20, mult: 46, delay: 0.15 },
-    { base: 14, mult: 36, delay: 0.05 },
-    { base: 10, mult: 26, delay: 0.2 },
-    { base: 6, mult: 18, delay: 0.1 },
-  ];
+  // Ponderação simétrica de sensibilidade das 9 barras (centro mais reativo)
+  const barWeights = [0.35, 0.55, 0.75, 0.92, 1.0, 0.92, 0.75, 0.55, 0.35];
 
   if (!isListening && !isSpeaking && !isProcessing) {
-    return <div className="h-9" />;
+    return <div className="h-14" />;
   }
 
-  let colorStyle = 'from-emerald-400 via-teal-300 to-emerald-500 drop-shadow-[0_0_8px_rgba(52,211,153,0.7)]';
+  // Volume de entrada ou saída
+  const rawVol = isSpeaking ? outputVolume : isListening ? micVolume : 0;
+  // Curva de expansão não-linear (potência 0.45): expande variações baixas para visual super expressivo
+  const expandedVol = Math.pow(Math.min(1, Math.max(0, rawVol)), 0.45);
+
+  let colorStyle = 'from-emerald-400 via-teal-300 to-emerald-500 drop-shadow-[0_0_12px_rgba(52,211,153,0.9)]';
   if (isSpeaking) {
-    colorStyle = 'from-sky-400 via-cyan-300 to-sky-500 drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]';
+    colorStyle = 'from-sky-400 via-cyan-300 to-sky-500 drop-shadow-[0_0_12px_rgba(56,189,248,0.9)]';
   } else if (isProcessing) {
-    colorStyle = 'from-indigo-400 via-purple-300 to-indigo-500 drop-shadow-[0_0_8px_rgba(129,140,248,0.7)]';
+    colorStyle = 'from-indigo-400 via-purple-300 to-indigo-500 drop-shadow-[0_0_12px_rgba(129,140,248,0.9)]';
   }
-
-  // Se a Vigia estiver falando, usa a amplitude real do alto-falante
-  const activeOutputVol = outputVolume > 0.01 ? outputVolume : 0.4;
 
   return (
-    <div className="flex items-center justify-center gap-1 sm:gap-1.5 h-9 px-4 py-1">
-      {bars.map((bar, i) => (
-        <motion.span
-          key={i}
-          animate={{
-            height: isListening
-              ? [bar.base, Math.max(bar.base + 4, bar.base + micVolume * bar.mult), bar.base]
-              : isSpeaking
-              ? [bar.base, Math.max(bar.base + 6, bar.base + activeOutputVol * bar.mult), bar.base]
-              : [6, 18, 6],
-          }}
-          transition={{
-            repeat: Infinity,
-            repeatType: 'reverse',
-            duration: isSpeaking ? 0.25 + bar.delay * 0.3 : 0.4 + bar.delay,
-            ease: 'easeInOut',
-          }}
-          className={`w-1 sm:w-1.5 rounded-full bg-gradient-to-t ${colorStyle} transition-all duration-150`}
-        />
-      ))}
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 h-14 px-4 py-1">
+      {barWeights.map((weight, i) => {
+        let targetHeight = 6;
+        if (isProcessing) {
+          targetHeight = 8 + Math.sin(Date.now() / 100 + i * 0.7) * 14;
+        } else {
+          // Variação drástica de altura de 6px a 56px (quase 10x de amplitude)
+          targetHeight = Math.max(6, Math.min(56, 6 + expandedVol * 50 * weight));
+        }
+
+        return (
+          <motion.span
+            key={i}
+            animate={{ height: targetHeight }}
+            transition={{
+              type: 'spring',
+              stiffness: 450,
+              damping: 22,
+              mass: 0.35,
+            }}
+            className={`w-1.5 sm:w-2 rounded-full bg-gradient-to-t ${colorStyle}`}
+          />
+        );
+      })}
     </div>
   );
 };
@@ -505,11 +502,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       },
       onInputLevel: (rms) => {
         if (disposed || liveSessionRef.current !== session) return;
-        setMicVolume(Math.min(1, rms * 12));
+        setOutputVolume(0);
+        setMicVolume(Math.min(1, Math.pow(rms * 12, 0.7)));
       },
       onOutputLevel: (rms) => {
         if (disposed || liveSessionRef.current !== session) return;
-        setOutputVolume(Math.min(1, rms * 12));
+        setMicVolume(0);
+        setOutputVolume(Math.min(1, Math.pow(rms * 12, 0.7)));
       },
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;

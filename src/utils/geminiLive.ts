@@ -366,7 +366,7 @@ export class GeminiLiveSession {
     const rms = Math.sqrt(energy / Math.max(1, float32Array.length));
 
     const now = performance.now();
-    if (now - this.lastInputLevelEmit > 50) {
+    if (now - this.lastInputLevelEmit > 25) {
       this.lastInputLevelEmit = now;
       this.callbacks.onInputLevel?.(rms);
     }
