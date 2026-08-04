@@ -116,6 +116,7 @@ export class GeminiLiveSession {
   private generation = 0;
   private hasReceivedFirstAudioChunk = false;
   private serverTurnComplete = false;
+  private isInterruptedThisTurn = false;
   private pcmBuffer: number[] = [];
   private lastInputLevelEmit = 0;
 
@@ -260,6 +261,7 @@ export class GeminiLiveSession {
       case 'turn_complete':
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
+        this.isInterruptedThisTurn = false;
         this.finishTurnWhenPlaybackEnds();
         return;
 
@@ -402,6 +404,7 @@ export class GeminiLiveSession {
       const base64PCM = this.float32ToBase64Pcm16(chunk);
       try {
         socket.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
+        this.isInterruptedThisTurn = false; // Novo envio de áudio do usuário libera próximo turno
         Telemetry.record('T3', 'Primeiro buffer enviado ao backend');
       } catch (error) {
         console.error('[GeminiLive] Falha ao enviar áudio:', error);
@@ -445,6 +448,10 @@ export class GeminiLiveSession {
 
   private handleAudioChunk(base64Data: string): void {
     Telemetry.record('T4', 'Primeiro audio_chunk recebido');
+    if (this.isInterruptedThisTurn) {
+      // A frase foi cancelada. Descarta na portaria todos os pacotes remanescentes da mesma frase.
+      return;
+    }
     if (!this.hasReceivedFirstAudioChunk) {
       this.hasReceivedFirstAudioChunk = true;
       this.serverTurnComplete = false;
@@ -513,6 +520,7 @@ export class GeminiLiveSession {
   private handleServerInterruption(): void {
     console.log('[GeminiLive] Interrupção confirmada pelo Gemini');
     Telemetry.log('INTERRUPTED_BY_GEMINI');
+    this.isInterruptedThisTurn = true;
     this.generation += 1;
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
@@ -603,8 +611,9 @@ export class GeminiLiveSession {
    * apenas para o áudio já enfileirado localmente e aguarda novo turno.
    */
   public interruptPlayback(): void {
-    if (this.state !== 'assistantSpeaking') return;
+    if (this.state !== 'assistantSpeaking' && this.activeSources.length === 0) return;
     Telemetry.log('INTERRUPT_PLAYBACK_LOCAL', { generation: this.generation });
+    this.isInterruptedThisTurn = true;
     this.generation += 1;
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
