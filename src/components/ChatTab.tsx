@@ -538,6 +538,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'userSpeaking':
             setInteractionState('USER_SPEAKING');
             setLiveIsSpeaking(false);
+            setLiveSubtitle(''); // Limpa transcrição anterior da Vigia quando usuário começa a falar
             break;
           case 'processing':
             setInteractionState('PROCESSING');
@@ -546,6 +547,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'assistantSpeaking':
             setInteractionState('SPEAKING');
             setLiveIsSpeaking(true);
+            setInterimSpeech(''); // Limpa transcrição do usuário quando a Vigia começa a falar
             break;
           case 'stopping':
             // ARQ 2: Estado sem handler anterior. Mostra feedback neutro durante encerramento.
@@ -1785,11 +1787,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     className="shrink-0 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md overflow-hidden"
                   >
                     <div className="p-3 sm:p-4 text-center max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60px] sm:min-h-[80px]">
-                      <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        <Subtitles className="w-3 h-3" /> Transcrição
+                      <p className="text-[10px] font-black uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        {interactionState === 'SPEAKING' || liveIsSpeaking || liveSubtitle ? (
+                          <span className="text-sky-400 flex items-center gap-1">
+                            <Volume2 className="w-3.5 h-3.5" /> 🛡️ Vigia (Voz)
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <Mic className="w-3.5 h-3.5" /> 👤 Você (Voz)
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
-                        {interimSpeech || liveSubtitle || lastAssistantMsg?.content || "Aguardando..."}
+                        {interactionState === 'SPEAKING' || liveIsSpeaking
+                          ? liveSubtitle || "Falando..."
+                          : interimSpeech || (interactionState === 'USER_SPEAKING' ? "Ouvindo sua voz..." : "Pode falar agora!")}
                       </p>
                     </div>
                   </motion.div>

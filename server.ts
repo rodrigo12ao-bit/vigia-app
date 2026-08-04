@@ -648,6 +648,7 @@ Controles que você deve ensinar se ele perguntar:
 - 1 a 4: Usar inventário.
 Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventário (fornecidos nos updates) e dê instruções claras e imersivas!`;
     }
+    dynamicSystemInstruction += `\n[IDIOMA E TRANSCRIÇÃO OBRIGATÓRIA]: VOCÊ E TODAS AS TRANSCRIÇÕES (ENTRADA E SAÍDA) DEVEM OPERAR EXCLUSIVAMENTE EM PORTUGUÊS DO BRASIL (pt-BR). É ESTRITAMENTE PROIBIDO TRANSCREVER OU GERAR QUALQUER PALAVRA EM INGLÊS, ESPANHOL OU OUTRO IDIOMA. SE O ÁUDIO CONTIVER RUÍDO OU AMBIGUIDADE, TRANSCREVA APENAS EM PORTUGUÊS OU MANTENHA SILÊNCIO.`;
 
     try {
       const liveModel = 'gemini-3.1-flash-live-preview';
