@@ -96,6 +96,8 @@ export class GeminiLiveSession {
   private mediaStream: MediaStream | null = null;
   private processorNode: AudioNode | null = null;
   private mediaSourceNode: MediaStreamAudioSourceNode | null = null;
+  private outputAnalyserNode: AnalyserNode | null = null;
+  private outputMonitorTimer: number | null = null;
   private callbacks: GeminiLiveCallbacks;
 
   private state: LiveState = 'idle';
@@ -148,6 +150,13 @@ export class GeminiLiveSession {
         return;
       }
       this.outputAudioCtx = outputCtx;
+      
+      const analyser = outputCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.4;
+      analyser.connect(outputCtx.destination);
+      this.outputAnalyserNode = analyser;
+
       this.outputContextTracked = true;
       Telemetry.trackResource('outputContexts', 1);
       this.nextPlayTime = outputCtx.currentTime;
@@ -473,7 +482,7 @@ export class GeminiLiveSession {
       audioBuffer.getChannelData(0).set(float32);
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(context.destination);
+      source.connect(this.outputAnalyserNode || context.destination);
 
       const startAt = Math.max(context.currentTime, this.nextPlayTime);
       source.start(startAt);
@@ -482,6 +491,7 @@ export class GeminiLiveSession {
 
       const entry: ActiveSource = { source, generation };
       this.activeSources.push(entry);
+      this.startOutputLevelMonitor();
 
       // RISCO 2: Evita crescimento ilimitado em caso de falha de turn_complete.
       if (this.activeSources.length > this.MAX_ACTIVE_SOURCES) {
@@ -525,7 +535,41 @@ export class GeminiLiveSession {
     }
   }
 
+  /**
+   * Monitora em tempo real a reprodução real do alto-falante via AnalyserNode.
+   * Roda a 40 FPS enquanto houver fontes ativas tocando.
+   */
+  private startOutputLevelMonitor(): void {
+    if (this.outputMonitorTimer) return;
+    const buffer = new Uint8Array(128);
+
+    this.outputMonitorTimer = window.setInterval(() => {
+      if (!this.outputAnalyserNode || this.activeSources.length === 0 || this.stopped) {
+        if (this.outputMonitorTimer) {
+          window.clearInterval(this.outputMonitorTimer);
+          this.outputMonitorTimer = null;
+        }
+        this.callbacks.onOutputLevel?.(0);
+        return;
+      }
+      this.outputAnalyserNode.getByteTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const v = (buffer[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / buffer.length);
+      this.callbacks.onOutputLevel?.(rms);
+    }, 25);
+  }
+
   private stopAudioPlayback(): void {
+    if (this.outputMonitorTimer) {
+      window.clearInterval(this.outputMonitorTimer);
+      this.outputMonitorTimer = null;
+    }
+    this.callbacks.onOutputLevel?.(0);
+
     for (const { source } of this.activeSources) {
       try {
         source.onended = null;
