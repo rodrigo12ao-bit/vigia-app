@@ -11,6 +11,15 @@ const TopicsTab = React.lazy(() => import('./components/TopicsTab').then((m) => 
 const EmergencyNumbersCard = React.lazy(() => import('./components/EmergencyNumbersCard').then((m) => ({ default: m.EmergencyNumbersCard })));
 const SalaSeguraTab = React.lazy(() => import('./components/salasegura/SalaSeguraTab').then((m) => ({ default: m.SalaSeguraTab })));
 
+import { LearningTrailMap } from './components/learning/LearningTrailMap';
+import { BadgesModal } from './components/BadgesModal';
+import { DailyMissionModal } from './components/DailyMissionModal';
+import { ScenarioAnalyzerModal } from './components/ScenarioAnalyzerModal';
+import { DynamicAIQuizModal } from './components/DynamicAIQuizModal';
+import { WelcomeScreen } from './components/WelcomeScreen';
+import { AuthModal } from './components/AuthModal';
+import { ProfileModal } from './components/ProfileModal';
+import { LegalModals } from './components/LegalModals';
 import { PWAPrompt } from './components/PWAPrompt';
 import { OfflineWarning } from './components/OfflineWarning';
 import {
