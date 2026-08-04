@@ -243,7 +243,10 @@ export class GeminiLiveSession {
       case 'input_transcription':
         if (payload.text) {
           this.callbacks.onInputTranscription?.(payload.text);
-          if (this.state !== 'assistantSpeaking') {
+          if (this.state === 'assistantSpeaking') {
+            // Fala do usuário confirmada pelo servidor durante a fala da Vigia: ativa interrupção (Barge-In)
+            this.interruptPlayback();
+          } else {
             this.setState('processing');
             this.callbacks.onAvatarStateChange?.('thinking');
           }
@@ -386,11 +389,6 @@ export class GeminiLiveSession {
     if (now - this.lastInputLevelEmit > 25) {
       this.lastInputLevelEmit = now;
       this.callbacks.onInputLevel?.(rms);
-    }
-
-    // Interrupção por voz (Barge-In): Se o usuário falar forte enquanto a Vigia estiver falando, interrompe a Vigia
-    if (rms > 0.045 && (this.state === 'assistantSpeaking' || this.activeSources.length > 0)) {
-      this.interruptPlayback();
     }
 
     if (rms > 0.02 && !Telemetry.currentInteraction.start) {
