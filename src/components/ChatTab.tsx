@@ -1016,6 +1016,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const handleInterruptSpeech = () => {
     if (chatMode === 'live') {
       liveSessionRef.current?.interruptPlayback();
+      setLiveIsSpeaking(false);
+      setInteractionState('LISTENING');
     } else {
       stopSpeaking();
     }

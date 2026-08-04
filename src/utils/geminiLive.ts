@@ -261,8 +261,10 @@ export class GeminiLiveSession {
       case 'turn_complete':
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
-        this.isInterruptedThisTurn = false;
-        this.finishTurnWhenPlaybackEnds();
+        // Não encerra nem reseta o turno se ele tiver sido interrompido
+        if (!this.isInterruptedThisTurn) {
+          this.finishTurnWhenPlaybackEnds();
+        }
         return;
 
       case 'close':
@@ -382,7 +384,11 @@ export class GeminiLiveSession {
       this.callbacks.onInputLevel?.(rms);
     }
 
-    // O RMS é somente telemetria/visualização. Ele não encerra turnos nem interrompe a resposta.
+    // Interrupção por voz (Barge-In): Se o usuário falar forte enquanto a Vigia estiver falando, interrompe a Vigia
+    if (rms > 0.045 && (this.state === 'assistantSpeaking' || this.activeSources.length > 0)) {
+      this.interruptPlayback();
+    }
+
     if (rms > 0.02 && !Telemetry.currentInteraction.start) {
       Telemetry.resetInteraction();
       Telemetry.record('T2', 'Atividade sonora local observada', { rms });
@@ -611,13 +617,23 @@ export class GeminiLiveSession {
    * apenas para o áudio já enfileirado localmente e aguarda novo turno.
    */
   public interruptPlayback(): void {
-    if (this.state !== 'assistantSpeaking' && this.activeSources.length === 0) return;
+    if (this.stopped) return;
     Telemetry.log('INTERRUPT_PLAYBACK_LOCAL', { generation: this.generation });
     this.isInterruptedThisTurn = true;
     this.generation += 1;
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
-    this.serverTurnComplete = false;
+    this.serverTurnComplete = true;
+
+    // Cancela a geração no servidor Gemini enviando o sinal WebSocket de término de áudio
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({ type: 'audio_stream_end' }));
+      } catch {
+        // Ignora erro de socket fechado
+      }
+    }
+
     this.setState('listening');
     this.callbacks.onAvatarStateChange?.('listening');
   }
