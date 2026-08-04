@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Type, Modality } from '@google/genai';
+import { GoogleGenAI, Type, Modality, StartSensitivity, EndSensitivity, ThinkingLevel } from '@google/genai';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/prompts.js';
@@ -610,6 +610,21 @@ async function startServer() {
   wss.on('connection', async (ws, req) => {
     console.log('[Live WS Proxy] Cliente conectado');
     let session: any = null;
+    let clientClosed = false;
+
+    // Registra o fechamento antes do await de ai.live.connect. Sem isso, uma troca
+    // rápida Texto/Voz pode fechar o browser enquanto o servidor ainda conecta,
+    // deixando uma sessão Gemini órfã.
+    ws.once('close', () => {
+      clientClosed = true;
+      console.log('[Live WS Proxy] Cliente desconectou');
+      if (session) {
+        try {
+          session.close();
+        } catch (e) {}
+        session = null;
+      }
+    });
     
     // Parse context from URL query
     const url = new URL(req.url || '/', `http://${req.headers.host}`);
@@ -643,6 +658,18 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           systemInstruction: dynamicSystemInstruction,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.MINIMAL,
+          },
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              disabled: false,
+              startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
+              endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+              prefixPaddingMs: 40,
+              silenceDurationMs: 650,
+            },
+          },
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: 'Aoede' },
@@ -662,17 +689,12 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
               : "Olá! Diga um oi super animado, diga que está na escuta, e pergunte sobre o que vamos falar.";
               
             if (session) {
-               try {
-                 session.send({
-                   clientContent: {
-                     turns: [{
-                       role: 'user',
-                       parts: [{ text: greetingMsg }]
-                     }],
-                     turnComplete: true
-                   }
-                 });
-               } catch (e) { console.error("Falha ao enviar greeting", e); }
+              try {
+                // Gemini 3.1 Live usa realtime input para atualizações de texto durante a sessão.
+                session.sendRealtimeInput({ text: greetingMsg });
+              } catch (e) {
+                console.error('Falha ao enviar greeting', e);
+              }
             }
           },
           onmessage: (msg: any) => {
@@ -732,27 +754,23 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
                 mimeType: 'audio/pcm;rate=16000',
               },
             });
-          } else if (payload.clientContent && session) {
-            session.send({ clientContent: payload.clientContent });
-            if (payload.clientContent.turnComplete) {
-              // Reseta o primeiro frame pra próxima fala
-              firstAudioReceived = false; 
-            }
+          } else if (payload.type === 'realtime_text' && typeof payload.text === 'string' && session) {
+            session.sendRealtimeInput({ text: payload.text });
+          } else if (payload.type === 'audio_stream_end' && session) {
+            session.sendRealtimeInput({ audioStreamEnd: true });
+            firstAudioReceived = false;
           }
         } catch (e) {
           console.error('[Live WS Proxy] Erro ao processar mensagem do cliente:', e);
         }
       });
 
-      ws.on('close', () => {
-        console.log('[Live WS Proxy] Cliente desconectou');
-        if (session) {
-          try {
-            session.close();
-          } catch (e) {}
-          session = null;
-        }
-      });
+      if (clientClosed || ws.readyState !== ws.OPEN) {
+        try {
+          session?.close();
+        } catch (e) {}
+        session = null;
+      }
     } catch (err: any) {
       console.error('[Live WS Proxy] Falha ao iniciar sessão Gemini Live:', err?.message || String(err));
       if (ws.readyState === ws.OPEN) {

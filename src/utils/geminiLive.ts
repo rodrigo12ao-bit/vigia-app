@@ -1,54 +1,91 @@
 import { AvatarState } from '../types';
 
-(window as any).VigiaTelemetry = (window as any).VigiaTelemetry || {
+type LiveState =
+  | 'idle'
+  | 'connecting'
+  | 'listening'
+  | 'userSpeaking'
+  | 'processing'
+  | 'assistantSpeaking'
+  | 'stopping'
+  | 'error';
+
+type ResourceType = 'streams' | 'inputContexts' | 'outputContexts' | 'websockets';
+
+const telemetryRoot = window as typeof window & {
+  VigiaTelemetry?: {
+    logs: Array<{ t: number; event: string; meta: Record<string, unknown> }>;
+    resources: Record<ResourceType, { activeNow: number; createdTotal: number }>;
+    currentInteraction: Record<string, number>;
+    log: (event: string, meta?: Record<string, unknown>) => void;
+    resetInteraction: () => void;
+    record: (key: string, label: string, extraMeta?: Record<string, unknown>) => void;
+    trackResource: (type: ResourceType, delta: 1 | -1) => void;
+    dump: () => void;
+  };
+};
+
+telemetryRoot.VigiaTelemetry ??= {
   logs: [],
   resources: {
     streams: { activeNow: 0, createdTotal: 0 },
-    contexts: { activeNow: 0, createdTotal: 0 },
-    websockets: { activeNow: 0, createdTotal: 0 }
+    inputContexts: { activeNow: 0, createdTotal: 0 },
+    outputContexts: { activeNow: 0, createdTotal: 0 },
+    websockets: { activeNow: 0, createdTotal: 0 },
   },
   currentInteraction: {},
-  log: function(event: string, meta: any = {}) {
+  log(event, meta = {}) {
     const t = performance.now();
     this.logs.push({ t, event, meta });
     console.log(`[TELEMETRIA] ${Math.round(t)}ms - ${event}`, meta);
   },
-  resetInteraction: function() {
+  resetInteraction() {
     this.currentInteraction = { start: performance.now() };
-    this.log('T0: Usuário começou a falar (nova interação iniciada)');
+    this.log('T0: Atividade de entrada observada localmente');
   },
-  record: function(key: string, label: string, extraMeta: any = {}) {
-    if (!this.currentInteraction[key]) {
-      this.currentInteraction[key] = performance.now();
-      const diff = Math.round(this.currentInteraction[key] - (this.currentInteraction['start'] || 0));
-      this.log(`${key}: ${label}`, { msSinceStart: diff, ...extraMeta });
-    }
-  },
-  trackResource: function(type: 'streams' | 'contexts' | 'websockets', isCreated: boolean) {
-    if (isCreated) {
-      this.resources[type].activeNow++;
-      this.resources[type].createdTotal++;
-    } else {
-      this.resources[type].activeNow--;
-    }
-    this.log(`Recurso [${type}]: ${isCreated ? 'Criado' : 'Liberado'}`, { 
-      activeNow: this.resources[type].activeNow, 
-      createdTotal: this.resources[type].createdTotal 
+  record(key, label, extraMeta = {}) {
+    if (this.currentInteraction[key]) return;
+    this.currentInteraction[key] = performance.now();
+    const start = this.currentInteraction.start || this.currentInteraction[key];
+    this.log(`${key}: ${label}`, {
+      msSinceStart: Math.round(this.currentInteraction[key] - start),
+      ...extraMeta,
     });
   },
-  dump: function() {
+  trackResource(type, delta) {
+    const resource = this.resources[type];
+    if (delta === 1) {
+      resource.activeNow += 1;
+      resource.createdTotal += 1;
+    } else {
+      resource.activeNow = Math.max(0, resource.activeNow - 1);
+    }
+    this.log(`Recurso [${type}]: ${delta === 1 ? 'Criado' : 'Liberado'}`, {
+      activeNow: resource.activeNow,
+      createdTotal: resource.createdTotal,
+    });
+  },
+  dump() {
     console.table(this.logs);
-  }
+  },
 };
-const Telemetry = (window as any).VigiaTelemetry;
+
+const Telemetry = telemetryRoot.VigiaTelemetry;
 
 export interface GeminiLiveCallbacks {
   context?: string;
   onAvatarStateChange?: (state: AvatarState) => void;
+  onStateChange?: (state: LiveState) => void;
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
+  onInputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onClose?: () => void;
+}
+
+interface ActiveSource {
+  source: AudioBufferSourceNode;
+  generation: number;
 }
 
 export class GeminiLiveSession {
@@ -57,130 +94,181 @@ export class GeminiLiveSession {
   private outputAudioCtx: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private processorNode: AudioNode | null = null;
+  private mediaSourceNode: MediaStreamAudioSourceNode | null = null;
   private callbacks: GeminiLiveCallbacks;
 
-  private isConnected = false;
-  private isVigiaSpeaking = false;
-  private hasReceivedFirstAudioChunk = false;
+  private state: LiveState = 'idle';
+  private startPromise: Promise<void> | null = null;
+  private sessionToken = 0;
+  private stopped = false;
+  private cleanupDone = true;
+  private websocketTracked = false;
+  private inputContextTracked = false;
+  private outputContextTracked = false;
+  private streamTracked = false;
 
   private nextPlayTime = 0;
-  private activeSources: AudioBufferSourceNode[] = [];
-  private isProcessingAudioEnd = false;
-  private interruptionFrames = 0;
+  private activeSources: ActiveSource[] = [];
+  private generation = 0;
+  private hasReceivedFirstAudioChunk = false;
+  private serverTurnComplete = false;
   private pcmBuffer: number[] = [];
+  private lastInputLevelEmit = 0;
 
   constructor(callbacks: GeminiLiveCallbacks) {
     this.callbacks = callbacks;
   }
 
-  public async start(): Promise<void> {
-    if (this.isConnected) {
-      console.warn('Sessão Live já está ativa.');
-      return;
-    }
+  public start(): Promise<void> {
+    if (this.startPromise) return this.startPromise;
+    if (this.state !== 'idle' && this.state !== 'error') return Promise.resolve();
 
+    const token = ++this.sessionToken;
+    this.stopped = false;
+    this.cleanupDone = false;
+    this.setState('connecting');
+
+    this.startPromise = this.startInternal(token).finally(() => {
+      if (this.sessionToken === token) this.startPromise = null;
+    });
+
+    return this.startPromise;
+  }
+
+  private async startInternal(token: number): Promise<void> {
     try {
-      this.callbacks.onAvatarStateChange?.('listening');
-
-      // 1. AudioContext de saída (24kHz PCM mono)
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.outputAudioCtx = new AudioCtx({ sampleRate: 24000 });
-      Telemetry.trackResource('contexts', true);
-      this.nextPlayTime = this.outputAudioCtx.currentTime;
+      if (!AudioCtx) throw new Error('AudioContext não é suportado neste navegador.');
 
-      // 2. Conectar ao proxy WebSocket no backend
+      const outputCtx = new AudioCtx({ sampleRate: 24000 });
+      if (!this.isCurrent(token)) {
+        await outputCtx.close().catch(() => undefined);
+        return;
+      }
+      this.outputAudioCtx = outputCtx;
+      this.outputContextTracked = true;
+      Telemetry.trackResource('outputContexts', 1);
+      this.nextPlayTime = outputCtx.currentTime;
+
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ctxParam = this.callbacks.context ? `?context=${encodeURIComponent(this.callbacks.context)}` : '';
-      const wsUrl = `${protocol}//${window.location.host}/api/live-ws${ctxParam}`;
+      const contextParam = this.callbacks.context
+        ? `?context=${encodeURIComponent(this.callbacks.context)}`
+        : '';
+      const wsUrl = `${protocol}//${window.location.host}/api/live-ws${contextParam}`;
+      const socket = new WebSocket(wsUrl);
 
-      this.ws = new WebSocket(wsUrl);
-      Telemetry.trackResource('websockets', true);
+      if (!this.isCurrent(token)) {
+        socket.close();
+        return;
+      }
 
-      this.ws.onopen = () => {
+      this.ws = socket;
+      this.websocketTracked = true;
+      Telemetry.trackResource('websockets', 1);
+
+      socket.onopen = () => {
+        if (!this.isCurrent(token) || socket !== this.ws) return;
         console.log('[GeminiLive] WebSocket proxy conectado');
       };
 
-      this.ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        if (!this.isCurrent(token) || socket !== this.ws) return;
         try {
-          const payload = JSON.parse(event.data);
-          this.handleServerPayload(payload);
-        } catch (e) {
-          console.error('[GeminiLive] Erro ao decodificar mensagem do proxy:', e);
+          this.handleServerPayload(JSON.parse(event.data));
+        } catch (error) {
+          console.error('[GeminiLive] Mensagem inválida do proxy:', error);
         }
       };
 
-      this.ws.onerror = (err) => {
-        console.error('[GeminiLive] Erro no WebSocket proxy:', err);
+      socket.onerror = () => {
+        if (!this.isCurrent(token) || socket !== this.ws || this.stopped) return;
+        this.setState('error');
         this.callbacks.onAvatarStateChange?.('serious');
         this.callbacks.onError?.('Ocorreu um erro na conexão ao vivo.');
       };
 
-      this.ws.onclose = () => {
+      socket.onclose = () => {
+        if (socket !== this.ws) return;
         console.log('[GeminiLive] WebSocket proxy fechado');
-        this.cleanup();
-        this.callbacks.onClose?.();
+        this.ws = null;
+        this.releaseWebSocketTelemetry();
+        void this.cleanupResources();
+        if (!this.stopped) this.callbacks.onClose?.();
       };
-    } catch (err: any) {
-      console.error('[GeminiLive] Erro ao iniciar GeminiLiveSession:', err);
+    } catch (error) {
+      if (!this.isCurrent(token)) return;
+      console.error('[GeminiLive] Erro ao iniciar sessão:', error);
+      this.setState('error');
       this.callbacks.onAvatarStateChange?.('serious');
       this.callbacks.onError?.('Não foi possível conectar ao modo ao vivo.');
-      this.cleanup();
+      await this.cleanupResources();
     }
+  }
+
+  private isCurrent(token: number): boolean {
+    return !this.stopped && token === this.sessionToken;
+  }
+
+  private setState(state: LiveState): void {
+    if (this.state === state) return;
+    this.state = state;
+    this.callbacks.onStateChange?.(state);
   }
 
   private handleServerPayload(payload: any): void {
-    if (payload.type === 'open') {
-      console.log('[GeminiLive] Sessão Gemini Live confirmada pelo backend');
-      this.isConnected = true;
-      this.startMicrophoneCapture();
-      return;
-    }
+    switch (payload.type) {
+      case 'open':
+        console.log('[GeminiLive] Sessão Gemini Live confirmada pelo backend');
+        this.setState('listening');
+        this.callbacks.onAvatarStateChange?.('listening');
+        void this.startMicrophoneCapture(this.sessionToken);
+        return;
 
-    if (payload.type === 'input_transcription' && payload.text) {
-      this.callbacks.onInputTranscription?.(payload.text);
-      if (!this.isVigiaSpeaking) {
-        this.callbacks.onAvatarStateChange?.('thinking');
-      }
-      return;
-    }
+      case 'input_transcription':
+        if (payload.text) {
+          this.callbacks.onInputTranscription?.(payload.text);
+          if (this.state !== 'assistantSpeaking') {
+            this.setState('processing');
+            this.callbacks.onAvatarStateChange?.('thinking');
+          }
+        }
+        return;
 
-    if (payload.type === 'output_transcription' && payload.text) {
-      this.callbacks.onOutputTranscription?.(payload.text);
-      return;
-    }
+      case 'output_transcription':
+        if (payload.text) this.callbacks.onOutputTranscription?.(payload.text);
+        return;
 
-    if (payload.type === 'interrupted') {
-      this.handleInterruption();
-      return;
-    }
+      case 'interrupted':
+        this.handleServerInterruption();
+        return;
 
-    if (payload.type === 'audio_chunk' && payload.pcmBase64) {
-      Telemetry.record('T4', 'Primeira resposta (audio_chunk) recebida do Gemini');
-      if (!this.hasReceivedFirstAudioChunk) {
-        this.hasReceivedFirstAudioChunk = true;
-        this.isVigiaSpeaking = true;
-        this.callbacks.onAvatarStateChange?.('speaking');
-      }
-      this.playPCMChunk(payload.pcmBase64);
-      return;
-    }
+      case 'audio_chunk':
+        if (payload.pcmBase64) this.handleAudioChunk(payload.pcmBase64);
+        return;
 
-    if (payload.type === 'turn_complete') {
-      Telemetry.record('TTURN', 'Backend confirmou o fim do turno pelo Gemini');
-      this.checkAndFinishTurn();
-      return;
-    }
+      case 'turn_complete':
+        Telemetry.record('TTURN', 'Gemini informou turnComplete');
+        this.serverTurnComplete = true;
+        this.finishTurnWhenPlaybackEnds();
+        return;
 
-    if (payload.type === 'error') {
-      this.callbacks.onAvatarStateChange?.('serious');
-      this.callbacks.onError?.(payload.message || 'Erro na sessão ao vivo.');
-      return;
+      case 'close':
+        this.callbacks.onClose?.();
+        return;
+
+      case 'error':
+        this.setState('error');
+        this.callbacks.onAvatarStateChange?.('serious');
+        this.callbacks.onError?.(payload.message || 'Erro na sessão ao vivo.');
+        return;
     }
   }
 
-  private async startMicrophoneCapture(): Promise<void> {
+  private async startMicrophoneCapture(token: number): Promise<void> {
+    if (this.mediaStream || !this.isCurrent(token)) return;
+
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
           sampleRate: 16000,
@@ -189,344 +277,349 @@ export class GeminiLiveSession {
           autoGainControl: true,
         },
       });
-      Telemetry.log('Microfone Config Constraints', { echoCancellation: true, noiseSuppression: true, autoGainControl: true });
-      Telemetry.trackResource('streams', true);
+
+      if (!this.isCurrent(token)) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      this.mediaStream = stream;
+      this.streamTracked = true;
+      Telemetry.trackResource('streams', 1);
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.inputAudioCtx = new AudioCtx({ sampleRate: 16000 });
-      Telemetry.trackResource('contexts', true);
-      const source = this.inputAudioCtx.createMediaStreamSource(this.mediaStream);
+      const inputCtx = new AudioCtx({ sampleRate: 16000 });
+      if (!this.isCurrent(token)) {
+        await inputCtx.close().catch(() => undefined);
+        return;
+      }
 
-      // AudioWorklet com fallback para ScriptProcessor
+      this.inputAudioCtx = inputCtx;
+      this.inputContextTracked = true;
+      Telemetry.trackResource('inputContexts', 1);
+      this.mediaSourceNode = inputCtx.createMediaStreamSource(stream);
+
       let usedWorklet = false;
       try {
         const workletCode = `
           class PCMProcessor extends AudioWorkletProcessor {
-            process(inputs, outputs, parameters) {
+            process(inputs) {
               const input = inputs[0];
-              if (input && input[0]) {
-                this.port.postMessage(input[0]);
-              }
+              if (input && input[0]) this.port.postMessage(input[0]);
               return true;
             }
           }
-          registerProcessor('pcm-processor', PCMProcessor);
+          registerProcessor('vigia-pcm-processor', PCMProcessor);
         `;
-        const blob = new Blob([workletCode], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
-        await this.inputAudioCtx.audioWorklet.addModule(url);
-        URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(new Blob([workletCode], { type: 'application/javascript' }));
+        try {
+          await inputCtx.audioWorklet.addModule(url);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
 
-        const workletNode = new AudioWorkletNode(this.inputAudioCtx, 'pcm-processor');
-        workletNode.port.onmessage = (e) => {
-          this.processInputPCM(e.data);
-        };
-        source.connect(workletNode);
-        this.processorNode = workletNode;
+        if (!this.isCurrent(token)) return;
+        const worklet = new AudioWorkletNode(inputCtx, 'vigia-pcm-processor');
+        worklet.port.onmessage = (event) => this.processInputPCM(event.data);
+        this.mediaSourceNode.connect(worklet);
+        this.processorNode = worklet;
         usedWorklet = true;
-      } catch (e) {
-        console.warn('AudioWorklet indisponível, usando ScriptProcessor fallback:', e);
+      } catch (error) {
+        console.warn('[GeminiLive] AudioWorklet indisponível; usando fallback:', error);
       }
 
       if (!usedWorklet) {
-        const scriptNode = this.inputAudioCtx.createScriptProcessor(4096, 1, 1);
-        scriptNode.onaudioprocess = (e) => {
-          const inputData = e.inputBuffer.getChannelData(0);
-          this.processInputPCM(inputData);
+        const scriptNode = inputCtx.createScriptProcessor(2048, 1, 1);
+        scriptNode.onaudioprocess = (event) => {
+          this.processInputPCM(event.inputBuffer.getChannelData(0));
         };
-        source.connect(scriptNode);
-        scriptNode.connect(this.inputAudioCtx.destination);
+        this.mediaSourceNode.connect(scriptNode);
+        scriptNode.connect(inputCtx.destination);
         this.processorNode = scriptNode;
       }
 
-      console.log('[GeminiLive] Captura de áudio do microfone iniciada');
-    } catch (err: any) {
-      console.error('[GeminiLive] Erro ao acessar o microfone para Live API:', err);
-      this.callbacks.onError?.('Permissão de microfone negada.');
+      console.log('[GeminiLive] Captura de áudio iniciada');
+    } catch (error) {
+      if (!this.isCurrent(token)) return;
+      console.error('[GeminiLive] Falha ao acessar microfone:', error);
+      this.setState('error');
       this.callbacks.onAvatarStateChange?.('serious');
+      this.callbacks.onError?.('Permissão de microfone negada ou microfone indisponível.');
     }
   }
 
   private processInputPCM(float32Array: Float32Array): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.isConnected) return;
+    const socket = this.ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped) return;
 
-    Telemetry.record('T1', 'Primeiro frame de áudio processado localmente');
+    Telemetry.record('T1', 'Primeiro frame processado localmente');
 
-    let sum = 0;
-    for (let i = 0; i < float32Array.length; i++) {
-      sum += float32Array[i] * float32Array[i];
+    let energy = 0;
+    for (let index = 0; index < float32Array.length; index += 1) {
+      energy += float32Array[index] * float32Array[index];
     }
-    const rms = Math.sqrt(sum / float32Array.length);
+    const rms = Math.sqrt(energy / Math.max(1, float32Array.length));
 
-    // Track noise floor roughly
-    if (!this.isVigiaSpeaking && !Telemetry.currentInteraction['start']) {
-       if (rms > 0.0001 && rms < 0.01) {
-          // just an arbitrary log, don't spam too much
-          if (Math.random() < 0.01) Telemetry.log('Noise Floor Tracker', { rms });
-       }
+    const now = performance.now();
+    if (now - this.lastInputLevelEmit > 50) {
+      this.lastInputLevelEmit = now;
+      this.callbacks.onInputLevel?.(rms);
     }
 
-    // Aumentar sensibilidade do Barge-in: 0.05 é o ideal para voz humana normal em PCM32
-    if (rms > 0.05) {
-      if (!this.isVigiaSpeaking) {
-        // Voice Activity Detection simple trigger (User starts speaking)
-        if (!Telemetry.currentInteraction['start']) {
-           Telemetry.resetInteraction();
-        }
-        Telemetry.record('T2', 'Voz detectada no input local (RMS > 0.05)', { rms });
-      } else {
-        // Barge-in interruption
-        this.interruptionFrames++;
-        if (this.interruptionFrames > 3) {
-           Telemetry.log('BARGE-IN_TRIGGERED', { rms, frames: this.interruptionFrames });
-           this.handleInterruption();
-        }
-      }
-    } else {
-      if (this.interruptionFrames > 0) {
-        Telemetry.log('BARGE-IN_ABORTED', { maxFramesReached: this.interruptionFrames });
-      }
-      this.interruptionFrames = 0;
-
-      // Se estavamos numa interação ativa, trackear o fim do áudio local se silêncio durar um pouco
-      if (!this.isVigiaSpeaking && Telemetry.currentInteraction['start'] && !Telemetry.currentInteraction['TEND_USER']) {
-         // Silêncio local
-         // A rigor, não estamos contando os frames de silêncio para parar, o Gemini que para. 
-         // Mas vamos marcar TEND_USER se o RMS for baixo após ter começado a falar.
-         // Vamos ser mais flexíveis: se rms < 0.01
-         if (rms < 0.01 && Telemetry.currentInteraction['T3']) {
-             // we won't permanently mark TEND_USER if they speak again, so we just log a speculative one
-             // Actually, let's mark the *last* silence. We'll update TEND_USER continually during silence
-             Telemetry.currentInteraction['TEND_USER'] = performance.now();
-         }
-      }
+    // O RMS é somente telemetria/visualização. Ele não encerra turnos nem interrompe a resposta.
+    if (rms > 0.02 && !Telemetry.currentInteraction.start) {
+      Telemetry.resetInteraction();
+      Telemetry.record('T2', 'Atividade sonora local observada', { rms });
     }
 
     const targetRate = 16000;
-    const originalRate = this.inputAudioCtx?.sampleRate || 16000;
-    let resampled = float32Array;
+    const originalRate = this.inputAudioCtx?.sampleRate || targetRate;
+    const resampled = originalRate === targetRate
+      ? float32Array
+      : this.resampleLinear(float32Array, originalRate, targetRate);
 
-    if (originalRate !== targetRate) {
-       const ratio = originalRate / targetRate;
-       const newLength = Math.floor(float32Array.length / ratio);
-       resampled = new Float32Array(newLength);
-       for (let i = 0; i < newLength; i++) {
-          const index = i * ratio;
-          const left = Math.floor(index);
-          const right = Math.min(left + 1, float32Array.length - 1);
-          const fraction = index - left;
-          resampled[i] = float32Array[left] * (1 - fraction) + float32Array[right] * fraction;
-       }
+    for (let index = 0; index < resampled.length; index += 1) {
+      this.pcmBuffer.push(resampled[index]);
     }
 
-    // Acumular áudio em um buffer de envio para não sobrecarregar o WebSocket
-    for (let i = 0; i < resampled.length; i++) {
-      this.pcmBuffer.push(resampled[i]);
-    }
-
-    // Enviar a cada 2048 samples (~128ms em 16kHz)
-    if (this.pcmBuffer.length >= 2048) {
-      const buffer = new ArrayBuffer(this.pcmBuffer.length * 2);
-      const view = new DataView(buffer);
-      for (let i = 0; i < this.pcmBuffer.length; i++) {
-        const s = Math.max(-1, Math.min(1, this.pcmBuffer[i]));
-        const val = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        view.setInt16(i * 2, val, true);
-      }
-
-      let binary = '';
-      const bytes = new Uint8Array(buffer);
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64PCM = btoa(binary);
-
+    // 1024 amostras = ~64 ms em 16 kHz. Mantém boa cadência sem tempestade de mensagens.
+    while (this.pcmBuffer.length >= 1024) {
+      const chunk = this.pcmBuffer.splice(0, 1024);
+      const base64PCM = this.float32ToBase64Pcm16(chunk);
       try {
-        Telemetry.record('T3', 'Áudio (primeiro buffer) enviado ao backend WS');
-        if (Telemetry.currentInteraction['start']) {
-          Telemetry.currentInteraction['T3b'] = performance.now(); // Último chunk enviado sempre atualizado
-        }
-        this.ws.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
-      } catch (e) {}
-
-      this.pcmBuffer = [];
+        socket.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
+        Telemetry.record('T3', 'Primeiro buffer enviado ao backend');
+      } catch (error) {
+        console.error('[GeminiLive] Falha ao enviar áudio:', error);
+        return;
+      }
     }
   }
 
-  private playPCMChunk(base64Data: string): void {
-    if (!this.outputAudioCtx) return;
+  private resampleLinear(input: Float32Array, sourceRate: number, targetRate: number): Float32Array {
+    const ratio = sourceRate / targetRate;
+    const length = Math.max(1, Math.floor(input.length / ratio));
+    const output = new Float32Array(length);
+    for (let index = 0; index < length; index += 1) {
+      const sourceIndex = index * ratio;
+      const left = Math.floor(sourceIndex);
+      const right = Math.min(left + 1, input.length - 1);
+      const fraction = sourceIndex - left;
+      output[index] = input[left] * (1 - fraction) + input[right] * fraction;
+    }
+    return output;
+  }
+
+  private float32ToBase64Pcm16(samples: number[]): string {
+    const bytes = new Uint8Array(samples.length * 2);
+    const view = new DataView(bytes.buffer);
+    for (let index = 0; index < samples.length; index += 1) {
+      const sample = Math.max(-1, Math.min(1, samples[index]));
+      const intValue = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(index * 2, intValue, true);
+    }
+
+    let binary = '';
+    const step = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += step) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + step));
+    }
+    return btoa(binary);
+  }
+
+  private handleAudioChunk(base64Data: string): void {
+    Telemetry.record('T4', 'Primeiro audio_chunk recebido');
+    if (!this.hasReceivedFirstAudioChunk) {
+      this.hasReceivedFirstAudioChunk = true;
+      this.serverTurnComplete = false;
+      this.generation += 1;
+      this.setState('assistantSpeaking');
+      this.callbacks.onAvatarStateChange?.('speaking');
+    }
+    this.playPCMChunk(base64Data, this.generation);
+  }
+
+  private playPCMChunk(base64Data: string, generation: number): void {
+    const context = this.outputAudioCtx;
+    if (!context || context.state === 'closed' || generation !== this.generation) return;
 
     try {
-      const binaryString = atob(base64Data);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+      if (context.state === 'suspended') void context.resume();
+
+      const binary = atob(base64Data);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const sampleCount = Math.floor(bytes.byteLength / 2);
+      const float32 = new Float32Array(sampleCount);
+      for (let index = 0; index < sampleCount; index += 1) {
+        const sample = view.getInt16(index * 2, true);
+        float32[index] = sample / (sample < 0 ? 32768 : 32767);
       }
-      const int16Array = new Int16Array(bytes.buffer);
 
-      const float32Array = new Float32Array(int16Array.length);
-      for (let i = 0; i < int16Array.length; i++) {
-        float32Array[i] = int16Array[i] / (int16Array[i] < 0 ? 32768 : 32767);
-      }
-
-      const audioBuffer = this.outputAudioCtx.createBuffer(1, float32Array.length, 24000);
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const source = this.outputAudioCtx.createBufferSource();
+      const audioBuffer = context.createBuffer(1, float32.length, 24000);
+      audioBuffer.getChannelData(0).set(float32);
+      const source = context.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(this.outputAudioCtx.destination);
+      source.connect(context.destination);
 
-      const now = this.outputAudioCtx.currentTime;
-      if (this.nextPlayTime < now) {
-        this.nextPlayTime = now; // Remove o gap de 50ms que causa gagueira contínua
-      }
+      const startAt = Math.max(context.currentTime, this.nextPlayTime);
+      source.start(startAt);
+      this.nextPlayTime = startAt + audioBuffer.duration;
+      Telemetry.record('T5', 'Primeiro áudio agendado para reprodução');
 
-      source.start(this.nextPlayTime);
-      Telemetry.record('T5', 'Primeiro áudio começou a reproduzir');
-      this.nextPlayTime += audioBuffer.duration;
-      this.activeSources.push(source);
-
+      const entry: ActiveSource = { source, generation };
+      this.activeSources.push(entry);
       source.onended = () => {
-        const idx = this.activeSources.indexOf(source);
-        if (idx !== -1) {
-          this.activeSources.splice(idx, 1);
-        }
-        if (this.activeSources.length === 0 && this.isProcessingAudioEnd) {
-          this.finishVigiaSpeaking();
-        }
+        this.activeSources = this.activeSources.filter((item) => item !== entry);
+        this.finishTurnWhenPlaybackEnds();
       };
-    } catch (e) {
-      console.error('[GeminiLive] Erro ao decodificar/tocar PCM de saída:', e);
+    } catch (error) {
+      console.error('[GeminiLive] Erro ao reproduzir PCM:', error);
     }
   }
 
-  private handleInterruption(): void {
-    console.log('[GeminiLive] Fala interrompida');
+  private handleServerInterruption(): void {
+    console.log('[GeminiLive] Interrupção confirmada pelo Gemini');
+    Telemetry.log('INTERRUPTED_BY_GEMINI');
+    this.generation += 1;
     this.stopAudioPlayback();
-    this.isVigiaSpeaking = false;
     this.hasReceivedFirstAudioChunk = false;
-    this.isProcessingAudioEnd = false;
-    this.interruptionFrames = 0;
+    this.serverTurnComplete = false;
+    this.setState('userSpeaking');
     this.callbacks.onAvatarStateChange?.('listening');
-    
-    // Avisar o backend (e o modelo) que o turno atual foi encerrado prematuramente
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-       this.ws.send(JSON.stringify({
-         clientContent: { turnComplete: true }
-       }));
-    }
   }
 
-  private checkAndFinishTurn(): void {
-    this.isProcessingAudioEnd = true;
-    if (this.activeSources.length === 0) {
-      this.finishVigiaSpeaking();
-    }
-  }
+  private finishTurnWhenPlaybackEnds(): void {
+    if (!this.serverTurnComplete || this.activeSources.length > 0) return;
 
-  private finishVigiaSpeaking(): void {
-    console.log('[GeminiLive] Fala concluída com sucesso');
-    Telemetry.record('T6', 'Resposta inteira finalizada e áudios concluídos');
-    this.isVigiaSpeaking = false;
+    console.log('[GeminiLive] Geração e reprodução concluídas');
+    Telemetry.record('T6', 'Resposta completamente reproduzida');
     this.hasReceivedFirstAudioChunk = false;
-    this.isProcessingAudioEnd = false;
-    if (this.isConnected) {
+    this.serverTurnComplete = false;
+    Telemetry.currentInteraction = {};
+    if (!this.stopped) {
+      this.setState('listening');
       this.callbacks.onAvatarStateChange?.('listening');
-    } else {
-      this.callbacks.onAvatarStateChange?.('idle');
     }
   }
 
   private stopAudioPlayback(): void {
-    for (const src of this.activeSources) {
+    for (const { source } of this.activeSources) {
       try {
-        src.onended = null; // Prevent leaks and callbacks after stopping
-        src.stop();
-        src.disconnect();
-      } catch (e) {}
+        source.onended = null;
+        source.stop();
+        source.disconnect();
+      } catch {
+        // Fonte já encerrada.
+      }
     }
     this.activeSources = [];
-    if (this.outputAudioCtx) {
+    if (this.outputAudioCtx && this.outputAudioCtx.state !== 'closed') {
       this.nextPlayTime = this.outputAudioCtx.currentTime;
     }
   }
 
-  // Sends a text message over the live socket
-  sendTextMessage(text: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('[GeminiLive] Não conectado, não é possível enviar texto.');
-      return;
-    }
-    const msg = {
-      clientContent: {
-        turns: [{ role: 'user', parts: [{ text }] }],
-        turnComplete: true,
-      }
-    };
-    this.ws.send(JSON.stringify(msg));
+  public sendTextMessage(text: string): void {
+    const socket = this.ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN || !text.trim()) return;
+    socket.send(JSON.stringify({ type: 'realtime_text', text: text.trim() }));
   }
 
-  // Sends an invisible context update to the model
-  sendContextUpdate(contextText: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    const msg = {
-      clientContent: {
-        turns: [{ role: 'user', parts: [{ text: `[SYSTEM_UPDATE_DO_NOT_SPEAK]: ${contextText}` }] }],
-        turnComplete: true,
-      }
-    };
-    this.ws.send(JSON.stringify(msg));
+  public sendContextUpdate(contextText: string): void {
+    const socket = this.ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN || !contextText.trim()) return;
+    socket.send(JSON.stringify({ type: 'realtime_text', text: `[CONTEXTO_DO_APP]: ${contextText.trim()}` }));
   }
 
   public stop(): void {
+    if (this.stopped && this.cleanupDone) return;
     console.log('[GeminiLive] Parando sessão Live');
-    if (this.ws) {
+    this.stopped = true;
+    this.sessionToken += 1;
+    this.setState('stopping');
+
+    const socket = this.ws;
+    this.ws = null;
+    if (socket) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
       try {
-        this.ws.close();
-      } catch (e) {}
-      this.ws = null;
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'audio_stream_end' }));
+        }
+        socket.close(1000, 'client_stop');
+      } catch {
+        // Socket já indisponível.
+      }
+      this.releaseWebSocketTelemetry();
     }
-    this.cleanup();
+
+    void this.cleanupResources().finally(() => {
+      this.setState('idle');
+      this.callbacks.onAvatarStateChange?.('idle');
+    });
   }
 
-  private cleanup(): void {
-    this.isConnected = false;
-    this.isVigiaSpeaking = false;
-    this.hasReceivedFirstAudioChunk = false;
+  private releaseWebSocketTelemetry(): void {
+    if (!this.websocketTracked) return;
+    this.websocketTracked = false;
+    Telemetry.trackResource('websockets', -1);
+  }
+
+  private async cleanupResources(): Promise<void> {
+    if (this.cleanupDone) return;
+    this.cleanupDone = true;
     this.stopAudioPlayback();
+    this.pcmBuffer = [];
 
     if (this.processorNode) {
       try {
         this.processorNode.disconnect();
-      } catch (e) {}
+      } catch {
+        // Já desconectado.
+      }
       this.processorNode = null;
     }
 
-    if (this.inputAudioCtx) {
+    if (this.mediaSourceNode) {
       try {
-        this.inputAudioCtx.close();
-        Telemetry.trackResource('contexts', false);
-      } catch (e) {}
-      this.inputAudioCtx = null;
-    }
-
-    if (this.outputAudioCtx) {
-      try {
-        this.outputAudioCtx.close();
-        Telemetry.trackResource('contexts', false);
-      } catch (e) {}
-      this.outputAudioCtx = null;
+        this.mediaSourceNode.disconnect();
+      } catch {
+        // Já desconectado.
+      }
+      this.mediaSourceNode = null;
     }
 
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
-      Telemetry.trackResource('streams', false);
       this.mediaStream = null;
+      if (this.streamTracked) {
+        this.streamTracked = false;
+        Telemetry.trackResource('streams', -1);
+      }
     }
 
-    if (this.ws) {
-      Telemetry.trackResource('websockets', false);
+    const inputCtx = this.inputAudioCtx;
+    this.inputAudioCtx = null;
+    if (inputCtx && inputCtx.state !== 'closed') await inputCtx.close().catch(() => undefined);
+    if (this.inputContextTracked) {
+      this.inputContextTracked = false;
+      Telemetry.trackResource('inputContexts', -1);
     }
+
+    const outputCtx = this.outputAudioCtx;
+    this.outputAudioCtx = null;
+    if (outputCtx && outputCtx.state !== 'closed') await outputCtx.close().catch(() => undefined);
+    if (this.outputContextTracked) {
+      this.outputContextTracked = false;
+      Telemetry.trackResource('outputContexts', -1);
+    }
+
+    this.releaseWebSocketTelemetry();
+    this.hasReceivedFirstAudioChunk = false;
+    this.serverTurnComplete = false;
   }
 }

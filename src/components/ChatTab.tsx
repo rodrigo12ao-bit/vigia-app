@@ -229,6 +229,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   
   // Sincronizar props externas (isLoading, isSpeaking) com a máquina de estados
   useEffect(() => {
+    // No modo Live, a própria GeminiLiveSession é a única autoridade de estado.
+    if (chatMode === 'live') return;
     if (isLoading) {
       setInteractionState('PROCESSING');
     } else if (isSpeaking) {
@@ -236,7 +238,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     } else if (interactionState === 'PROCESSING' || interactionState === 'SPEAKING') {
       setInteractionState('IDLE');
     }
-  }, [isLoading, isSpeaking]);
+  }, [chatMode, isLoading, isSpeaking, interactionState]);
 
   const [micVolume, setMicVolume] = useState(0);
   const [interimSpeech, setInterimSpeech] = useState('');
@@ -372,51 +374,90 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return () => clearTimeout(timer);
   }, [messages, userId, currentSessionId]);
 
-  // Live session management
+  // Live session management. A limpeza usa a instância local para impedir
+  // que o cleanup de uma sessão antiga encerre uma sessão nova.
   useEffect(() => {
-    if (chatMode === 'live') {
-      stopListening();
-      stopSpeaking();
-      setLiveSubtitle('');
+    if (chatMode !== 'live') return;
 
-      const session = new GeminiLiveSession({
-        onAvatarStateChange: (state) => {
-          setLiveAvatarState(state);
-          setLiveIsSpeaking(state === 'speaking');
-          if (state === 'listening') setInteractionState('LISTENING');
-          else if (state === 'idle') setInteractionState('IDLE');
-        },
-        onInputTranscription: (text) => {
-          setInterimSpeech(text);
-        },
-        onOutputTranscription: (text) => {
-          setLiveSubtitle((prev) => prev + text);
-        },
-        onError: (errMsg) => {
-          setSpeechFeedbackMsg(errMsg);
-        },
-        onClose: () => {
-          setLiveAvatarState(null);
-          setLiveIsSpeaking(false);
-          setInteractionState('IDLE');
-        },
-      });
+    stopListening();
+    stopSpeaking();
+    setLiveSubtitle('');
+    setInterimSpeech('');
+    setSpeechFeedbackMsg(null);
+    setInteractionState('CONNECTING');
 
-      liveSessionRef.current = session;
-      session.start();
-
-      return () => {
-        if (liveSessionRef.current) {
-          liveSessionRef.current.stop();
-          liveSessionRef.current = null;
+    let disposed = false;
+    const session = new GeminiLiveSession({
+      onStateChange: (state) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        switch (state) {
+          case 'connecting':
+            setInteractionState('CONNECTING');
+            break;
+          case 'listening':
+            setInteractionState('LISTENING');
+            setLiveIsSpeaking(false);
+            break;
+          case 'userSpeaking':
+            setInteractionState('USER_SPEAKING');
+            setLiveIsSpeaking(false);
+            break;
+          case 'processing':
+            setInteractionState('PROCESSING');
+            setLiveIsSpeaking(false);
+            break;
+          case 'assistantSpeaking':
+            setInteractionState('SPEAKING');
+            setLiveIsSpeaking(true);
+            break;
+          case 'error':
+            setInteractionState('ERROR');
+            setLiveIsSpeaking(false);
+            break;
+          case 'idle':
+            setInteractionState('IDLE');
+            setLiveIsSpeaking(false);
+            break;
         }
-      };
-    } else {
-      if (liveSessionRef.current) {
-        liveSessionRef.current.stop();
+      },
+      onAvatarStateChange: (state) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setLiveAvatarState(state);
+      },
+      onInputLevel: (rms) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setMicVolume(Math.min(1, rms * 12));
+      },
+      onInputTranscription: (text) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setInterimSpeech(text);
+      },
+      onOutputTranscription: (text) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setLiveSubtitle((prev) => prev + text);
+      },
+      onError: (errMsg) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setSpeechFeedbackMsg(errMsg);
+      },
+      onClose: () => {
+        if (disposed || liveSessionRef.current !== session) return;
         liveSessionRef.current = null;
-      }
-    }
+        setLiveAvatarState(null);
+        setLiveIsSpeaking(false);
+        setInteractionState('IDLE');
+      },
+    });
+
+    liveSessionRef.current = session;
+    void session.start();
+
+    return () => {
+      disposed = true;
+      session.stop();
+      if (liveSessionRef.current === session) liveSessionRef.current = null;
+      setMicVolume(0);
+    };
   }, [chatMode]);
 
   // Clean interim speech when response arrives
@@ -715,7 +756,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
           if (displaySpeech && displaySpeech.trim().length >= 1) {
             hasSpeechStartedRef.current = true;
-            setIsSpeakingUser(true);
+            setInteractionState('USER_SPEAKING');
           }
           onSpeechRecognized?.(displaySpeech);
 
