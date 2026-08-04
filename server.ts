@@ -668,8 +668,8 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
               disabled: false,
               startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
               endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
-              prefixPaddingMs: 40,
-              silenceDurationMs: 650,
+              prefixPaddingMs: 20,
+              silenceDurationMs: 450,
             },
           },
           speechConfig: {

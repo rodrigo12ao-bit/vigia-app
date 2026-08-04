@@ -5,19 +5,12 @@ import { INITIAL_BADGES } from './data/quizzes';
 import { speakText, stopSpeaking } from './utils/speech';
 import { Navbar } from './components/Navbar';
 import { ChatTab } from './components/ChatTab';
-import { LearningTrailMap } from './components/learning/LearningTrailMap';
-import GameHubTab from './components/games/hub/GameHubTab';
-import { TopicsTab } from './components/TopicsTab';
-import { EmergencyNumbersCard } from './components/EmergencyNumbersCard';
-import { BadgesModal } from './components/BadgesModal';
-import { DailyMissionModal } from './components/DailyMissionModal';
-import { ScenarioAnalyzerModal } from './components/ScenarioAnalyzerModal';
-import { DynamicAIQuizModal } from './components/DynamicAIQuizModal';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { AuthModal } from './components/AuthModal';
-import { ProfileModal } from './components/ProfileModal';
-import { LegalModals } from './components/LegalModals';
-import { SalaSeguraTab } from './components/salasegura/SalaSeguraTab';
+// Lazy loading das abas secundárias e módulos 3D pesados para carregamento instantâneo
+const GameHubTab = React.lazy(() => import('./components/games/hub/GameHubTab'));
+const TopicsTab = React.lazy(() => import('./components/TopicsTab').then((m) => ({ default: m.TopicsTab })));
+const EmergencyNumbersCard = React.lazy(() => import('./components/EmergencyNumbersCard').then((m) => ({ default: m.EmergencyNumbersCard })));
+const SalaSeguraTab = React.lazy(() => import('./components/salasegura/SalaSeguraTab').then((m) => ({ default: m.SalaSeguraTab })));
+
 import { PWAPrompt } from './components/PWAPrompt';
 import { OfflineWarning } from './components/OfflineWarning';
 import {
@@ -577,32 +570,68 @@ export default function App() {
             )}
 
             {activeTab === 'games' && (
-              <div className="h-full">
-                <GameHubTab
-                  onAddStars={handleAddStars}
-                  onUnlockBadge={handleUnlockBadge}
-                  onSpeak={speakMessage}
-                  onOpenDailyMission={() => setIsDailyMissionOpen(true)}
-                  badges={badges}
-                  stars={starsScore}
-                />
-              </div>
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center p-12 text-slate-400 font-bold text-xs">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
+                    Carregando Hub de Jogos...
+                  </div>
+                }
+              >
+                <div className="h-full">
+                  <GameHubTab
+                    onAddStars={handleAddStars}
+                    onUnlockBadge={handleUnlockBadge}
+                    onSpeak={speakMessage}
+                    onOpenDailyMission={() => setIsDailyMissionOpen(true)}
+                    badges={badges}
+                    stars={starsScore}
+                  />
+                </div>
+              </React.Suspense>
             )}
 
             {activeTab === 'topics' && (
-              <TopicsTab onAskDC={handleAskDCFromTopic} onSpeak={speakMessage} />
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center p-12 text-slate-400 font-bold text-xs">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
+                    Carregando Tópicos de Prevenção...
+                  </div>
+                }
+              >
+                <TopicsTab onAskDC={handleAskDCFromTopic} onSpeak={speakMessage} />
+              </React.Suspense>
             )}
 
             {activeTab === 'phones' && (
-              <EmergencyNumbersCard onSpeak={speakMessage} />
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center p-12 text-slate-400 font-bold text-xs">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
+                    Carregando Telefones úteis...
+                  </div>
+                }
+              >
+                <EmergencyNumbersCard onSpeak={speakMessage} />
+              </React.Suspense>
             )}
 
             {activeTab === 'sala_segura' && (
-              <SalaSeguraTab
-                currentUser={currentUser}
-                isGuest={isGuest}
-                onOpenAuth={() => setIsAuthModalOpen(true)}
-              />
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center p-12 text-slate-400 font-bold text-xs">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
+                    Carregando Sala Segura...
+                  </div>
+                }
+              >
+                <SalaSeguraTab
+                  currentUser={currentUser}
+                  isGuest={isGuest}
+                  onOpenAuth={() => setIsAuthModalOpen(true)}
+                />
+              </React.Suspense>
             )}
           </motion.div>
         </AnimatePresence>
