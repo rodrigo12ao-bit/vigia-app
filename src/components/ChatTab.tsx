@@ -273,6 +273,64 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
 // ----------------------------------------------------------------------
 // COMPONENTES AUXILIARES DO MODO TEXTO (TYPEWRITER, TYPING DOTS)
 // ----------------------------------------------------------------------
+const renderFormattedMarkdown = (rawText: string) => {
+  if (!rawText) return null;
+
+  const lines = rawText.split('\n');
+  return (
+    <div className="space-y-2 text-sm sm:text-base leading-relaxed text-slate-100 font-normal">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        const parseBold = (content: string) => {
+          const parts = content.split(/(\*\*.*?\*\*)/g);
+          return parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+              return (
+                <strong key={pIdx} className="font-black text-amber-300 drop-shadow-xs">
+                  {part.slice(2, -2)}
+                </strong>
+              );
+            }
+            return part;
+          });
+        };
+
+        if (trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          const cleanLine = trimmed.replace(/^[•\-\*]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2.5 pl-2 my-1 bg-slate-900/40 p-2 rounded-xl border border-slate-700/50">
+              <span className="w-2 h-2 rounded-full bg-amber-400 mt-2 shrink-0 shadow-xs shadow-amber-400/50" />
+              <div className="flex-1">{parseBold(cleanLine)}</div>
+            </div>
+          );
+        }
+
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (numMatch) {
+          const num = numMatch[1];
+          const cleanLine = numMatch[2];
+          return (
+            <div key={idx} className="flex items-start gap-2.5 pl-2 my-1.5 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-700/60 shadow-xs">
+              <span className="w-5 h-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                {num}
+              </span>
+              <div className="flex-1 font-medium">{parseBold(cleanLine)}</div>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">
+            {parseBold(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const TypewriterText: React.FC<{ text: string; isLatest: boolean }> = ({ text, isLatest }) => {
   const [displayedText, setDisplayedText] = useState(isLatest ? '' : text);
 
@@ -292,12 +350,12 @@ const TypewriterText: React.FC<{ text: string; isLatest: boolean }> = ({ text, i
       if (currentIndex >= words.length) {
         clearInterval(interval);
       }
-    }, 20);
+    }, 18);
 
     return () => clearInterval(interval);
   }, [text, isLatest]);
 
-  return <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{displayedText}</p>;
+  return <div className="min-w-0">{renderFormattedMarkdown(displayedText)}</div>;
 };
 
 const TypingDotsIndicator: React.FC = () => (

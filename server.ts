@@ -163,22 +163,6 @@ app.post('/api/chat', async (req, res) => {
         contentsPayload = contentsPrompt;
       }
 
-      // Check cache for identical queries (include history length in cache key to avoid context mismatch)
-      const cacheKey = !image ? `${(message || '').trim().toLowerCase()}_${chatHistory?.length || 0}` : '';
-      if (cacheKey && responseCache.has(cacheKey)) {
-        const cached = responseCache.get(cacheKey);
-        return res.json({
-          ...cached,
-          debugInfo: {
-            modelUsed: 'memoria-cache',
-            promptSent: contentsPrompt,
-            rawResponse: 'Resposta recuperada da memória cache para economizar cota de API',
-            error: null,
-            status: 'Sucesso (Cache)',
-          },
-        });
-      }
-
       // Candidate models: ultra-fast flash 2.5/2.0 with fallbacks
       const candidateModels = [
         'gemini-2.5-flash',
@@ -200,10 +184,13 @@ app.post('/api/chat', async (req, res) => {
               systemInstruction: VIGIA_SYSTEM_INSTRUCTION,
               responseMimeType: 'application/json',
               temperature: 0.7,
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.MINIMAL,
+              },
               responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                  reply: { type: Type.STRING, description: 'Resposta curta, acolhedora e pausada da Vigia em pt-BR' },
+                  reply: { type: Type.STRING, description: 'Resposta rica, bem estruturada em Markdown com negritos, tópicos e autoridade de especialista em Defesa Civil' },
                   avatarState: {
                     type: Type.STRING,
                     description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
