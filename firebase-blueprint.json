@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "users": {
+      "title": "users",
+      "description": "Perfis de usuários, crianças, responsáveis e educadores",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "nickname": { "type": "string" },
+        "avatarId": { "type": "string" },
+        "role": { "type": "string", "enum": ["infantil", "responsavel", "educador"] },
+        "guardianUid": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "blockedUsers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "starsScore": { "type": "integer" },
+        "badges": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "role"]
+    },
+    "invites": {
+      "title": "invites",
+      "description": "Convites de amizade/contato pendentes de aprovação pelo responsável",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "fromUid": { "type": "string" },
+        "fromNickname": { "type": "string" },
+        "fromAvatarId": { "type": "string" },
+        "targetUid": { "type": "string" },
+        "targetNickname": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending_guardian_approval", "approved", "rejected"] },
+        "guardianUid": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["code", "fromUid", "status"]
+    },
+    "chats": {
+      "title": "chats",
+      "description": "Conversas privadas aprovadas entre dois participantes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "lastMessageText": { "type": "string" },
+        "lastMessageTimestamp": { "type": "string" },
+        "isApproved": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["participants", "isApproved"]
+    },
+    "messages": {
+      "title": "messages",
+      "description": "Mensagens de texto trocadas em uma conversa privada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "senderNickname": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["sent", "read"] },
+        "readBy": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["senderUid", "text", "createdAt"]
+    },
+    "reports": {
+      "title": "reports",
+      "description": "Denúncias de comportamento ou conteúdo na Sala Segura",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterUid": { "type": "string" },
+        "reportedUid": { "type": "string" },
+        "chatId": { "type": "string" },
+        "messageText": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["reporterUid", "reportedUid", "reason"]
+    },
+    "chat_sessions": {
+      "title": "chat_sessions",
+      "description": "Sessões e histórico de conversas da assistente com o usuário",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastMessagePreview": { "type": "string" },
+        "messages": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Documentos de perfil de usuário"
+    },
+    "/users/{userId}/chat_sessions/{sessionId}": {
+      "schema": "chat_sessions",
+      "description": "Histórico de sessões de chat do usuário com a assistente Vigia"
+    },
+    "/invites/{inviteId}": {
+      "schema": "invites",
+      "description": "Convites de amizade entre crianças/responsáveis"
+    },
+    "/chats/{chatId}": {
+      "schema": "chats",
+      "description": "Conversas autorizadas"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "messages",
+      "description": "Mensagens individuais de uma conversa"
+    },
+    "/reports/{reportId}": {
+      "schema": "reports",
+      "description": "Registros de denúncias para supervisão"
+    }
+  }
+}

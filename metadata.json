@@ -1,0 +1,6 @@
+{
+  "name": "Vigia",
+  "description": "Vigia: Assistente virtual e mascote de Proteção e Defesa Civil para crianças de 8 a 12 anos. Ensina prevenção de forma acolhedora, segura e divertida.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
