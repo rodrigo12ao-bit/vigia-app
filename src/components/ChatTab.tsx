@@ -269,6 +269,71 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
   );
 };
 
+// ----------------------------------------------------------------------
+// COMPONENTES AUXILIARES DO MODO TEXTO (TYPEWRITER, TYPING DOTS)
+// ----------------------------------------------------------------------
+const TypewriterText: React.FC<{ text: string; isLatest: boolean }> = ({ text, isLatest }) => {
+  const [displayedText, setDisplayedText] = useState(isLatest ? '' : text);
+
+  useEffect(() => {
+    if (!isLatest) {
+      setDisplayedText(text);
+      return;
+    }
+
+    const words = text.split(' ');
+    let currentIndex = 0;
+    setDisplayedText('');
+
+    const interval = setInterval(() => {
+      currentIndex += 1;
+      setDisplayedText(words.slice(0, currentIndex).join(' '));
+      if (currentIndex >= words.length) {
+        clearInterval(interval);
+      }
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [text, isLatest]);
+
+  return <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{displayedText}</p>;
+};
+
+const TypingDotsIndicator: React.FC = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: -5 }}
+    className="flex flex-col items-start min-w-0 mb-3"
+  >
+    <div className="flex items-center gap-1.5 px-1 mb-1 text-[10px] font-bold text-slate-400">
+      <span className="text-indigo-300 font-extrabold">Vigia</span>
+      <span>•</span>
+      <span>preparando resposta...</span>
+    </div>
+    <div className="bg-slate-800/70 border border-slate-700/60 p-3 sm:p-3.5 rounded-2xl rounded-tl-xs shadow-lg backdrop-blur-md flex items-center gap-2.5 max-w-[85%]">
+      <Sparkles className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+      <div className="flex items-center gap-1.5 px-1">
+        <motion.span
+          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 0.7, delay: 0 }}
+          className="w-2 h-2 bg-indigo-400 rounded-full inline-block"
+        />
+        <motion.span
+          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 0.7, delay: 0.2 }}
+          className="w-2 h-2 bg-indigo-300 rounded-full inline-block"
+        />
+        <motion.span
+          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 0.7, delay: 0.4 }}
+          className="w-2 h-2 bg-indigo-200 rounded-full inline-block"
+        />
+      </div>
+    </div>
+  </motion.div>
+);
+
 export const ChatTab: React.FC<ChatTabProps> = ({
   messages,
   onSendMessage,
@@ -319,6 +384,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // History & Session State
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -981,6 +1047,42 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     navigator.clipboard.writeText(text);
     setCopiedMsgId(msgId);
     setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+  // Handlers para Arraste e Solte de Fotos (Drag & Drop)
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      if (file.size > 10 * 1024 * 1024) {
+        setSpeechFeedbackMsg('A imagem é muito grande. Escolha uma foto de até 10MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setSelectedImage({
+          data: result.split(',')[1],
+          mimeType: file.type || 'image/jpeg',
+          previewUrl: result,
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Create new chat
@@ -1795,7 +1897,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           ) : (
             /* MODE 1: CHATGPT-STYLE CONTINUOUS FEED */
-            <div className="flex-1 min-h-0 min-w-0 flex flex-col bg-slate-950 relative overflow-hidden">
+            <div
+              className="flex-1 min-h-0 min-w-0 flex flex-col bg-slate-950 relative overflow-hidden"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              {/* Overlay de Arraste e Solte de Foto */}
+              <AnimatePresence>
+                {isDraggingOver && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="absolute inset-0 bg-slate-950/95 border-2 border-dashed border-indigo-400 z-50 backdrop-blur-md flex flex-col items-center justify-center text-white space-y-3 pointer-events-none p-6 text-center"
+                  >
+                    <div className="w-16 h-16 rounded-3xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/40 flex items-center justify-center shadow-2xl animate-bounce">
+                      <ImageIcon className="w-8 h-8 text-amber-300" />
+                    </div>
+                    <h3 className="text-base font-black text-white">Solte sua foto aqui!</h3>
+                    <p className="text-xs text-slate-300 font-semibold max-w-sm">
+                      A Vigia analisará a imagem em busca de riscos, emergências e orientações de prevenção.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* MESSAGES SCROLL FEED */}
               <div
@@ -1855,7 +1981,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                             </div>
                           )}
 
-                          <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{msg.content}</p>
+                          {isUser ? (
+                            <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{msg.content}</p>
+                          ) : (
+                            <TypewriterText text={msg.content} isLatest={msg === messages[messages.length - 1]} />
+                          )}
 
                           {/* Action Buttons for Assistant Message */}
                           {!isUser && (
@@ -1883,15 +2013,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   })
                 )}
 
-                {/* Loading Indicator */}
-                {isLoading && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-start min-w-0">
-                    <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 p-3 sm:p-3.5 rounded-2xl text-xs text-slate-300 flex items-center gap-2 shadow-lg max-w-[90%]">
-                      <Sparkles className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                      <span className="font-semibold truncate">A Vigia está preparando a resposta...</span>
-                    </div>
-                  </motion.div>
-                )}
+                {/* Loading Indicator com Pontinhos Animados */}
+                {isLoading && <TypingDotsIndicator />}
 
                 <div ref={chatEndRef} />
               </div>
