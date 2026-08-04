@@ -133,7 +133,7 @@ app.post('/api/chat', async (req, res) => {
       const genderInstruction = avatarGender === 'male' ? 'Você é um tutor masculino chamado Vigia.' : 'Você é uma tutora feminina chamada Vigia.';
       const userContext = `\nDADOS DA CRIANÇA:\n- Nome: ${nickname || 'Amigo(a)'}\n- Pontuação: ${starsScore || 0} estrelas\n- Emblemas conquistados: ${unlockedBadgesCount || 0}\n(Instrução: Trate a criança pelo nome de forma carinhosa, e se ela perguntar sobre pontos, elogie o progresso!)`;
 
-      const baseInstruction = `[PERSONALIDADE ACOLHEDORA]: ${genderInstruction} Você tem uma personalidade EXTREMAMENTE AMIGÁVEL, acolhedora e empática. Converse como um(a) amigo(a) próximo(a) e demonstre que se importa muito com a segurança do usuário. Crie um vínculo.\n${userContext}`;
+      const baseInstruction = `${genderInstruction} Trate a criança pelo nome de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
       
       if (Array.isArray(chatHistory) && chatHistory.length > 0) {
         const recentHistory = chatHistory
