@@ -98,7 +98,7 @@ const VIGIA_SYSTEM_INSTRUCTION = VIGIA_TEXT_BASE_PROMPT + INJECTED_KNOWLEDGE_PRO
 // API Chat Endpoint
 app.post('/api/chat', async (req, res) => {
     let contentsPrompt = '';
-    let modelUsed = 'gemini-3.5-flash-lite';
+    let modelUsed = 'gemini-2.5-flash';
 
     try {
       const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
@@ -137,7 +137,7 @@ app.post('/api/chat', async (req, res) => {
       
       if (Array.isArray(chatHistory) && chatHistory.length > 0) {
         const recentHistory = chatHistory
-          .slice(-30)
+          .slice(-10)
           .map((h: any) => `${h.role === 'user' ? (nickname || 'Criança') : 'Vigia'}: ${h.content}`)
           .join('\n');
         contentsPrompt = `${baseInstruction}\n\nHistórico recente da conversa:\n${recentHistory}\n\nMensagem atual de ${nickname || 'Criança'}: "${message}"`;
@@ -179,11 +179,12 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      // Candidate models: prefer flash-lite for extreme speed, fallback to flash
+      // Candidate models: ultra-fast flash 2.5/2.0 with fallbacks
       const candidateModels = [
-        'gemini-3.5-flash-lite',
-        'gemini-3.5-flash',
-        'gemini-flash-latest'
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-flash-latest',
       ];
 
       let response: any = null;
