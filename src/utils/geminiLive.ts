@@ -117,6 +117,7 @@ export class GeminiLiveSession {
   private hasReceivedFirstAudioChunk = false;
   private serverTurnComplete = false;
   private isInterruptedThisTurn = false;
+  private isInitialGreeting = true;
   private pcmBuffer: number[] = [];
   private lastInputLevelEmit = 0;
 
@@ -131,6 +132,9 @@ export class GeminiLiveSession {
     const token = ++this.sessionToken;
     this.stopped = false;
     this.cleanupDone = false;
+    this.isInitialGreeting = true;
+    this.isInterruptedThisTurn = false;
+    this.pcmBuffer = [];
     this.setState('connecting');
 
     this.startPromise = this.startInternal(token).finally(() => {
@@ -261,6 +265,7 @@ export class GeminiLiveSession {
       case 'turn_complete':
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
+        this.isInitialGreeting = false; // Saudação inicial concluída
         // Não encerra nem reseta o turno se ele tiver sido interrompido
         if (!this.isInterruptedThisTurn) {
           this.finishTurnWhenPlaybackEnds();
@@ -404,13 +409,22 @@ export class GeminiLiveSession {
       this.pcmBuffer.push(resampled[index]);
     }
 
+    // Durante a saudação inicial sem fala do usuário (rms < 0.035),
+    // ignora envio de ruído de sala para a IA não ficar confusa na abertura.
+    if (this.isInitialGreeting && rms < 0.035) {
+      this.pcmBuffer = [];
+      return;
+    }
+
     // 1024 amostras = ~64 ms em 16 kHz. Mantém boa cadência sem tempestade de mensagens.
     while (this.pcmBuffer.length >= 1024) {
       const chunk = this.pcmBuffer.splice(0, 1024);
       const base64PCM = this.float32ToBase64Pcm16(chunk);
       try {
         socket.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
-        this.isInterruptedThisTurn = false; // Novo envio de áudio do usuário libera próximo turno
+        if (rms > 0.025) {
+          this.isInterruptedThisTurn = false; // Libera trava APENAS quando há fala real do usuário
+        }
         Telemetry.record('T3', 'Primeiro buffer enviado ao backend');
       } catch (error) {
         console.error('[GeminiLive] Falha ao enviar áudio:', error);
