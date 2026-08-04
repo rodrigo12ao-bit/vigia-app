@@ -28,6 +28,9 @@ export const PremiumAvatarModel = ({ state, isSpeaking, isListening, emotionProp
   // useGLTF carrega o modelo otimizado. Suporta masculino e feminino.
   const modelPath = modelUrl || (gender === 'male' ? '/model/avatar_2.glb' : '/model/avatar_1.glb');
   const { scene, animations } = useGLTF(modelPath);
+  
+  // Clone da cena para evitar contaminação do WebGL context quando o Canvas desmonta/remonta
+  const clonedScene = useMemo(() => scene.clone(true), [scene]);
   const { actions, mixer } = useAnimations(animations, group);
 
   useEffect(() => {
@@ -54,7 +57,7 @@ export const PremiumAvatarModel = ({ state, isSpeaking, isListening, emotionProp
   
   useFrame((stateObj) => {
      // Lógica de LookAt (Autonomia Orgânica)
-     const neckBone = scene.getObjectByName('NeckBone') || scene.getObjectByName('Neck') || scene.getObjectByName('Head'); 
+     const neckBone = clonedScene.getObjectByName('NeckBone') || clonedScene.getObjectByName('Neck') || clonedScene.getObjectByName('Head'); 
      if (neckBone) {
         // Exemplo: Rotacionar levemente o pescoço baseado no tempo
         const targetX = Math.sin(stateObj.clock.elapsedTime) * 0.1;
@@ -65,8 +68,8 @@ export const PremiumAvatarModel = ({ state, isSpeaking, isListening, emotionProp
   if (hasModel) {
     return (
       <group ref={group} dispose={null}>
-        {/* Adiciona sombra ao modelo */}
-        <primitive object={scene} castShadow receiveShadow />
+        {/* Adiciona sombra ao modelo clonado para este contexto WebGL específico */}
+        <primitive object={clonedScene} castShadow receiveShadow />
       </group>
     );
   }
@@ -204,7 +207,23 @@ export const AvatarComponent: React.FC<AvatarProps> = ({
 
   return (
     <div className="absolute inset-0 w-full h-full flex items-center justify-center select-none" style={{ pointerEvents: 'auto' }}>
-      <Canvas camera={{ position: [0, 0, 10], fov: 45 }}>
+      <Canvas
+        camera={{ position: [0, 0, 10], fov: 45 }}
+        gl={{
+          powerPreference: 'high-performance',
+          antialias: true,
+          alpha: true,
+          failIfMajorPerformanceCaveat: false,
+        }}
+        onCreated={({ gl }) => {
+          const domElem = gl.domElement;
+          const handleContextLost = (event: Event) => {
+            event.preventDefault();
+            console.warn('[Avatar 3D] WebGL context lost. Prevenindo crash...');
+          };
+          domElem.addEventListener('webglcontextlost', handleContextLost, false);
+        }}
+      >
         <ambientLight intensity={1.0} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />
         
@@ -245,6 +264,14 @@ export const AvatarComponent: React.FC<AvatarProps> = ({
     </div>
   );
 };
+
+// Preload preventivo dos modelos GLTF para evitar atraso de carregamento
+try {
+  useGLTF.preload('/model/avatar_1.glb');
+  useGLTF.preload('/model/avatar_2.glb');
+} catch (e) {
+  // Ignora caso o ambiente não tenha suporte a preloading estático
+}
 
 export const Avatar = React.memo(AvatarComponent, (prev, next) => {
   return (
