@@ -107,6 +107,7 @@ export class GeminiLiveSession {
   private outputContextTracked = false;
   private streamTracked = false;
 
+  private readonly MAX_ACTIVE_SOURCES = 300;
   private nextPlayTime = 0;
   private activeSources: ActiveSource[] = [];
   private generation = 0;
@@ -329,6 +330,9 @@ export class GeminiLiveSession {
       }
 
       if (!usedWorklet) {
+        // RISCO 4: ScriptProcessor está deprecado pelo W3C. Migrar para AudioWorklet universal
+        // quando houver suporte garantido nos navegadores alvo.
+        console.warn('[GeminiLive] Usando ScriptProcessor (deprecado). Atualize o navegador para suporte completo ao AudioWorklet.');
         const scriptNode = inputCtx.createScriptProcessor(2048, 1, 1);
         scriptNode.onaudioprocess = (event) => {
           this.processInputPCM(event.inputBuffer.getChannelData(0));
@@ -396,6 +400,8 @@ export class GeminiLiveSession {
     }
   }
 
+  // RISCO 3: Resampling executado no main thread a cada frame de áudio (~64ms).
+  // Em dispositivos lentos pode causar jank. Mover para AudioWorklet é a solução ideal.
   private resampleLinear(input: Float32Array, sourceRate: number, targetRate: number): Float32Array {
     const ratio = sourceRate / targetRate;
     const length = Math.max(1, Math.floor(input.length / ratio));
@@ -470,6 +476,15 @@ export class GeminiLiveSession {
 
       const entry: ActiveSource = { source, generation };
       this.activeSources.push(entry);
+
+      // RISCO 2: Evita crescimento ilimitado em caso de falha de turn_complete.
+      if (this.activeSources.length > this.MAX_ACTIVE_SOURCES) {
+        const oldest = this.activeSources.shift();
+        if (oldest) {
+          try { oldest.source.onended = null; oldest.source.stop(); oldest.source.disconnect(); } catch { /* já encerrado */ }
+        }
+      }
+
       source.onended = () => {
         this.activeSources = this.activeSources.filter((item) => item !== entry);
         this.finishTurnWhenPlaybackEnds();
@@ -530,6 +545,22 @@ export class GeminiLiveSession {
     const socket = this.ws;
     if (!socket || socket.readyState !== WebSocket.OPEN || !contextText.trim()) return;
     socket.send(JSON.stringify({ type: 'realtime_text', text: `[CONTEXTO_DO_APP]: ${contextText.trim()}` }));
+  }
+
+  /**
+   * ARQ 3: Interrompe localmente a reprodução de áudio da Vigia.
+   * Usado pelo botão "Interromper" no modo Live. Não cancela a geração no Gemini —
+   * apenas para o áudio já enfileirado localmente e aguarda novo turno.
+   */
+  public interruptPlayback(): void {
+    if (this.state !== 'assistantSpeaking') return;
+    Telemetry.log('INTERRUPT_PLAYBACK_LOCAL', { generation: this.generation });
+    this.generation += 1;
+    this.stopAudioPlayback();
+    this.hasReceivedFirstAudioChunk = false;
+    this.serverTurnComplete = false;
+    this.setState('listening');
+    this.callbacks.onAvatarStateChange?.('listening');
   }
 
   public stop(): void {

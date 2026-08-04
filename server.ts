@@ -7,8 +7,10 @@ import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/prompts.js';
 
-// Bypasses local network SSL proxy issues for Google APIs
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+// Bypasses local network SSL proxy issues for Google APIs — DEV ONLY
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 dotenv.config();
 

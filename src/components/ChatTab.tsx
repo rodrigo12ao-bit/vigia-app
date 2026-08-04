@@ -78,6 +78,7 @@ interface ChatTabProps {
   onReplayAudio: (text: string) => void;
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
+  onLoadSession?: (messages: ChatMessage[]) => void;
   isAudioMuted?: boolean;
   onToggleAudioMute?: () => void;
   debugInfo?: DebugInfo;
@@ -211,6 +212,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onReplayAudio,
   onSelectPrompt,
   onResetChat,
+  onLoadSession,
   isAudioMuted = false,
   onToggleAudioMute,
   debugInfo,
@@ -379,7 +381,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   useEffect(() => {
     if (chatMode !== 'live') return;
 
-    stopListening();
+    // BUG 4: suppressStateReset=true para não forçar IDLE enquanto o Live ainda conecta
+    stopListening(true);
     stopSpeaking();
     setLiveSubtitle('');
     setInterimSpeech('');
@@ -397,6 +400,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'listening':
             setInteractionState('LISTENING');
             setLiveIsSpeaking(false);
+            setLiveSubtitle(''); // ARQ 4: Limpa legenda ao iniciar novo turno de escuta
             break;
           case 'userSpeaking':
             setInteractionState('USER_SPEAKING');
@@ -409,6 +413,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'assistantSpeaking':
             setInteractionState('SPEAKING');
             setLiveIsSpeaking(true);
+            break;
+          case 'stopping':
+            // ARQ 2: Estado sem handler anterior. Mostra feedback neutro durante encerramento.
+            setInteractionState('CONNECTING');
+            setLiveIsSpeaking(false);
             break;
           case 'error':
             setInteractionState('ERROR');
@@ -491,7 +500,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
-  const stopListening = () => {
+  // BUG 4: suppressStateReset evita que stopListening() force IDLE no modo Live,
+  // onde o estado é autoridade exclusiva do GeminiLiveSession.
+  const stopListening = (suppressStateReset = false) => {
     if (silenceBufferTimerRef.current) {
       window.clearTimeout(silenceBufferTimerRef.current);
       silenceBufferTimerRef.current = null;
@@ -508,7 +519,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
     stopMicStream();
-    setInteractionState('IDLE');
+    if (!suppressStateReset) setInteractionState('IDLE');
     setMicVolume(0);
   };
 
@@ -790,8 +801,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
+  // BUG 3: auto-resume NUNCA deve rodar no modo Live. O microfone do Live
+  // é gerenciado exclusivamente pelo GeminiLiveSession. Chamar
+  // startListeningWithPermission() em modo Live abriria um segundo MediaStream.
   useEffect(() => {
-    if (prevSpeakingRef.current && !isSpeaking && chatMode === 'live' && !isAudioMuted && !isLoading) {
+    if (prevSpeakingRef.current && !isSpeaking && chatMode !== 'live' && !isAudioMuted && !isLoading) {
       autoResumeTimerRef.current = window.setTimeout(() => {
         if (!isListening && !isSendingRef.current && !isManuallyPausedRef.current) {
           startListeningWithPermission();
@@ -856,8 +870,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
+  // ARQ 3: No modo Live, para o áudio local via interruptPlayback().
+  // No modo Texto, para o TTS do browser via stopSpeaking().
   const handleInterruptSpeech = () => {
-    stopSpeaking();
+    if (chatMode === 'live') {
+      liveSessionRef.current?.interruptPlayback();
+    } else {
+      stopSpeaking();
+    }
   };
 
   const toggleMicListening = () => {
@@ -904,14 +924,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setShowHistoryDrawer(false);
   };
 
-  // Switch to a chat session
+  // BUG 2: Anteriormente o corpo do forEach estava vazio — o histórico era limpado
+  // mas jamais restaurado. Agora chama onLoadSession para repopular o estado do pai.
   const handleSelectSession = (session: ChatSession) => {
     setCurrentSessionId(session.id);
-    if (onResetChat) onResetChat();
-    // Replay messages of this session into parent state or display
-    session.messages.forEach((m) => {
-      // populate messages in parent state
-    });
+    if (session.messages.length > 0) {
+      onLoadSession?.(session.messages);
+    } else if (onResetChat) {
+      onResetChat();
+    }
     setShowHistoryDrawer(false);
   };
 
@@ -952,7 +973,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const [isConfirmEndCallOpen, setIsConfirmEndCallOpen] = useState(false);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  // BUG 5: isVoiceActive removido (estado morto — nunca era lido nem modificado)
 
   const lastAssistantMsg = [...messages].reverse().find((m) => m.role === 'assistant');
 
@@ -1394,12 +1415,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      stopListening();
-                      stopSpeaking();
-                      if (liveSessionRef.current) {
-                        try { liveSessionRef.current.stop(); } catch (e) {}
-                        liveSessionRef.current = null;
-                      }
+                      // BUG 1: Não zeramos liveSessionRef.current aqui.
+                      // O useEffect de cleanup do chatMode é a única autoridade de limpeza.
+                      // Fazer null aqui causava race condition quando setChatMode disparava
+                      // o useEffect antes que o stop() assync terminasse.
                       setChatMode('text');
                       setIsConfirmEndCallOpen(false);
                     }}

@@ -494,6 +494,13 @@ export default function App() {
     setAvatarState('idle');
   };
 
+  const handleLoadSession = (sessionMessages: ChatMessage[]) => {
+    stopSpeaking();
+    setIsSpeaking(false);
+    setMessages(sessionMessages);
+    setAvatarState('idle');
+  };
+
   const unlockedBadgesCount = badges.filter((b) => b.unlocked).length;
 
   return (
@@ -547,6 +554,7 @@ export default function App() {
                 onReplayAudio={speakMessage}
                 onSelectPrompt={handleSelectPrompt}
                 onResetChat={handleResetChat}
+                onLoadSession={handleLoadSession}
                 isAudioMuted={isAudioMuted}
                 debugInfo={debugInfo}
                 currentUser={currentUser}
