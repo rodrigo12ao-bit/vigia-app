@@ -203,6 +203,70 @@ const renderTopicGraphic = (topic?: string, contentText: string = '') => {
   }
 };
 
+// ----------------------------------------------------------------------
+// VISUALIZADOR DE ONDAS SONORAS NEON (9 BARRAS FLUÍDAS)
+// ----------------------------------------------------------------------
+interface VoiceWaveVisualizerProps {
+  isListening: boolean;
+  isSpeaking: boolean;
+  isProcessing: boolean;
+  micVolume: number;
+}
+
+const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
+  isListening,
+  isSpeaking,
+  isProcessing,
+  micVolume,
+}) => {
+  const bars = [
+    { base: 6, mult: 18, delay: 0.1 },
+    { base: 10, mult: 26, delay: 0.2 },
+    { base: 14, mult: 36, delay: 0.05 },
+    { base: 20, mult: 46, delay: 0.15 },
+    { base: 26, mult: 54, delay: 0 },
+    { base: 20, mult: 46, delay: 0.15 },
+    { base: 14, mult: 36, delay: 0.05 },
+    { base: 10, mult: 26, delay: 0.2 },
+    { base: 6, mult: 18, delay: 0.1 },
+  ];
+
+  if (!isListening && !isSpeaking && !isProcessing) {
+    return <div className="h-9" />;
+  }
+
+  let colorStyle = 'from-emerald-400 via-teal-300 to-emerald-500 drop-shadow-[0_0_8px_rgba(52,211,153,0.7)]';
+  if (isSpeaking) {
+    colorStyle = 'from-sky-400 via-cyan-300 to-sky-500 drop-shadow-[0_0_8px_rgba(56,189,248,0.7)]';
+  } else if (isProcessing) {
+    colorStyle = 'from-indigo-400 via-purple-300 to-indigo-500 drop-shadow-[0_0_8px_rgba(129,140,248,0.7)]';
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1 sm:gap-1.5 h-9 px-4 py-1">
+      {bars.map((bar, i) => (
+        <motion.span
+          key={i}
+          animate={{
+            height: isListening
+              ? [bar.base, Math.max(bar.base + 4, bar.base + micVolume * bar.mult), bar.base]
+              : isSpeaking
+              ? [bar.base, bar.base + 12, bar.base]
+              : [6, 18, 6],
+          }}
+          transition={{
+            repeat: Infinity,
+            repeatType: 'reverse',
+            duration: isSpeaking ? 0.35 + bar.delay * 0.4 : 0.4 + bar.delay,
+            ease: 'easeInOut',
+          }}
+          className={`w-1 sm:w-1.5 rounded-full bg-gradient-to-t ${colorStyle} transition-all duration-150`}
+        />
+      ))}
+    </div>
+  );
+};
+
 export const ChatTab: React.FC<ChatTabProps> = ({
   messages,
   onSendMessage,
@@ -1621,17 +1685,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 )}
               </AnimatePresence>
 
-              {/* ONDAS SONORAS (Abaixo da Legenda, Acima do Avatar) */}
-              <div className="shrink-0 flex items-center justify-center pt-4 pb-2 bg-transparent pointer-events-none z-10 min-h-[40px]">
-                {(isListening || currentIsSpeaking) && (
-                  <div className="flex items-center justify-center gap-1.5 h-6">
-                      <motion.span animate={{ height: isListening ? [6, Math.max(10, micVolume * 20), 6] : [6, 14, 6] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
-                      <motion.span animate={{ height: isListening ? [10, Math.max(14, micVolume * 30), 10] : [10, 20, 10] }} transition={{ repeat: Infinity, duration: 0.5 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
-                      <motion.span animate={{ height: isListening ? [14, Math.max(18, micVolume * 40), 14] : [14, 24, 14] }} transition={{ repeat: Infinity, duration: 0.3 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-200' : 'bg-emerald-200'}`} />
-                      <motion.span animate={{ height: isListening ? [8, Math.max(12, micVolume * 25), 8] : [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.6 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
-                      <motion.span animate={{ height: isListening ? [5, Math.max(8, micVolume * 15), 5] : [5, 10, 5] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
-                  </div>
-                )}
+              {/* ONDAS SONORAS FLUÍDAS (Abaixo da Legenda, Acima do Avatar) */}
+              <div className="shrink-0 flex items-center justify-center pt-2 pb-1 bg-transparent pointer-events-none z-10 min-h-[44px]">
+                <VoiceWaveVisualizer
+                  isListening={isListening}
+                  isSpeaking={currentIsSpeaking}
+                  isProcessing={interactionState === 'PROCESSING' || interactionState === 'CONNECTING'}
+                  micVolume={micVolume}
+                />
               </div>
 
               {/* ZONA CENTRAL: O PALCO DO AVATAR (Livre, Limpo e Expansivo) */}
