@@ -133,34 +133,45 @@ app.post('/api/chat', async (req, res) => {
       const genderInstruction = avatarGender === 'male' ? 'Você é um tutor masculino chamado Vigia.' : 'Você é uma tutora feminina chamada Vigia.';
       const userContext = `\nDADOS DA CRIANÇA:\n- Nome: ${nickname || 'Amigo(a)'}\n- Pontuação: ${starsScore || 0} estrelas\n- Emblemas conquistados: ${unlockedBadgesCount || 0}\n(Instrução: Trate a criança pelo nome de forma carinhosa, e se ela perguntar sobre pontos, elogie o progresso!)`;
 
-      const baseInstruction = `${genderInstruction} Trate a criança pelo nome de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
-      
+      const fullSystemInstruction = `${VIGIA_SYSTEM_INSTRUCTION}\n\n${genderInstruction} Trate a criança pelo nome (${nickname || 'Amigo(a)'}) de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
+
+      // Monta histórico de mensagens no formato estruturado nativo da SDK (@google/genai)
+      const contentsPayload: any[] = [];
+
       if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-        const recentHistory = chatHistory
-          .slice(-10)
-          .map((h: any) => `${h.role === 'user' ? (nickname || 'Criança') : 'Vigia'}: ${h.content}`)
-          .join('\n');
-        contentsPrompt = `${baseInstruction}\n\nHistórico recente da conversa:\n${recentHistory}\n\nMensagem atual de ${nickname || 'Criança'}: "${message}"`;
-      } else {
-        contentsPrompt = `${baseInstruction}\n\nMensagem da criança para a Vigia: "${message}"`;
+        // Seleciona até 14 mensagens recentes da conversa real
+        const recentHistory = chatHistory.slice(-14);
+        for (const h of recentHistory) {
+          if (!h.content || typeof h.content !== 'string') continue;
+          const role = h.role === 'user' ? 'user' : 'model';
+          contentsPayload.push({
+            role,
+            parts: [{ text: h.content }],
+          });
+        }
       }
 
-      // Prepare contents payload (text only or image + text)
-      let contentsPayload: any;
+      // Adiciona a mensagem atual do usuário ao final da estrutura
       if (image && image.data) {
-        contentsPayload = [
-          {
-            inlineData: {
-              mimeType: image.mimeType || 'image/jpeg',
-              data: image.data,
+        contentsPayload.push({
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType: image.mimeType || 'image/jpeg',
+                data: image.data,
+              },
             },
-          },
-          {
-            text: `${contentsPrompt}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
-          },
-        ];
+            {
+              text: `${message}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
+            },
+          ],
+        });
       } else {
-        contentsPayload = contentsPrompt;
+        contentsPayload.push({
+          role: 'user',
+          parts: [{ text: message }],
+        });
       }
 
       // Candidate models: ultra-fast flash 2.5/2.0 with fallbacks
@@ -181,7 +192,7 @@ app.post('/api/chat', async (req, res) => {
             modelUsed = model;
 
             const callConfig: any = {
-              systemInstruction: VIGIA_SYSTEM_INSTRUCTION,
+              systemInstruction: fullSystemInstruction,
               responseMimeType: 'application/json',
               temperature: 0.7,
               thinkingConfig: {
