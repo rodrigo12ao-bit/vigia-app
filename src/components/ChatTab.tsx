@@ -211,6 +211,7 @@ interface VoiceWaveVisualizerProps {
   isSpeaking: boolean;
   isProcessing: boolean;
   micVolume: number;
+  outputVolume: number;
 }
 
 const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
@@ -218,6 +219,7 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
   isSpeaking,
   isProcessing,
   micVolume,
+  outputVolume,
 }) => {
   const bars = [
     { base: 6, mult: 18, delay: 0.1 },
@@ -242,6 +244,9 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
     colorStyle = 'from-indigo-400 via-purple-300 to-indigo-500 drop-shadow-[0_0_8px_rgba(129,140,248,0.7)]';
   }
 
+  // Se a Vigia estiver falando, usa a amplitude real do alto-falante
+  const activeOutputVol = outputVolume > 0.01 ? outputVolume : 0.4;
+
   return (
     <div className="flex items-center justify-center gap-1 sm:gap-1.5 h-9 px-4 py-1">
       {bars.map((bar, i) => (
@@ -251,13 +256,13 @@ const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
             height: isListening
               ? [bar.base, Math.max(bar.base + 4, bar.base + micVolume * bar.mult), bar.base]
               : isSpeaking
-              ? [bar.base, bar.base + 12, bar.base]
+              ? [bar.base, Math.max(bar.base + 6, bar.base + activeOutputVol * bar.mult), bar.base]
               : [6, 18, 6],
           }}
           transition={{
             repeat: Infinity,
             repeatType: 'reverse',
-            duration: isSpeaking ? 0.35 + bar.delay * 0.4 : 0.4 + bar.delay,
+            duration: isSpeaking ? 0.25 + bar.delay * 0.3 : 0.4 + bar.delay,
             ease: 'easeInOut',
           }}
           className={`w-1 sm:w-1.5 rounded-full bg-gradient-to-t ${colorStyle} transition-all duration-150`}
@@ -307,6 +312,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   }, [chatMode, isLoading, isSpeaking, interactionState]);
 
   const [micVolume, setMicVolume] = useState(0);
+  const [outputVolume, setOutputVolume] = useState(0);
   const [interimSpeech, setInterimSpeech] = useState('');
   const [micPermissionError, setMicPermissionError] = useState(false);
   const [speechFeedbackMsg, setSpeechFeedbackMsg] = useState<string | null>(null);
@@ -500,6 +506,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       onInputLevel: (rms) => {
         if (disposed || liveSessionRef.current !== session) return;
         setMicVolume(Math.min(1, rms * 12));
+      },
+      onOutputLevel: (rms) => {
+        if (disposed || liveSessionRef.current !== session) return;
+        setOutputVolume(Math.min(1, rms * 12));
       },
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
@@ -1692,6 +1702,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   isSpeaking={currentIsSpeaking}
                   isProcessing={interactionState === 'PROCESSING' || interactionState === 'CONNECTING'}
                   micVolume={micVolume}
+                  outputVolume={outputVolume}
                 />
               </div>
 

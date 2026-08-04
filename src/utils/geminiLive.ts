@@ -79,6 +79,7 @@ export interface GeminiLiveCallbacks {
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
   onInputLevel?: (rms: number) => void;
+  onOutputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onClose?: () => void;
 }
@@ -458,10 +459,15 @@ export class GeminiLiveSession {
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
       const sampleCount = Math.floor(bytes.byteLength / 2);
       const float32 = new Float32Array(sampleCount);
+      let chunkEnergy = 0;
       for (let index = 0; index < sampleCount; index += 1) {
         const sample = view.getInt16(index * 2, true);
-        float32[index] = sample / (sample < 0 ? 32768 : 32767);
+        const floatVal = sample / (sample < 0 ? 32768 : 32767);
+        float32[index] = floatVal;
+        chunkEnergy += floatVal * floatVal;
       }
+      const outputRms = Math.sqrt(chunkEnergy / Math.max(1, sampleCount));
+      this.callbacks.onOutputLevel?.(outputRms);
 
       const audioBuffer = context.createBuffer(1, float32.length, 24000);
       audioBuffer.getChannelData(0).set(float32);
