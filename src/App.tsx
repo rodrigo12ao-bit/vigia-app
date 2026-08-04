@@ -86,7 +86,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isBadgesModalOpen, setIsBadgesModalOpen] = useState(false);
   // Refs for preventing duplicate sends and aborting previous requests
   const sendingRef = useRef(false);

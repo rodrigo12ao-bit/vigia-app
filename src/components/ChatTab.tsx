@@ -509,6 +509,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return () => clearTimeout(timer);
   }, [messages, userId, currentSessionId]);
 
+  // Quando no modo Texto, garante que microfone e voz iniciem 100% desligados por padrão
+  useEffect(() => {
+    if (chatMode === 'text') {
+      stopListening();
+      stopSpeaking();
+      setInteractionState('IDLE');
+      setInterimSpeech('');
+    }
+  }, [chatMode]);
+
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
   useEffect(() => {
