@@ -369,7 +369,7 @@ export default function App() {
     setMessages((prev) => [...prev, initialAssistantMsg]);
 
     try {
-      const response = await fetch('/api/chat/stream', {
+      let response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -384,8 +384,45 @@ export default function App() {
         signal: controller.signal,
       });
 
+      // Fallback automático para /api/chat caso o streaming não esteja disponível
       if (!response.ok || !response.body) {
-        throw new Error('Falha na resposta do servidor');
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text || 'Analise esta imagem sobre segurança e riscos.',
+            chatHistory: messages.map((m) => ({ role: m.role, content: m.content })),
+            image: image ? { data: image.data, mimeType: image.mimeType } : undefined,
+            avatarGender: avatarGender,
+            nickname: nickname,
+            starsScore: starsScore,
+            unlockedBadgesCount: badges.filter((b) => b.unlocked).length,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Falha na resposta do servidor');
+        }
+
+        const data = await response.json();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: data.reply || 'Tive um pequeno contratempo para processar essa resposta.',
+                  emotion: (data.avatarState as AvatarState) || 'speaking',
+                  emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
+                  challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
+                  interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
+                  suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
+                }
+              : m
+          )
+        );
+        if (data.avatarState) setAvatarState(data.avatarState as AvatarState);
+        return;
       }
 
       const reader = response.body.getReader();
