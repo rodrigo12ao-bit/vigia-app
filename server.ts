@@ -303,14 +303,7 @@ app.post('/api/chat', async (req, res) => {
         };
       }
 
-      if (cacheKey && parsedData && parsedData.reply && !parsedData.reply.includes('temporariamente indisponível')) {
-        if (responseCache.size > MAX_CACHE_SIZE) {
-          const firstKey = responseCache.keys().next().value;
-          if (firstKey) responseCache.delete(firstKey);
-        }
-        responseCache.set(cacheKey, parsedData);
-      }
-
+      // Resposta processada e retornada dinamicamente sem cache estático
       return res.json({
         ...parsedData,
         debugInfo: {
