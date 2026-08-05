@@ -297,6 +297,22 @@ const renderFormattedMarkdown = (rawText: string) => {
           });
         };
 
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h3 key={idx} className="text-base font-black text-amber-300 tracking-wide mt-2 mb-1 border-b border-amber-500/20 pb-1">
+              {parseBold(trimmed.replace(/^#\s*/, ''))}
+            </h3>
+          );
+        }
+
+        if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
+          return (
+            <h4 key={idx} className="text-sm font-black text-indigo-300 tracking-wide mt-2 mb-1">
+              {parseBold(trimmed.replace(/^#{2,3}\s*/, ''))}
+            </h4>
+          );
+        }
+
         if (trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
           const cleanLine = trimmed.replace(/^[•\-\*]\s*/, '');
           return (
