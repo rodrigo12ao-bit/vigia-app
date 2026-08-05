@@ -356,8 +356,20 @@ export default function App() {
     handleUnlockBadge('b_chat');
     handleAddStars(5);
 
+    // Create assistant message placeholder immediately for streaming
+    const assistantMsgId = (Date.now() + 1).toString();
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      emotion: 'thinking',
+    };
+
+    setMessages((prev) => [...prev, initialAssistantMsg]);
+
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -372,31 +384,93 @@ export default function App() {
         signal: controller.signal,
       });
 
-      const respTs = performance.now();
-      setDebugInfo((prev) => ({
-        ...prev,
-        responseTimestamp: respTs,
-        duration_send_to_response: Math.round(respTs - sendTs),
-      }));
+      if (!response.ok || !response.body) {
+        throw new Error('Falha na resposta do servidor');
+      }
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let rawAccumulated = '';
+      let firstTokenReceived = false;
 
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.reply || 'Tive um pequeno contratempo para processar essa resposta. Pode perguntar novamente?',
-        timestamp: new Date(),
-        emotion: (data.avatarState as AvatarState) || 'speaking',
-        emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
-        challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
-        interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
-        suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
-      };
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-      setMessages((prev) => [...prev, assistantMsg]);
-      setAvatarState(assistantMsg.emotion || 'speaking');
+        const textChunk = decoder.decode(value, { stream: true });
+        const lines = textChunk.split('\n');
 
-      // record approximate avatar render time on next animation frame (non-blocking)
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const dataStr = line.slice(6).trim();
+          if (dataStr === '[DONE]') break;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.reply) {
+              rawAccumulated = JSON.stringify(parsed);
+            } else if (parsed.chunk) {
+              rawAccumulated += parsed.chunk;
+            }
+
+            if (!firstTokenReceived) {
+              firstTokenReceived = true;
+              const respTs = performance.now();
+              setDebugInfo((prev) => ({
+                ...prev,
+                responseTimestamp: respTs,
+                duration_send_to_response: Math.round(respTs - sendTs),
+              }));
+            }
+
+            // Extract partial reply string from JSON stream
+            let extractedReply = '';
+            const match = rawAccumulated.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)/);
+            if (match) {
+              try {
+                extractedReply = JSON.parse(`"${match[1]}"`);
+              } catch (e) {
+                extractedReply = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+              }
+            } else if (rawAccumulated.trim() && !rawAccumulated.startsWith('{')) {
+              extractedReply = rawAccumulated;
+            }
+
+            if (extractedReply) {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantMsgId ? { ...m, content: extractedReply, emotion: 'speaking' } : m))
+              );
+            }
+          } catch (err) {
+            // Partial JSON chunk line
+          }
+        }
+      }
+
+      // Final full JSON parse when stream ends
+      try {
+        const finalObj = JSON.parse(rawAccumulated);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: finalObj.reply || m.content || 'Resposta finalizada.',
+                  emotion: (finalObj.avatarState as AvatarState) || 'speaking',
+                  emergencyTip: finalObj.emergencyTip && finalObj.emergencyTip.trim() ? finalObj.emergencyTip : undefined,
+                  challengeOrQuestion: finalObj.challengeOrQuestion && finalObj.challengeOrQuestion.trim() ? finalObj.challengeOrQuestion : undefined,
+                  interactiveOptions: Array.isArray(finalObj.interactiveOptions) && finalObj.interactiveOptions.length > 0 ? finalObj.interactiveOptions : undefined,
+                  suggestedFollowUps: Array.isArray(finalObj.suggestedFollowUps) && finalObj.suggestedFollowUps.length > 0 ? finalObj.suggestedFollowUps : undefined,
+                }
+              : m
+          )
+        );
+        if (finalObj.avatarState) setAvatarState(finalObj.avatarState as AvatarState);
+      } catch (e) {
+        // Preserve extracted text if incomplete closing JSON tag
+      }
+
+      // Record approximate avatar render time
       requestAnimationFrame(() => {
         const ar = performance.now();
         setDebugInfo((prev) => ({
@@ -406,59 +480,42 @@ export default function App() {
         }));
       });
 
-      // Update diagnostic debug info
-      if (data.debugInfo) {
-        setDebugInfo((prev) => ({
-          ...prev,
-          lastSentPrompt: text,
-          lastApiResponse: data.reply || 'Sem resposta',
-          apiStatus: data.debugInfo.status || 'Sucesso',
-          modelName: data.debugInfo.modelUsed || 'gemini-3.6-flash',
-          lastError: data.debugInfo.error || 'Nenhum erro registrado',
-        }));
-      } else {
-        setDebugInfo((prev) => ({
-          ...prev,
-          lastSentPrompt: text,
-          lastApiResponse: data.reply || 'Sem resposta',
-          apiStatus: 'Sucesso',
-          lastError: 'Nenhum erro registrado',
-        }));
-      }
-
-      // Speak assistant message asynchronously (do not wait to render text)
-      speakMessage(assistantMsg.content);
-    } catch (err: any) {
-      if (err && err.name === 'AbortError') {
-        // previous request aborted — ignore and return silently
-        setDebugInfo((prev) => ({ ...prev, apiStatus: 'Requisição abortada' }));
-        return;
-      }
-
-      console.error('Chat error:', err);
-      const errorMsg = String(err?.message || err);
-      const fallbackMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content:
-          'Tive um pequeno imprevisto técnico na conexão! Em qualquer situação de emergência real, avise um adulto responsável e ligue 199 (Defesa Civil) ou 193 (Bombeiros)!',
-        timestamp: new Date(),
-        emotion: 'serious',
-        emergencyTip: 'Avisar um adulto de confiança é o passo número 1 para sua segurança!',
-        challengeOrQuestion: 'Quer tentar me perguntar de novo?',
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
-      setAvatarState('serious');
-
       setDebugInfo((prev) => ({
         ...prev,
         lastSentPrompt: text,
-        lastApiResponse: fallbackMsg.content,
-        apiStatus: 'Erro de Rede',
-        lastError: errorMsg,
+        apiStatus: 'Sucesso (Streaming Ultra-Rápido)',
+        modelName: 'gemini-2.5-flash',
+        lastError: 'Nenhum erro registrado',
       }));
-
-      speakMessage(fallbackMsg.content);
+    } catch (error: any) {
+      if (error && error.name === 'AbortError') {
+        setDebugInfo((prev) => ({ ...prev, apiStatus: 'Requisição abortada' }));
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantMsgId ? { ...m, content: 'Requisição cancelada pelo usuário.' } : m))
+        );
+      } else {
+        console.error('Erro no streaming de chat:', error);
+        const errorMsg = String(error?.message || error);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content:
+                    'Tive um pequeno imprevisto na conexão. Se for uma emergência real, fale com um adulto e ligue 199 (Defesa Civil) ou 193 (Bombeiros)!',
+                  emotion: 'serious',
+                }
+              : m
+          )
+        );
+        setAvatarState('serious');
+        setDebugInfo((prev) => ({
+          ...prev,
+          lastSentPrompt: text,
+          apiStatus: 'Erro de Rede',
+          lastError: errorMsg,
+        }));
+      }
     } finally {
       setIsLoading(false);
       sendingRef.current = false;

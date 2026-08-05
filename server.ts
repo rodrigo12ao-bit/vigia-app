@@ -95,6 +95,150 @@ function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
 // System prompt for Vigia
 const VIGIA_SYSTEM_INSTRUCTION = VIGIA_TEXT_BASE_PROMPT + INJECTED_KNOWLEDGE_PROMPT;
 
+// API Chat Streaming Endpoint (Server-Sent Events)
+app.post('/api/chat/stream', async (req, res) => {
+  try {
+    const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Mensagem inválida.' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const emergencyRegex = /\b(socorro|tem fogo|pegando fogo|inc[êe]ndio na|inc[êe]ndio aqui|t[áa] queimando|[áa]gua subindo|enchente aqui|enchente na|t[áa] inundando|alagou a|alagou aqui|fio ca[íi]do|soltando fa[íi]sca|tomei choque|levou choque|tomou choque|barranco caindo|deslizamento aqui|deslizamento na|machuquei|machucado grave|t[áa] sangrando|cortou.*fundo|me ajuda urgente|algu[éê]m desmaiou|emerg[êe]ncia)\b/i;
+
+    if (emergencyRegex.test(message)) {
+      const emergencyObj = {
+        reply: "[ALERTA DE SEGURANÇA] Por favor, pare o que está fazendo, afaste-se do perigo e CHAME UM ADULTO AGORA! Em emergências reais, peça para ligarem para o 199 (Defesa Civil) ou 193 (Bombeiros).",
+        avatarState: "alert",
+        topicIllustration: "geral",
+        challengeOrQuestion: "Você já conseguiu chamar um adulto para te ajudar?",
+        interactiveOptions: ["Já chamei um adulto!", "Ligar 199 ou 193"],
+        suggestedFollowUps: ["O que eu faço agora?"],
+        emergencyTip: "LIGUE 199 OU 193! Nunca tente resolver uma emergência sozinho."
+      };
+      res.write(`data: ${JSON.stringify(emergencyObj)}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      return res.end();
+    }
+
+    const ai = getGenAI();
+    const genderInstruction = avatarGender === 'male' ? 'Você é um tutor masculino chamado Vigia.' : 'Você é uma tutora feminina chamada Vigia.';
+    const userContext = `\nDADOS DA CRIANÇA:\n- Nome: ${nickname || 'Amigo(a)'}\n- Pontuação: ${starsScore || 0} estrelas\n- Emblemas conquistados: ${unlockedBadgesCount || 0}\n(Instrução: Trate a criança pelo nome de forma carinhosa, e se ela perguntar sobre pontos, elogie o progresso!)`;
+    const fullSystemInstruction = `${VIGIA_SYSTEM_INSTRUCTION}\n\n${genderInstruction} Trate a criança pelo nome (${nickname || 'Amigo(a)'}) de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
+
+    const contentsPayload: any[] = [];
+    if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+      const recentHistory = chatHistory.slice(-14);
+      for (const h of recentHistory) {
+        if (!h.content || typeof h.content !== 'string') continue;
+        const role = h.role === 'user' ? 'user' : 'model';
+        contentsPayload.push({
+          role,
+          parts: [{ text: h.content }],
+        });
+      }
+    }
+
+    if (image && image.data) {
+      contentsPayload.push({
+        role: 'user',
+        parts: [
+          {
+            inlineData: {
+              mimeType: image.mimeType || 'image/jpeg',
+              data: image.data,
+            },
+          },
+          {
+            text: `${message}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
+          },
+        ],
+      });
+    } else {
+      contentsPayload.push({
+        role: 'user',
+        parts: [{ text: message }],
+      });
+    }
+
+    const candidateModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-flash-latest',
+    ];
+
+    const callConfig: any = {
+      systemInstruction: fullSystemInstruction,
+      responseMimeType: 'application/json',
+      temperature: 0.7,
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.MINIMAL,
+      },
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          reply: { type: Type.STRING, description: 'Resposta rica em Markdown com negritos, tópicos e autoridade de especialista' },
+          avatarState: { type: Type.STRING },
+          topicIllustration: { type: Type.STRING },
+          challengeOrQuestion: { type: Type.STRING },
+          interactiveOptions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          suggestedFollowUps: { type: Type.ARRAY, items: { type: Type.STRING } },
+          emergencyTip: { type: Type.STRING },
+        },
+        required: ['reply', 'avatarState'],
+      },
+    };
+
+    let streamSuccess = false;
+    for (const model of candidateModels) {
+      try {
+        const streamResult = await ai.models.generateContentStream({
+          model,
+          contents: contentsPayload,
+          config: callConfig,
+        });
+
+        for await (const chunk of streamResult) {
+          if (chunk.text) {
+            res.write(`data: ${JSON.stringify({ chunk: chunk.text })}\n\n`);
+          }
+        }
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+        streamSuccess = true;
+        break;
+      } catch (err: any) {
+        console.warn(`[Stream] Modelo ${model} falhou:`, err?.message || String(err));
+      }
+    }
+
+    if (!streamSuccess) {
+      const fallbackObj = {
+        reply: 'A Vigia está temporariamente indisponível. Aguarde um momento e tente novamente.',
+        avatarState: 'serious',
+        topicIllustration: 'geral',
+      };
+      res.write(`data: ${JSON.stringify(fallbackObj)}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    }
+  } catch (error: any) {
+    console.error('Erro no endpoint /api/chat/stream:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro ao processar streaming' });
+    } else {
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    }
+  }
+});
+
 // API Chat Endpoint
 app.post('/api/chat', async (req, res) => {
     let contentsPrompt = '';
