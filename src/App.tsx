@@ -384,13 +384,13 @@ export default function App() {
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.reply || 'Você está de parabéns em aprender segurança! Lembre-se sempre de avisar um adulto de confiança se precisar de ajuda.',
+        content: data.reply || 'Tive um pequeno contratempo para processar essa resposta. Pode perguntar novamente?',
         timestamp: new Date(),
         emotion: (data.avatarState as AvatarState) || 'speaking',
-        emergencyTip: data.emergencyTip,
-        challengeOrQuestion: data.challengeOrQuestion,
-        interactiveOptions: data.interactiveOptions,
-        suggestedFollowUps: data.suggestedFollowUps,
+        emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
+        challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
+        interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
+        suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);

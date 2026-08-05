@@ -229,7 +229,7 @@ app.post('/api/chat', async (req, res) => {
                     description: 'Lembrete de segurança em emergências com adulto responsável',
                   },
                 },
-                required: ['reply', 'avatarState', 'interactiveOptions', 'suggestedFollowUps'],
+                required: ['reply', 'avatarState'],
               },
             };
 
