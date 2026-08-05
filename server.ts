@@ -167,10 +167,8 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const candidateModels = [
-      'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
-      'gemini-flash-latest',
     ];
 
     const callConfig: any = {
@@ -318,12 +316,10 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
-      // Candidate models: ultra-fast flash 2.5/2.0 with fallbacks
+      // Modelos oficiais de ultra-baixa latência (sem loops de espera artificiais)
       const candidateModels = [
-        'gemini-2.5-flash',
         'gemini-2.0-flash',
         'gemini-1.5-flash',
-        'gemini-flash-latest',
       ];
 
       let response: any = null;
@@ -331,79 +327,71 @@ app.post('/api/chat', async (req, res) => {
       let isRateLimited = false;
 
       for (const model of candidateModels) {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            modelUsed = model;
+        try {
+          modelUsed = model;
 
-            const callConfig: any = {
-              systemInstruction: fullSystemInstruction,
-              responseMimeType: 'application/json',
-              temperature: 0.7,
-              thinkingConfig: {
-                thinkingLevel: ThinkingLevel.MINIMAL,
-              },
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  reply: { type: Type.STRING, description: 'Resposta rica, bem estruturada em Markdown com negritos, tópicos e autoridade de especialista em Defesa Civil' },
-                  avatarState: {
-                    type: Type.STRING,
-                    description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
-                  },
-                  topicIllustration: {
-                    type: Type.STRING,
-                    description: 'Ilustração temática relevante ao assunto falado: enchentes, deslizamentos, tempestades, incendios, mochila, numeros, ou geral',
-                  },
-                  challengeOrQuestion: {
-                    type: Type.STRING,
-                    description: 'Pergunta curta ou pequeno desafio educativo',
-                  },
-                  interactiveOptions: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: '2 a 3 opções dinâmicas de continuação (ex: Fazer missão, Ouvir história, Continuar)',
-                  },
-                  suggestedFollowUps: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: '2 a 3 perguntas curtas sugeridas',
-                  },
-                  emergencyTip: {
-                    type: Type.STRING,
-                    description: 'Lembrete de segurança em emergências com adulto responsável',
-                  },
+          const callConfig: any = {
+            systemInstruction: fullSystemInstruction,
+            responseMimeType: 'application/json',
+            temperature: 0.7,
+            thinkingConfig: {
+              thinkingLevel: ThinkingLevel.MINIMAL,
+            },
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                reply: { type: Type.STRING, description: 'Resposta rica, bem estruturada em Markdown com negritos, tópicos e autoridade de especialista em Defesa Civil' },
+                avatarState: {
+                  type: Type.STRING,
+                  description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
                 },
-                required: ['reply', 'avatarState'],
+                topicIllustration: {
+                  type: Type.STRING,
+                  description: 'Ilustração temática relevante ao assunto falado: enchentes, deslizamentos, tempestades, incendios, mochila, numeros, ou geral',
+                },
+                challengeOrQuestion: {
+                  type: Type.STRING,
+                  description: 'Pergunta curta ou pequeno desafio educativo',
+                },
+                interactiveOptions: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: '2 a 3 opções dinâmicas de continuação (ex: Fazer missão, Ouvir história, Continuar)',
+                },
+                suggestedFollowUps: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: '2 a 3 perguntas curtas sugeridas',
+                },
+                emergencyTip: {
+                  type: Type.STRING,
+                  description: 'Lembrete de segurança em emergências com adulto responsável',
+                },
               },
-            };
+              required: ['reply', 'avatarState'],
+            },
+          };
 
-            response = await ai.models.generateContent({
-              model: modelUsed,
-              contents: contentsPayload,
-              config: callConfig,
-            });
+          response = await ai.models.generateContent({
+            model: modelUsed,
+            contents: contentsPayload,
+            config: callConfig,
+          });
 
-            if (response && response.text) {
-              lastModelError = '';
-              isRateLimited = false;
-              break; // Successfully got response
-            }
-          } catch (err: any) {
-            lastModelError = err?.message || String(err);
-            const is429 = lastModelError.includes('429') || lastModelError.includes('RESOURCE_EXHAUSTED') || lastModelError.includes('Quota exceeded');
-            if (is429) {
-              isRateLimited = true;
-              console.warn(`Modelo ${model} retornou 429 (tentativa ${attempt + 1}). Aguardando 1.5s...`);
-              await new Promise((r) => setTimeout(r, 1500));
-            } else {
-              console.warn(`Modelo ${model} falhou com erro não-429:`, lastModelError);
-              break;
-            }
+          if (response && response.text) {
+            lastModelError = '';
+            isRateLimited = false;
+            break; // Sucesso imediato
           }
-        }
-
-        if (response && response.text) {
-          break;
+        } catch (err: any) {
+          lastModelError = err?.message || String(err);
+          const is429 = lastModelError.includes('429') || lastModelError.includes('RESOURCE_EXHAUSTED') || lastModelError.includes('Quota exceeded');
+          if (is429) {
+            isRateLimited = true;
+            console.warn(`Modelo ${model} retornou 429. Alternando imediatamente para o modelo de reserva...`);
+          } else {
+            console.warn(`Modelo ${model} falhou com erro:`, lastModelError);
+          }
         }
       }
 
