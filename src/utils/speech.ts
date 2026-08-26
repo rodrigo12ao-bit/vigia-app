@@ -6,6 +6,7 @@
 let currentAudio: HTMLAudioElement | null = null;
 let currentAudioUrl: string | null = null;
 let pendingSpeechTimeout: ReturnType<typeof globalThis.setTimeout> | null = null;
+let activeUtterances: SpeechSynthesisUtterance[] = [];
 
 // Toggle this to true to re-enable Gemini server TTS in the future.
 export const USE_SERVER_TTS = false;
@@ -163,6 +164,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
     }
 
     window.speechSynthesis.cancel();
+    activeUtterances = [];
 
     // Chunk text by sentences to avoid Chrome TTS 15-second bug
     const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(c => c.trim()).filter(c => c.length > 0) || [text];
@@ -176,6 +178,8 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       }
 
       const utter = new SpeechSynthesisUtterance(chunks[currentChunk]);
+      activeUtterances.push(utter); // prevent garbage collection
+      
       utter.lang = 'pt-BR';
       utter.rate = 1.05;
       utter.pitch = 1.1;
@@ -189,12 +193,16 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       };
 
       utter.onend = () => {
+        const index = activeUtterances.indexOf(utter);
+        if (index > -1) activeUtterances.splice(index, 1);
         currentChunk++;
         speakNextChunk();
       };
 
       utter.onerror = (e) => {
         console.warn('TTS Chunk error:', e);
+        const index = activeUtterances.indexOf(utter);
+        if (index > -1) activeUtterances.splice(index, 1);
         // Continue to next chunk on minor errors, or abort if fatal
         currentChunk++;
         speakNextChunk();
@@ -278,6 +286,7 @@ export function stopSpeaking() {
     clearPendingSpeechTimeout();
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      activeUtterances = [];
     }
     cleanupAudio();
   } catch (e) {
