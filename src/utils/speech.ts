@@ -153,25 +153,55 @@ export async function speakText(
 function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void) {
   try {
     clearPendingSpeechTimeout();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
+    if (!('speechSynthesis' in window)) {
+      onStart && onStart();
+      pendingSpeechTimeout = globalThis.setTimeout(() => {
+        onEnd && onEnd();
+        pendingSpeechTimeout = null;
+      }, 500);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Chunk text by sentences to avoid Chrome TTS 15-second bug
+    const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(c => c.trim()).filter(c => c.length > 0) || [text];
+    let currentChunk = 0;
+    let hasStarted = false;
+
+    const speakNextChunk = () => {
+      if (currentChunk >= chunks.length) {
+        onEnd && onEnd();
+        return;
+      }
+
+      const utter = new SpeechSynthesisUtterance(chunks[currentChunk]);
       utter.lang = 'pt-BR';
-      utter.rate = 0.95;
-      utter.pitch = 1;
+      utter.rate = 1.05;
+      utter.pitch = 1.1;
       utter.volume = 1;
-      utter.onstart = () => onStart && onStart();
+
+      utter.onstart = () => {
+        if (!hasStarted) {
+          hasStarted = true;
+          onStart && onStart();
+        }
+      };
+
       utter.onend = () => {
-        onEnd && onEnd();
+        currentChunk++;
+        speakNextChunk();
       };
-      utter.onerror = () => {
-        clearPendingSpeechTimeout();
-        onEnd && onEnd();
+
+      utter.onerror = (e) => {
+        console.warn('TTS Chunk error:', e);
+        // Continue to next chunk on minor errors, or abort if fatal
+        currentChunk++;
+        speakNextChunk();
       };
-      // prefer neural pt-BR voices and names like Francisca/Antonio
+
       const pickVoiceAndSpeak = (voices: SpeechSynthesisVoice[]) => {
         const preferredNames = [/francisca/i, /antonio/i, /antônio/i, /francisco/i];
-        // search for neural + pt-BR
         let candidate = voices.find((v) => {
           const isPt = /pt[-_ ]?br|brazil/i.test(v.lang || v.name);
           const isNeural = /(neural|premium|highly|wave|saudio|synth)/i.test(v.name || '');
@@ -179,11 +209,11 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
           return isPt && (isNeural || hasPreferredName);
         });
         if (!candidate) {
-          // fallback to pt-BR by lang
           candidate = voices.find((v) => /pt[-_ ]?br|brazil/i.test(v.lang || v.name));
         }
         if (!candidate && voices.length > 0) candidate = voices[0];
         if (candidate) utter.voice = candidate;
+        
         window.speechSynthesis.speak(utter);
       };
 
@@ -191,7 +221,6 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       if (voices && voices.length > 0) {
         pickVoiceAndSpeak(voices);
       } else {
-        // voices may load asynchronously
         const handler = () => {
           try {
             const vs = window.speechSynthesis.getVoices();
@@ -201,29 +230,20 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
           }
         };
         window.speechSynthesis.addEventListener('voiceschanged', handler as any);
-        // fallback timeout
-        pendingSpeechTimeout = globalThis.setTimeout(() => {
-          try {
-            const vs = window.speechSynthesis.getVoices();
-            if (vs && vs.length > 0) pickVoiceAndSpeak(vs);
-            else {
-              onStart && onStart();
-              onEnd && onEnd();
-            }
-          } catch (e) {
-            onEnd && onEnd();
-          } finally {
-            pendingSpeechTimeout = null;
+        
+        // Timeout to just speak anyway if voices list doesn't load quickly
+        globalThis.setTimeout(() => {
+          if (!hasStarted) {
+             const vs = window.speechSynthesis.getVoices();
+             if (vs.length > 0) pickVoiceAndSpeak(vs);
+             else window.speechSynthesis.speak(utter);
           }
-        }, 500);
+        }, 300);
       }
-    } else {
-      onStart && onStart();
-      pendingSpeechTimeout = globalThis.setTimeout(() => {
-        onEnd && onEnd();
-        pendingSpeechTimeout = null;
-      }, 500);
-    }
+    };
+
+    speakNextChunk();
+
   } catch (err) {
     console.error('Browser TTS fallback error:', err);
     onEnd && onEnd();
