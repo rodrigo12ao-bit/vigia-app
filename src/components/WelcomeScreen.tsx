@@ -87,22 +87,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 w-full">
               {/* Opção Feminina */}
               <button
                 onClick={() => {
                   onSelectGender('female');
                   setStep('actions');
                 }}
-                className={`relative flex flex-col items-center justify-center gap-4 p-6 rounded-3xl border-2 transition-all cursor-pointer overflow-hidden group hover:scale-105 active:scale-95 ${
+                className={`relative flex flex-col items-center justify-center gap-3 p-4 sm:p-6 rounded-3xl border-2 transition-all cursor-pointer overflow-hidden group hover:scale-105 active:scale-95 ${
                   avatarGender === 'female' ? 'border-amber-400 bg-amber-500/10' : 'border-slate-700 bg-slate-800/50 hover:border-amber-400/50'
                 }`}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="w-full aspect-square relative flex items-center justify-center">
-                  <Avatar size="lg" state="idle" gender="female" showSubtitle={false} />
+                <div className="w-full h-32 sm:h-44 relative flex items-center justify-center">
+                  <Avatar size="md" state="idle" gender="female" showSubtitle={false} />
                 </div>
-                <div className="font-black text-lg text-amber-100 tracking-wide">
+                <div className="font-black text-base sm:text-lg text-amber-100 tracking-wide">
                   Vigia (Feminina)
                 </div>
               </button>
@@ -113,15 +113,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   onSelectGender('male');
                   setStep('actions');
                 }}
-                className={`relative flex flex-col items-center justify-center gap-4 p-6 rounded-3xl border-2 transition-all cursor-pointer overflow-hidden group hover:scale-105 active:scale-95 ${
+                className={`relative flex flex-col items-center justify-center gap-3 p-4 sm:p-6 rounded-3xl border-2 transition-all cursor-pointer overflow-hidden group hover:scale-105 active:scale-95 ${
                   avatarGender === 'male' ? 'border-blue-400 bg-blue-500/10' : 'border-slate-700 bg-slate-800/50 hover:border-blue-400/50'
                 }`}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="w-full aspect-square relative flex items-center justify-center">
-                  <Avatar size="lg" state="idle" gender="male" showSubtitle={false} />
+                <div className="w-full h-32 sm:h-44 relative flex items-center justify-center">
+                  <Avatar size="md" state="idle" gender="male" showSubtitle={false} />
                 </div>
-                <div className="font-black text-lg text-blue-100 tracking-wide">
+                <div className="font-black text-base sm:text-lg text-blue-100 tracking-wide">
                   Vigia (Masculino)
                 </div>
               </button>
@@ -179,7 +179,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <div className="w-full space-y-3 pt-2">
               <button
                 onClick={onStart}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-black text-base shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2 transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                className="w-full btn-vigia-primary py-4 px-6 rounded-2xl text-white text-base shadow-xl flex items-center justify-center gap-2 transition-all hover:scale-102 active:scale-98 cursor-pointer touch-target-min"
               >
                 <span>Começar</span>
                 <ArrowRight className="w-5 h-5" />
@@ -188,17 +188,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={onLoginClick}
-                  className="py-3 px-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                  className="py-3 px-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer touch-target-min"
                 >
-                  <UserCheck className="w-4 h-4 text-amber-300" />
+                  <UserCheck className="w-4 h-4 text-amber-300 shrink-0" />
                   <span>Já tenho conta</span>
                 </button>
 
                 <button
                   onClick={onContinueAsGuest}
-                  className="py-3 px-3 rounded-2xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700 text-slate-200 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                  className="py-3 px-3 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-200 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer touch-target-min"
                 >
-                  <HeartHandshake className="w-4 h-4 text-emerald-400" />
+                  <HeartHandshake className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Modo Visitante</span>
                 </button>
               </div>

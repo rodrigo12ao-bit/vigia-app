@@ -93,7 +93,8 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors touch-target-min"
+              title="Fechar galeria"
             >
               <X className="w-5 h-5" />
             </button>
@@ -109,14 +110,14 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
           </div>
 
           {/* Badges List */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2">
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1 my-2 no-scrollbar">
             {badges.map((b) => (
               <div
                 key={b.id}
                 onClick={() => b.unlocked && fireConfetti()}
                 className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all ${
                   b.unlocked
-                    ? 'bg-orange-50/70 border-orange-300 text-slate-800 shadow-sm cursor-pointer hover:bg-orange-100/70 active:scale-98'
+                    ? 'bg-orange-50/70 border-orange-300 text-slate-800 shadow-sm cursor-pointer hover:bg-orange-100/80 hover:scale-[1.01] active:scale-98'
                     : 'bg-slate-50 border-slate-200 opacity-60 text-slate-500'
                 }`}
                 title={b.unlocked ? 'Clique para comemorar!' : 'Conclua os desafios para desbloquear'}
@@ -156,7 +157,7 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
           <div className="pt-3 border-t border-slate-100 text-center">
             <button
               onClick={onClose}
-              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition-colors"
+              className="w-full btn-vigia-primary py-3 rounded-2xl text-xs uppercase tracking-wider transition-colors touch-target-min"
             >
               Fechar Galeria
             </button>

@@ -220,7 +220,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="space-y-2 pt-2">
               <button
                 onClick={onClose}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                className="w-full btn-vigia-primary py-3 px-4 rounded-2xl text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98 touch-target-min"
               >
                 <span>Continuar Aprendendo</span>
                 <ArrowRight className="w-4 h-4" />
@@ -229,17 +229,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setShowConfirmReset(true)}
-                  className="py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="py-2.5 px-3 rounded-2xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer touch-target-min"
                 >
-                  <Trash2 className="w-4 h-4 text-rose-600" />
+                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>Apagar Progresso</span>
                 </button>
 
                 <button
                   onClick={onSignOut}
-                  className="py-2.5 px-3 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="py-2.5 px-3 rounded-2xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer touch-target-min"
                 >
-                  <LogOut className="w-4 h-4 text-slate-600" />
+                  <LogOut className="w-4 h-4 text-slate-600 shrink-0" />
                   <span>{isGuest ? 'Trocar Conta' : 'Sair da Conta'}</span>
                 </button>
               </div>

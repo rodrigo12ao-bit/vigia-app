@@ -67,10 +67,10 @@ export const EmergencyNumbersCard: React.FC<EmergencyNumbersCardProps> = ({ onSp
       </div>
 
       {/* Safety Warning */}
-      <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-3xl mb-6 flex items-start gap-3 shadow-md">
-        <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs sm:text-sm text-amber-950 font-bold">
-          <span className="uppercase font-black text-amber-800 block text-xs tracking-wider">
+      <div className="card-vigia-emergency p-4.5 sm:p-5 mb-6 flex items-start gap-3.5 shadow-md">
+        <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+        <div className="text-xs sm:text-sm text-red-950 font-bold leading-relaxed">
+          <span className="uppercase font-black text-red-800 block text-xs tracking-wider mb-0.5">
             NUNCA PASSE TROTE!
           </span>
           Passar trote engana os socorristas e impede que pessoas em perigo real recebam ajuda rápida. Use esses números apenas em emergências reais e com ajuda de um adulto!
@@ -82,7 +82,7 @@ export const EmergencyNumbersCard: React.FC<EmergencyNumbersCardProps> = ({ onSp
         {EMERGENCY_PHONES.map((phone) => (
           <div
             key={phone.number}
-            className="bg-white border-2 border-slate-200 hover:border-orange-300 rounded-3xl p-5 shadow-lg transition-all flex flex-col justify-between"
+            className="card-vigia-base p-5.5 shadow-lg transition-all flex flex-col justify-between hover:border-orange-300"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -114,7 +114,7 @@ export const EmergencyNumbersCard: React.FC<EmergencyNumbersCardProps> = ({ onSp
                     `Número ${phone.number}: ${phone.name}. Ligue para ${phone.whenToCall}`
                   )
                 }
-                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                className="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center justify-center shrink-0 touch-target-min"
                 title="Ouvir instrução"
               >
                 <Volume2 className="w-4 h-4" />
@@ -122,9 +122,9 @@ export const EmergencyNumbersCard: React.FC<EmergencyNumbersCardProps> = ({ onSp
 
               <button
                 onClick={() => startSimulation(phone)}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-extrabold text-xs py-2.5 px-3 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+                className="flex-1 btn-vigia-primary text-xs py-3 px-3 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 touch-target-min"
               >
-                <PhoneCall className="w-3.5 h-3.5" />
+                <PhoneCall className="w-4 h-4 shrink-0" />
                 <span>Simular Chamada Educativa</span>
               </button>
             </div>

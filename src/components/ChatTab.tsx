@@ -1375,7 +1375,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap overflow-x-auto no-scrollbar">
             {/* Mode Switcher Segmented Control */}
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-0.5 shadow-inner">
               <button
@@ -1875,24 +1875,24 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="shrink-0 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md overflow-hidden"
+                    className="shrink-0 vigia-glass-dark border-b border-slate-800/80 overflow-hidden"
                   >
-                    <div className="p-3 sm:p-4 text-center max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60px] sm:min-h-[80px]">
-                      <p className="text-[10px] font-black uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <div className="p-3.5 sm:p-4 text-center max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60px] sm:min-h-[80px]">
+                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                         {interactionState === 'SPEAKING' || liveIsSpeaking || liveSubtitle ? (
-                          <span className="text-sky-400 flex items-center gap-1">
-                            <Volume2 className="w-3.5 h-3.5" /> 🛡️ Vigia (Voz)
+                          <span className="text-sky-300 flex items-center gap-1.5 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-400/20">
+                            <Volume2 className="w-4 h-4 text-sky-400 animate-pulse" /> 🛡️ Vigia (Voz Ativa)
                           </span>
                         ) : (
-                          <span className="text-emerald-400 flex items-center gap-1">
-                            <Mic className="w-3.5 h-3.5" /> 👤 Você (Voz)
+                          <span className="text-emerald-300 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-400/20">
+                            <Mic className="w-4 h-4 text-emerald-400 animate-pulse" /> 👤 Você (Fale Livremente)
                           </span>
                         )}
                       </p>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-100 italic break-words [overflow-wrap:anywhere] line-clamp-3 leading-relaxed">
                         {interactionState === 'SPEAKING' || liveIsSpeaking
-                          ? liveSubtitle || "Falando..."
-                          : interimSpeech || (interactionState === 'USER_SPEAKING' ? "Ouvindo sua voz..." : "Pode falar agora!")}
+                          ? liveSubtitle || "Falando com você..."
+                          : interimSpeech || (interactionState === 'USER_SPEAKING' ? "Ouvindo sua voz..." : "Pode falar, estou te ouvindo!")}
                       </p>
                     </div>
                   </motion.div>
@@ -1911,7 +1911,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               </div>
 
               {/* ZONA CENTRAL: O PALCO DO AVATAR (Livre, Limpo e Expansivo) */}
-              <div className="flex-1 min-h-0 relative flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950 to-slate-950">
+              <div className="flex-1 min-h-0 relative flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950">
                 
                 {/* O Avatar ocupa 100% dessa zona livremente */}
                 <Avatar
@@ -1923,77 +1923,77 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 />
               </div>
 
-              {/* ZONA INFERIOR: DOCK COMPACTO (Apenas Ícones) */}
-              <div className="shrink-0 pb-4 sm:pb-6 px-4 bg-transparent relative z-20 flex justify-center">
-                <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 p-2 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 sm:gap-4 max-w-fit mx-auto">
+              {/* ZONA INFERIOR: DOCK COMPACTO FUTURISTA */}
+              <div className="shrink-0 pb-4 sm:pb-6 pb-safe px-4 bg-transparent relative z-20 flex justify-center">
+                <div className="vigia-glass-dark p-2 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-center justify-center gap-2 sm:gap-4 max-w-fit mx-auto border border-slate-700/60">
                   
                   {/* Legendas Toggle */}
                   <button
                     onClick={() => setShowSubtitles(!showSubtitles)}
-                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-                      showSubtitles ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
+                      showSubtitles ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title="Ativar/Desativar Legendas"
                   >
-                    <Subtitles className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Subtitles className="w-5 h-5" />
                   </button>
 
-                  {/* Silenciar Áudio Exclusivo do Modo Voz (2º Botão do Dock Inferior) */}
+                  {/* Silenciar Áudio Exclusivo do Modo Voz */}
                   <button
                     onClick={() => {
                       const nextMuted = !isLiveAudioMuted;
                       setIsLiveAudioMuted(nextMuted);
                       liveSessionRef.current?.setMuted(nextMuted);
                     }}
-                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-                      isLiveAudioMuted ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
+                      isLiveAudioMuted ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title={isLiveAudioMuted ? 'Áudio do Modo Voz Mutado' : 'Silenciar Áudio do Modo Voz'}
                   >
-                    {isLiveAudioMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+                    {isLiveAudioMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                   </button>
 
                   {/* Botão Principal: MICROFONE / INTERROMPER */}
                   {currentIsSpeaking ? (
                     <button
                       onClick={handleInterruptSpeech}
-                      className="p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 bg-sky-600 hover:bg-sky-700 text-white animate-pulse shadow-sky-500/30"
-                      title="Interromper fala"
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-xl transition-all active:scale-95 cursor-pointer shrink-0 bg-sky-500 hover:bg-sky-600 text-white animate-pulse shadow-sky-500/30 flex items-center justify-center touch-target-min"
+                      title="Interromper fala da Vigia"
                     >
-                      <VolumeX className="w-5 h-5 sm:w-6 sm:h-6" />
+                      <VolumeX className="w-6 h-6 sm:w-7 sm:h-7" />
                     </button>
                   ) : (
                     <button
                       onClick={toggleMicListening}
-                      className={`p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 ${
+                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-xl transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min ${
                         isListening
-                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse shadow-emerald-500/30'
-                          : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white animate-pulse shadow-emerald-500/40'
+                          : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700'
                       }`}
-                      title={isListening ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      title={isListening ? 'Pausar Conversa' : 'Ativar Conversa por Voz'}
                     >
-                      {isListening ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}
+                      {isListening ? <Mic className="w-6 h-6 sm:w-7 sm:h-7" /> : <MicOff className="w-6 h-6 sm:w-7 sm:h-7 text-slate-400" />}
                     </button>
                   )}
 
                   {/* Painel de Debug */}
                   <button
                     onClick={() => setShowDebugPanel(!showDebugPanel)}
-                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
-                      showDebugPanel ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
+                      showDebugPanel ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title="Painel Técnico"
                   >
-                    <Bug className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Bug className="w-5 h-5" />
                   </button>
 
                   {/* Encerrar */}
                   <button
                     onClick={() => setIsConfirmEndCallOpen(true)}
-                    className="p-3 rounded-full bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 transition-all cursor-pointer flex-shrink-0"
-                    title="Encerrar"
+                    className="w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min"
+                    title="Encerrar Conversa de Voz"
                   >
-                    <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <PhoneOff className="w-5 h-5" />
                   </button>
 
                 </div>
@@ -2032,15 +2032,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <div
                 ref={messagesContainerRef}
                 onScroll={handleScrollFeed}
-                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-2.5 sm:p-5 space-y-3.5 shadow-inner select-text"
+                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-3 sm:p-5 space-y-4 shadow-inner select-text no-scrollbar"
               >
                 {messages.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 space-y-3 max-w-md mx-auto">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mx-auto flex items-center justify-center shadow-lg">
-                      <Sparkles className="w-6 h-6 text-amber-300" />
+                    <div className="w-14 h-14 rounded-3xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mx-auto flex items-center justify-center shadow-lg">
+                      <Sparkles className="w-7 h-7 text-amber-300 animate-pulse" />
                     </div>
-                    <h3 className="text-sm font-black text-white">Como a Vigia pode ajudar você hoje?</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">
+                    <h3 className="text-base font-black text-white">Como a Vigia pode ajudar você hoje?</h3>
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
                       Faça uma pergunta sobre prevenção de acidentes, emergências, tempestades ou o que fazer em caso de perigo.
                     </p>
                   </div>
@@ -2053,31 +2053,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       <motion.div
                         layout
                         key={msg.id}
-                        initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 15, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ type: "spring", stiffness: 400, damping: 25 }}
                         className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0`}
                       >
                         {/* Header Label & Time */}
-                        <div className="flex items-center gap-1.5 px-1 mb-1 text-[10px] font-bold text-slate-400">
-                          <span className={isUser ? 'text-amber-400 font-extrabold' : 'text-indigo-300 font-extrabold'}>
+                        <div className="flex items-center gap-1.5 px-1 mb-1 text-[11px] font-bold text-slate-400">
+                          <span className={isUser ? 'text-amber-400 font-black' : 'text-indigo-300 font-black'}>
                             {isUser ? 'Você' : 'Vigia'}
                           </span>
                           <span>•</span>
                           <span>{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
 
-                        {/* Message Content Bubble (Glassmorphism) */}
+                        {/* Message Content Bubble */}
                         <div
-                          className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3 sm:p-3.5 text-xs sm:text-sm leading-relaxed shadow-lg backdrop-blur-md relative break-words [overflow-wrap:anywhere] min-w-0 border ${
+                          className={`max-w-[92%] sm:max-w-[85%] rounded-3xl p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed shadow-md backdrop-blur-md relative break-words [overflow-wrap:anywhere] min-w-0 border transition-all ${
                             isUser
-                              ? 'bg-gradient-to-br from-orange-500/90 to-amber-600/90 border-amber-400/30 text-white rounded-tr-xs font-medium'
-                              : 'bg-slate-800/60 border-slate-700/60 text-slate-100 rounded-tl-xs font-medium'
+                              ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-amber-400/40 text-white rounded-tr-xs font-medium shadow-orange-500/10'
+                              : 'bg-slate-900/90 border-slate-800 text-slate-100 rounded-tl-xs font-medium'
                           }`}
                         >
                           {/* Attached Image Preview in User Message */}
                           {msg.imageUrl && (
-                            <div className="mb-2 overflow-hidden rounded-xl border border-white/20 max-w-xs shadow-md">
+                            <div className="mb-2 overflow-hidden rounded-2xl border border-white/20 max-w-xs shadow-md">
                               <img
                                 src={msg.imageUrl}
                                 alt="Foto enviada para análise"
@@ -2087,28 +2087,28 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           )}
 
                           {isUser ? (
-                            <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{msg.content}</p>
+                            <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0 text-sm leading-relaxed">{msg.content}</p>
                           ) : (
                             <TypewriterText text={msg.content} isLatest={msg === messages[messages.length - 1]} />
                           )}
 
                           {/* Action Buttons for Assistant Message */}
                           {!isUser && (
-                            <div className="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center justify-end gap-1.5 text-slate-400">
+                            <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-end gap-1.5 text-slate-400">
                               <button
                                 onClick={() => onReplayAudio(msg.content)}
-                                className="p-1 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                                title="Ouvir resposta"
+                                className="p-1.5 hover:text-amber-300 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer touch-target-min"
+                                title="Ouvir resposta em áudio"
                               >
-                                <Volume2 className="w-3.5 h-3.5" />
+                                <Volume2 className="w-4 h-4" />
                               </button>
 
                               <button
                                 onClick={() => handleCopyMessage(msg.content, msg.id)}
-                                className="p-1 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 hover:text-emerald-400 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer touch-target-min"
                                 title="Copiar texto"
                               >
-                                {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                               </button>
                             </div>
                           )}
@@ -2128,10 +2128,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               {isUserScrolledUp && (
                 <button
                   onClick={scrollToBottom}
-                  className="absolute bottom-20 right-4 z-20 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl border border-indigo-400 transition-all cursor-pointer"
+                  className="absolute bottom-20 right-4 z-20 p-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full shadow-xl border border-amber-300/40 transition-all active:scale-95 cursor-pointer touch-target-min"
                   title="Ir para a mensagem mais recente"
                 >
-                  <ArrowDown className="w-4 h-4" />
+                  <ArrowDown className="w-5 h-5" />
                 </button>
               )}
 
@@ -2159,7 +2159,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               )}
 
               {/* FIXED BOTTOM MESSAGE FIELD */}
-              <div className="p-2 sm:p-3 bg-slate-900 border-t border-slate-800 shrink-0 z-20 w-full min-w-0">
+              <div className="p-2.5 sm:p-3.5 bg-slate-900 border-t border-slate-800/90 shrink-0 z-20 w-full min-w-0 pb-safe">
                 {/* Image Preview Area if selected */}
                 {selectedImage && (
                   <div className="mb-2 max-w-4xl mx-auto flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800">
@@ -2184,20 +2184,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 )}
 
                 {/* Horizontal Scrollable Quick Prompts Bar ("Rolo Horizontal") */}
-                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 mb-1 scrollbar-thin scrollbar-thumb-indigo-500/40 hover:scrollbar-thumb-indigo-400 max-w-4xl mx-auto w-full min-w-0">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 no-scrollbar max-w-4xl mx-auto w-full min-w-0">
                   {QUICK_PROMPTS.map((prompt, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => onSelectPrompt(prompt.replace(/^[^\w\s]+/, '').trim())}
-                      className="shrink-0 px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-orange-500 hover:to-amber-500 hover:text-white text-slate-300 border border-slate-700/80 hover:border-amber-400 text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      className="shrink-0 px-3.5 py-2 rounded-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-orange-500 hover:to-amber-500 hover:text-white text-slate-300 border border-slate-700/80 hover:border-amber-400 text-xs font-extrabold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5 touch-target-min whitespace-nowrap"
                     >
                       <span>{prompt}</span>
                     </button>
                   ))}
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex items-end gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full min-w-0">
+                <form onSubmit={handleSubmit} className="flex items-end gap-2 max-w-4xl mx-auto w-full min-w-0">
                   {/* Hidden Image Input */}
                   <input
                     type="file"
@@ -2211,7 +2211,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`p-2.5 sm:p-3 rounded-2xl transition-all cursor-pointer shrink-0 border ${
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer shrink-0 border touch-target-min ${
                       selectedImage
                         ? 'bg-indigo-600 text-white border-indigo-400 shadow-md ring-2 ring-indigo-400/50'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
@@ -2222,14 +2222,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </button>
 
                   {/* Expandable Textarea */}
-                  <div className="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus-within:border-indigo-500 rounded-2xl p-1.5 sm:p-2 transition-all">
+                  <div className="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus-within:border-orange-500/80 focus-within:ring-2 focus-within:ring-orange-500/20 rounded-2xl p-2 transition-all">
                     <textarea
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={selectedImage ? "Descreva ou pergunte algo sobre esta imagem..." : "Converse com a Vigia..."}
                       rows={1}
-                      className="w-full bg-transparent text-white text-xs sm:text-sm placeholder:text-slate-500 focus:outline-none resize-none max-h-24 sm:max-h-28 min-h-[36px] min-w-0"
+                      className="w-full bg-transparent text-white text-xs sm:text-sm placeholder:text-slate-500 focus:outline-none resize-none max-h-24 sm:max-h-28 min-h-[36px] min-w-0 leading-relaxed font-medium"
                     />
                   </div>
 
@@ -2238,7 +2238,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <button
                       type="button"
                       onClick={handleInterruptSpeech}
-                      className="p-2.5 sm:p-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+                      className="w-11 h-11 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min"
                       title="Parar áudio da Vigia"
                     >
                       <VolumeX className="w-5 h-5 animate-pulse" />
@@ -2247,7 +2247,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <button
                       type="button"
                       onClick={toggleMicListening}
-                      className={`p-2.5 sm:p-3 rounded-2xl font-bold transition-all active:scale-95 cursor-pointer shrink-0 ${
+                      className={`w-11 h-11 rounded-2xl font-bold transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min ${
                         isListening
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
@@ -2262,7 +2262,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <button
                     type="submit"
                     disabled={!inputText.trim() || isLoading}
-                    className="p-2.5 sm:p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+                    className="w-11 h-11 btn-vigia-primary disabled:opacity-40 text-white transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min"
                     title="Enviar mensagem"
                   >
                     <Send className="w-5 h-5" />

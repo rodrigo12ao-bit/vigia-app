@@ -113,6 +113,155 @@
   .animate-avatar-serious {
     animation: avatar-serious 3s ease-in-out infinite;
   }
+
+  /* ----------------------------------------------------
+     DESIGN SYSTEM VIGIA — Tokens & Classes Reutilizáveis
+     ---------------------------------------------------- */
+
+  /* Suporte a scrollbar oculto mas funcional */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Alvo de toque mínimo para mobile / acessibilidade (44px) */
+  .touch-target-min {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-center: center;
+  }
+
+  /* Efeito Glassmorphism Padronizado */
+  .vigia-glass {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+  }
+
+  .vigia-glass-dark {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+  }
+
+  /* Padrões de Botões Vigia */
+  .btn-vigia-primary {
+    background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+    color: #FFFFFF;
+    font-weight: 800;
+    border-radius: 1rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+  }
+  .btn-vigia-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(234, 88, 12, 0.35);
+  }
+  .btn-vigia-primary:active {
+    transform: scale(0.96);
+  }
+
+  .btn-vigia-secondary {
+    background-color: #F1F5F9;
+    color: #334155;
+    font-weight: 700;
+    border-radius: 1rem;
+    border: 1px solid #E2E8F0;
+    transition: all 0.2s ease-in-out;
+  }
+  .btn-vigia-secondary:hover {
+    background-color: #E2E8F0;
+    color: #0F172A;
+  }
+  .btn-vigia-secondary:active {
+    transform: scale(0.96);
+  }
+
+  .btn-vigia-emergency {
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+    font-weight: 900;
+    border-radius: 1rem;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+    transition: all 0.2s ease-in-out;
+  }
+  .btn-vigia-emergency:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(220, 38, 38, 0.4);
+  }
+  .btn-vigia-emergency:active {
+    transform: scale(0.96);
+  }
+
+  .btn-vigia-pill {
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease-in-out;
+  }
+
+  /* Padrões de Cards Vigia */
+  .card-vigia-base {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 1.5rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    transition: all 0.2s ease-in-out;
+  }
+  .card-vigia-base:hover {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+
+  .card-vigia-highlight {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border: 1px solid #FDE68A;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.08);
+  }
+
+  .card-vigia-emergency {
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+    border: 1px solid #FCA5A5;
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.08);
+  }
+
+  /* Sombra Suave Gamificada */
+  .shadow-vigia-glow {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
+  }
+
+  /* Safe Area Helpers para Mobile (iOS Notch / Dynamic Island / Android Navigation Bar) */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .h-dvh {
+    height: 100dvh;
+  }
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+  .max-h-dvh {
+    max-height: 100dvh;
+  }
 }
+
+
 
 

@@ -15,7 +15,7 @@ if (process.env.NODE_ENV !== 'production') {
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const knowledgeBasePath = path.join(process.cwd(), 'src', 'data', 'conhecimento_defesa_civil.md');
 let VIGIA_KNOWLEDGE_BASE = '';
@@ -167,8 +167,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const candidateModels = [
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
+      'gemini-3.6-flash',
     ];
 
     const callConfig: any = {
@@ -240,7 +239,7 @@ app.post('/api/chat/stream', async (req, res) => {
 // API Chat Endpoint
 app.post('/api/chat', async (req, res) => {
     let contentsPrompt = '';
-    let modelUsed = 'gemini-2.5-flash';
+    let modelUsed = 'gemini-3.6-flash';
 
     try {
       const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
@@ -318,8 +317,7 @@ app.post('/api/chat', async (req, res) => {
 
       // Modelos oficiais de ultra-baixa latência (sem loops de espera artificiais)
       const candidateModels = [
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
+        'gemini-3.6-flash',
       ];
 
       let response: any = null;

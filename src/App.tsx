@@ -601,8 +601,8 @@ export default function App() {
   const unlockedBadgesCount = badges.filter((b) => b.unlocked).length;
 
   return (
-    <div className={`bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out ${
-      activeTab === 'chat' ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen'
+    <div className={`bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
+      activeTab === 'chat' ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh'
     }`}>
       {/* Header Navigation */}
       <Navbar

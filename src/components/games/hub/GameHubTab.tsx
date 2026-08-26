@@ -192,7 +192,7 @@ export default function GameHubTab({
         <section>
           <div className="flex items-center justify-between mb-4 mt-12">
             <h3 className="text-lg font-black text-white uppercase tracking-wider">
-              Treinamentos
+              Treinamentos & Missões
             </h3>
           </div>
           
@@ -200,32 +200,32 @@ export default function GameHubTab({
             {/* Trail */}
             <button 
               onClick={() => setActiveGame('trail')}
-              className="flex items-center justify-between p-5 bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/80 rounded-2xl transition-all group text-left"
+              className="flex items-center justify-between p-5 vigia-glass-dark border border-slate-800 hover:border-indigo-500/50 rounded-3xl transition-all group text-left touch-target-min cursor-pointer shadow-md"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 group-hover:scale-110 transition-transform shrink-0">
                   <MapIcon className="w-6 h-6 text-indigo-400" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-lg">Trilha do Conhecimento</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Missões e quizzes interativos</p>
+                  <h4 className="font-extrabold text-white text-lg">Trilha do Conhecimento</h4>
+                  <p className="text-xs text-slate-400 mt-0.5 font-medium">Missões e quizzes interativos</p>
                 </div>
               </div>
-              <ArrowRight className="w-5 h-5 text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all shrink-0" />
             </button>
 
             {/* Locked Game Example */}
             <button 
               disabled
-              className="flex items-center justify-between p-5 bg-slate-900/50 border border-slate-800/50 rounded-2xl opacity-60 cursor-not-allowed text-left"
+              className="flex items-center justify-between p-5 bg-slate-900/40 border border-slate-800/40 rounded-3xl opacity-50 cursor-not-allowed text-left touch-target-min"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center border border-slate-700 shrink-0">
                   <Gamepad2 className="w-6 h-6 text-slate-500" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-300 text-lg">Resgate Rápido</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">Em breve...</p>
+                  <h4 className="font-extrabold text-slate-400 text-lg">Resgate Rápido</h4>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Em breve...</p>
                 </div>
               </div>
             </button>

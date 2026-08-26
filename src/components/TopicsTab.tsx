@@ -84,22 +84,22 @@ export const TopicsTab: React.FC<TopicsTabProps> = ({ onAskDC, onSpeak }) => {
       </div>
 
       {/* Category Selection Grid/Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3.5 mb-6">
         {TOPICS_DATA.map((t) => {
           const isSelected = t.id === selectedTopicId;
           return (
             <button
               key={t.id}
               onClick={() => handleSelectTopic(t.id)}
-              className={`p-3.5 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center gap-2 transition-all border active:scale-95 shadow-xs ${
+              className={`p-3.5 rounded-2xl font-black text-xs sm:text-sm flex flex-col items-center gap-2 transition-all border active:scale-95 shadow-xs touch-target-min ${
                 isSelected
-                  ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white border-orange-500 shadow-md shadow-orange-500/20 scale-102'
-                  : 'bg-white hover:bg-orange-50/50 text-slate-700 border-slate-200/90 hover:border-orange-200'
+                  ? 'btn-vigia-primary shadow-md shadow-orange-500/20 scale-102 border-transparent'
+                  : 'card-vigia-base hover:border-orange-300 text-slate-800'
               }`}
             >
               <div
                 className={`p-2.5 rounded-2xl transition-colors ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-orange-100/80 text-orange-600'
+                  isSelected ? 'bg-white/20 text-white' : 'bg-orange-100/90 text-orange-600'
                 }`}
               >
                 {renderIcon(t.iconName)}
@@ -111,7 +111,7 @@ export const TopicsTab: React.FC<TopicsTabProps> = ({ onAskDC, onSpeak }) => {
       </div>
 
       {/* Main Topic Detail Card */}
-      <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 sm:p-8 shadow-xl">
+      <div className="card-vigia-base p-5 sm:p-8 shadow-xl">
         {/* Banner */}
         <div
           className={`bg-gradient-to-r ${topic.colorTheme} text-white p-6 rounded-2xl mb-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
