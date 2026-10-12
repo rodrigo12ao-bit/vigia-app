@@ -834,6 +834,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const toggleMicListening = () => {
+    if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if (isSpeaking) {
       handleInterruptSpeech();
     }
