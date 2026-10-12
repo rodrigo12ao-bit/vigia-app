@@ -5,17 +5,22 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type, Modality, StartSensitivity, EndSensitivity, ThinkingLevel } from '@google/genai';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
+import { installSecurity, allowedOrigin, consumeTicket, demoMode, identity, runtime } from './server/security';
+import { installSalaRoutes } from './server/sala';
+import {installLearningRoutes} from './server/learning';
+import {installAdventureRoutes,issuePracticeReceipt} from './server/adventure';
+import {installSchoolRoutes} from './server/school';
+import {installAlertRoutes} from './server/alerts';
+import {installPrivacyRoutes} from './server/privacy';
+import { isEmergency, emergencyReply, validQuiz, validScenario } from './server/safety';
 import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/prompts.js';
-
-// Bypasses local network SSL proxy issues for Google APIs — DEV ONLY
-if (process.env.NODE_ENV !== 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
+if (process.env.RENDER === 'true') app.set('trust proxy', 1);
 
 const knowledgeBasePath = path.join(process.cwd(), 'src', 'data', 'conhecimento_defesa_civil.md');
 let VIGIA_KNOWLEDGE_BASE = '';
@@ -26,14 +31,57 @@ try {
   console.error('Aviso: Base de conhecimento não encontrada em', knowledgeBasePath);
 }
 
-const INJECTED_KNOWLEDGE_PROMPT = `\n\n=== MANUAL OFICIAL DE DEFESA CIVIL ===\nVocê deve basear rigorosamente suas orientações factuais no manual abaixo:\n${VIGIA_KNOWLEDGE_BASE}\n=====================================\n`;
+const INJECTED_KNOWLEDGE_PROMPT = `\n\n=== BASE EDUCATIVA DE APOIO ===\nVocê deve basear rigorosamente suas orientações factuais no manual abaixo:\n${VIGIA_KNOWLEDGE_BASE}\n=====================================\n`;
 
 const VIGIA_LIVE_SYSTEM_INSTRUCTION = VIGIA_LIVE_BASE_PROMPT + INJECTED_KNOWLEDGE_PROMPT + "\n\nREGRA DE OURO COMPORTAMENTAL: Evite usar repetidamente as expressões 'Olha só', 'Criança incrível' ou 'Superpoder'. Seja concisa, direta e natural, usando no máximo 2 frases curtas. Não repita os mesmos bordões.";
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '2mb' }));
+
+// Rate limiting: protege as rotas de API contra abuso e esgotamento de cota do Gemini
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // janela de 1 minuto
+  max: demoMode ? 600 : 120, // máximo 30 requisições por IP por minuto
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    reply: 'Muitas requisições. Aguarde um momento e tente novamente.',
+    avatarState: 'serious',
+    interactiveOptions: ['Tentar novamente em instantes'],
+    suggestedFollowUps: [],
+  },
+
+});
+app.use('/api/', apiLimiter);
+installSecurity(app);
+const uidLimiter = rateLimit({ windowMs: 60000, limit: req=>/\/api\/(chat|analyze-scenario|generate-quiz|transcribe|speak|live-ticket)/.test(req.originalUrl)?(demoMode?120:20):(demoMode?300:120), keyGenerator: req => identity(req), standardHeaders: true, legacyHeaders: false });
+app.use('/api', uidLimiter);
+installSalaRoutes(app);
+installLearningRoutes(app);
+installAdventureRoutes(app);
+installSchoolRoutes(app);
+installAlertRoutes(app);
+installPrivacyRoutes(app);
+app.use('/api', (req, res, next) => {
+  if (['/chat','/analyze-scenario','/transcribe','/tts','/generate-quiz'].includes(req.path)) {
+    if (pendingRequests >= 8) return res.status(503).json({status:'unavailable',error:'Serviço ocupado. Tente novamente.'});
+    const b = req.body;
+    if (!b || Object.values(b).some(v => typeof v === 'string' && v.length > 250000) || (b.chatHistory && (!Array.isArray(b.chatHistory) || b.chatHistory.length > 100 || b.chatHistory.some((h: any) => !h || !['user','assistant'].includes(h.role) || typeof h.content !== 'string' || h.content.length > 10000))) || (b.image && (!['image/jpeg','image/png','image/webp'].includes(b.image.mimeType) || typeof b.image.data !== 'string' || b.image.data.length > 250000 || !/^[A-Za-z0-9+/=]+$/.test(b.image.data)))) return res.status(400).json({ error: 'Conteúdo inválido ou grande demais.' });
+    if (demoMode && req.headers['x-demo-failure'] === 'true') return res.status(503).json({ status: 'unavailable', error: 'Simulação de indisponibilidade.', demo: true });
+  }
+  next();
+});
+
 
 // Lazy initialization of Gemini client
 function getGenAI(apiVersion?: string) {
+  if (demoMode) return { models: { generateContent: async (request: any) => {
+    const schema = request.config?.responseSchema?.properties;
+    if (schema?.riskLevel) return { text: JSON.stringify({ riskLevel: 'Baixo', riskScore: 10, summary: 'SIMULAÇÃO: preparação preventiva com dados fictícios. Não é uma avaliação de risco real.', actionSteps: ['Organizar a mochila com um adulto', 'Revisar os caminhos seguros'], essentialKitItems: ['Água','Lanterna'], emergencyNumbersToCall: [], customQuiz: { question: 'Quem deve ajudar a preparar a mochila?', options: ['Um adulto','Ninguém','Só uma criança'], correctIndex: 0, explanation: 'Prepare a mochila com um adulto.' }, encouragement: 'Vamos aprender juntos.', demo: true }) };
+    if (schema?.question) return { text: JSON.stringify({ question: 'SIMULAÇÃO: quem ajuda na prevenção?', options: ['Um adulto','Ninguém','Somente uma criança'], correctIndex: 0, explanation: 'Peça ajuda a um adulto.', rewardStars: 10, demo: true }) };
+    if (schema?.reply) return { text: JSON.stringify({ reply: 'SIMULAÇÃO EDUCATIVA: prepare a mochila com um adulto. Separe água, lanterna, documentos protegidos e itens pessoais necessários. Esta resposta é um exemplo previamente definido.', avatarState: 'explaining', interactiveOptions: [], suggestedFollowUps: [], demo: true }) };
+    throw new Error('Serviço de áudio real desativado na demonstração.');
+  } } } as any;
+  if (process.env.ENABLE_REAL_AI !== 'true') throw new Error('IA real não habilitada.');
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY não configurada no ambiente.');
@@ -41,41 +89,19 @@ function getGenAI(apiVersion?: string) {
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
+      timeout: 20000,
       ...(apiVersion ? { apiVersion } : {}),
     },
   });
 }
 
-// GET /api/live-token - Gera token efêmero para conexão direta à Gemini Live API pelo navegador
-app.get('/api/live-token', async (req, res) => {
-  try {
-    const ai = getGenAI('v1alpha');
-    const tokenRes = await ai.authTokens.create({
-      config: {
-        uses: 1,
-      },
-    });
-    if (!tokenRes || !tokenRes.name) {
-      throw new Error('Não foi possível gerar token efêmero.');
-    }
-    return res.json({ token: tokenRes.name });
-  } catch (err: any) {
-    console.error('Erro ao gerar live-token:', err);
-    return res.status(500).json({ error: 'Erro ao gerar token para Live API', details: err?.message || String(err) });
-  }
-});
-
-// In-memory cache for common queries to preserve API quota
-const responseCache = new Map<string, any>();
-const MAX_CACHE_SIZE = 100;
-
 // Request queue to process requests sequentially with cooling delay (prevents rate-limit spikes)
 let requestQueue: Promise<void> = Promise.resolve();
+let pendingRequests = 0;
 
 function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
+  // HTTP admission is bounded before invoking queued work.
+  pendingRequests++;
   const previousQueue = requestQueue;
   let resolveCurrent: () => void;
   requestQueue = new Promise((resolve) => {
@@ -87,6 +113,7 @@ function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
       await previousQueue;
       return await fn();
     } finally {
+      pendingRequests--;
       resolveCurrent!();
     }
   })();
@@ -95,151 +122,10 @@ function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
 // System prompt for Vigia
 const VIGIA_SYSTEM_INSTRUCTION = VIGIA_TEXT_BASE_PROMPT + INJECTED_KNOWLEDGE_PROMPT;
 
-// API Chat Streaming Endpoint (Server-Sent Events)
-app.post('/api/chat/stream', async (req, res) => {
-  try {
-    const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
-
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Mensagem inválida.' });
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    const emergencyRegex = /\b(socorro|tem fogo|pegando fogo|inc[êe]ndio na|inc[êe]ndio aqui|t[áa] queimando|[áa]gua subindo|enchente aqui|enchente na|t[áa] inundando|alagou a|alagou aqui|fio ca[íi]do|soltando fa[íi]sca|tomei choque|levou choque|tomou choque|barranco caindo|deslizamento aqui|deslizamento na|machuquei|machucado grave|t[áa] sangrando|cortou.*fundo|me ajuda urgente|algu[éê]m desmaiou|emerg[êe]ncia)\b/i;
-
-    if (emergencyRegex.test(message)) {
-      const emergencyObj = {
-        reply: "[ALERTA DE SEGURANÇA] Por favor, pare o que está fazendo, afaste-se do perigo e CHAME UM ADULTO AGORA! Em emergências reais, peça para ligarem para o 199 (Defesa Civil) ou 193 (Bombeiros).",
-        avatarState: "alert",
-        topicIllustration: "geral",
-        challengeOrQuestion: "Você já conseguiu chamar um adulto para te ajudar?",
-        interactiveOptions: ["Já chamei um adulto!", "Ligar 199 ou 193"],
-        suggestedFollowUps: ["O que eu faço agora?"],
-        emergencyTip: "LIGUE 199 OU 193! Nunca tente resolver uma emergência sozinho."
-      };
-      res.write(`data: ${JSON.stringify(emergencyObj)}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      return res.end();
-    }
-
-    const ai = getGenAI();
-    const genderInstruction = avatarGender === 'male' ? 'Você é um tutor masculino chamado Vigia.' : 'Você é uma tutora feminina chamada Vigia.';
-    const userContext = `\nDADOS DA CRIANÇA:\n- Nome: ${nickname || 'Amigo(a)'}\n- Pontuação: ${starsScore || 0} estrelas\n- Emblemas conquistados: ${unlockedBadgesCount || 0}\n(Instrução: Trate a criança pelo nome de forma carinhosa, e se ela perguntar sobre pontos, elogie o progresso!)`;
-    const fullSystemInstruction = `${VIGIA_SYSTEM_INSTRUCTION}\n\n${genderInstruction} Trate a criança pelo nome (${nickname || 'Amigo(a)'}) de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
-
-    const contentsPayload: any[] = [];
-    if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-      const recentHistory = chatHistory.slice(-14);
-      for (const h of recentHistory) {
-        if (!h.content || typeof h.content !== 'string') continue;
-        const role = h.role === 'user' ? 'user' : 'model';
-        contentsPayload.push({
-          role,
-          parts: [{ text: h.content }],
-        });
-      }
-    }
-
-    if (image && image.data) {
-      contentsPayload.push({
-        role: 'user',
-        parts: [
-          {
-            inlineData: {
-              mimeType: image.mimeType || 'image/jpeg',
-              data: image.data,
-            },
-          },
-          {
-            text: `${message}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
-          },
-        ],
-      });
-    } else {
-      contentsPayload.push({
-        role: 'user',
-        parts: [{ text: message }],
-      });
-    }
-
-    const candidateModels = [
-      'gemini-3.6-flash',
-    ];
-
-    const callConfig: any = {
-      systemInstruction: fullSystemInstruction,
-      responseMimeType: 'application/json',
-      temperature: 0.7,
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.MINIMAL,
-      },
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          reply: { type: Type.STRING, description: 'Resposta rica em Markdown com negritos, tópicos e autoridade de especialista' },
-          avatarState: { type: Type.STRING },
-          topicIllustration: { type: Type.STRING },
-          challengeOrQuestion: { type: Type.STRING },
-          interactiveOptions: { type: Type.ARRAY, items: { type: Type.STRING } },
-          suggestedFollowUps: { type: Type.ARRAY, items: { type: Type.STRING } },
-          emergencyTip: { type: Type.STRING },
-        },
-        required: ['reply', 'avatarState'],
-      },
-    };
-
-    let streamSuccess = false;
-    for (const model of candidateModels) {
-      try {
-        const streamResult = await ai.models.generateContentStream({
-          model,
-          contents: contentsPayload,
-          config: callConfig,
-        });
-
-        for await (const chunk of streamResult) {
-          if (chunk.text) {
-            res.write(`data: ${JSON.stringify({ chunk: chunk.text })}\n\n`);
-          }
-        }
-        res.write(`data: [DONE]\n\n`);
-        res.end();
-        streamSuccess = true;
-        break;
-      } catch (err: any) {
-        console.warn(`[Stream] Modelo ${model} falhou:`, err?.message || String(err));
-      }
-    }
-
-    if (!streamSuccess) {
-      const fallbackObj = {
-        reply: 'A Vigia está temporariamente indisponível. Aguarde um momento e tente novamente.',
-        avatarState: 'serious',
-        topicIllustration: 'geral',
-      };
-      res.write(`data: ${JSON.stringify(fallbackObj)}\n\n`);
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    }
-  } catch (error: any) {
-    console.error('Erro no endpoint /api/chat/stream:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro ao processar streaming' });
-    } else {
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    }
-  }
-});
-
 // API Chat Endpoint
 app.post('/api/chat', async (req, res) => {
     let contentsPrompt = '';
-    let modelUsed = 'gemini-3.6-flash';
+    let modelUsed = 'gemini-3.5-flash-lite';
 
     try {
       const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
@@ -248,76 +134,48 @@ app.post('/api/chat', async (req, res) => {
         return res.status(400).json({ error: 'Mensagem inválida.' });
       }
 
-      // Verificação Determinística de Segurança (Fallback de Emergência)
-      const emergencyRegex = /\b(socorro|tem fogo|pegando fogo|inc[êe]ndio na|inc[êe]ndio aqui|t[áa] queimando|[áa]gua subindo|enchente aqui|enchente na|t[áa] inundando|alagou a|alagou aqui|fio ca[íi]do|soltando fa[íi]sca|tomei choque|levou choque|tomou choque|barranco caindo|deslizamento aqui|deslizamento na|machuquei|machucado grave|t[áa] sangrando|cortou.*fundo|me ajuda urgente|algu[éê]m desmaiou|emerg[êe]ncia)\b/i;
-      
-      if (emergencyRegex.test(message)) {
-        return res.json({
-          reply: "[ALERTA DE SEGURANÇA] Por favor, pare o que está fazendo, afaste-se do perigo e CHAME UM ADULTO AGORA! Em emergências reais, peça para ligarem para o 199 (Defesa Civil) ou 193 (Bombeiros).",
-          avatarState: "alert",
-          topicIllustration: "geral",
-          challengeOrQuestion: "Você já conseguiu chamar um adulto para te ajudar?",
-          interactiveOptions: ["Já chamei um adulto!", "Ligar 199 ou 193"],
-          suggestedFollowUps: ["O que eu faço agora?"],
-          emergencyTip: "LIGUE 199 OU 193! Nunca tente resolver uma emergência sozinho.",
-          debugInfo: {
-            modelUsed: "local-fallback",
-            promptSent: "N/A - Interceptado localmente",
-            rawResponse: "Resposta gerada por regra determinística no servidor",
-            error: null,
-            status: "Sucesso (Fallback de Segurança)"
-          }
-        });
-      }
-
+      if (isEmergency(message)) return res.json(emergencyReply);
       const ai = getGenAI();
       const genderInstruction = avatarGender === 'male' ? 'Você é um tutor masculino chamado Vigia.' : 'Você é uma tutora feminina chamada Vigia.';
       const userContext = `\nDADOS DA CRIANÇA:\n- Nome: ${nickname || 'Amigo(a)'}\n- Pontuação: ${starsScore || 0} estrelas\n- Emblemas conquistados: ${unlockedBadgesCount || 0}\n(Instrução: Trate a criança pelo nome de forma carinhosa, e se ela perguntar sobre pontos, elogie o progresso!)`;
 
-      const fullSystemInstruction = `${VIGIA_SYSTEM_INSTRUCTION}\n\n${genderInstruction} Trate a criança pelo nome (${nickname || 'Amigo(a)'}) de forma clara, acolhedora e natural, focando em responder diretamente à dúvida enviada.\n${userContext}`;
-
-      // Monta histórico de mensagens no formato estruturado nativo da SDK (@google/genai)
-      const contentsPayload: any[] = [];
+      const readingInstructions:Record<string,string>={basic:'Use palavras familiares e uma ideia por frase. Evite termos técnicos.',standard:'Explique com frases curtas e exemplos concretos.',advanced:'Inclua o motivo das orientações e cite apenas as fontes presentes na base. Não invente links ou referências.'};
+      const readingInstruction=readingInstructions[['basic','standard','advanced'].includes(req.body.readingLevel)?req.body.readingLevel:'standard'];
+      const baseInstruction = `[PERSONALIDADE ACOLHEDORA]: ${genderInstruction} Seja uma tutora educativa, acolhedora e clara. Use linguagem simples, respostas curtas e uma orientação por vez. Explique que é uma IA quando pertinente; nunca incentive dependência emocional, segredo em relação a adultos ou vínculo exclusivo.\n${userContext}\n${readingInstruction}`;
 
       if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-        // Seleciona até 14 mensagens recentes da conversa real
-        const recentHistory = chatHistory.slice(-14);
-        for (const h of recentHistory) {
-          if (!h.content || typeof h.content !== 'string') continue;
-          const role = h.role === 'user' ? 'user' : 'model';
-          contentsPayload.push({
-            role,
-            parts: [{ text: h.content }],
-          });
-        }
-      }
-
-      // Adiciona a mensagem atual do usuário ao final da estrutura
-      if (image && image.data) {
-        contentsPayload.push({
-          role: 'user',
-          parts: [
-            {
-              inlineData: {
-                mimeType: image.mimeType || 'image/jpeg',
-                data: image.data,
-              },
-            },
-            {
-              text: `${message}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
-            },
-          ],
-        });
+        const recentHistory = chatHistory
+          .slice(-30)
+          .map((h: any) => `${h.role === 'user' ? (nickname || 'Criança') : 'Vigia'}: ${h.content}`)
+          .join('\n');
+        contentsPrompt = `${baseInstruction}\n\nHistórico recente da conversa:\n${recentHistory}\n\nMensagem atual de ${nickname || 'Criança'}: "${message}"`;
       } else {
-        contentsPayload.push({
-          role: 'user',
-          parts: [{ text: message }],
-        });
+        contentsPrompt = `${baseInstruction}\n\nMensagem da criança para a Vigia: "${message}"`;
       }
 
-      // Modelos oficiais de ultra-baixa latência (sem loops de espera artificiais)
+      // Prepare contents payload (text only or image + text)
+      let contentsPayload: any;
+      if (image && image.data) {
+        contentsPayload = [
+          {
+            inlineData: {
+              mimeType: image.mimeType || 'image/jpeg',
+              data: image.data,
+            },
+          },
+          {
+            text: `${contentsPrompt}\n\n[ATENÇÃO DA TUTORA VIGIA]: A criança anexou uma foto/imagem para ser analisada. Analise detalhadamente os elementos visuais na foto e oriente sobre segurança, riscos ou prevenção de forma amigável e acolhedora.`,
+          },
+        ];
+      } else {
+        contentsPayload = contentsPrompt;
+      }
+
+      // Candidate models: prefer flash-lite for extreme speed, fallback to flash
       const candidateModels = [
-        'gemini-3.6-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-flash-latest'
       ];
 
       let response: any = null;
@@ -325,92 +183,99 @@ app.post('/api/chat', async (req, res) => {
       let isRateLimited = false;
 
       for (const model of candidateModels) {
-        try {
-          modelUsed = model;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            modelUsed = model;
 
-          const callConfig: any = {
-            systemInstruction: fullSystemInstruction,
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            thinkingConfig: {
-              thinkingLevel: ThinkingLevel.MINIMAL,
-            },
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                reply: { type: Type.STRING, description: 'Resposta rica, bem estruturada em Markdown com negritos, tópicos e autoridade de especialista em Defesa Civil' },
-                avatarState: {
-                  type: Type.STRING,
-                  description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
+            const callConfig: any = {
+              systemInstruction: VIGIA_SYSTEM_INSTRUCTION,
+              responseMimeType: 'application/json',
+              temperature: 0.7,
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  reply: { type: Type.STRING, description: 'Resposta curta, acolhedora e pausada da Vigia em pt-BR' },
+                  avatarState: {
+                    type: Type.STRING,
+                    description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
+                  },
+                  topicIllustration: {
+                    type: Type.STRING,
+                    description: 'Ilustração temática relevante ao assunto falado: enchentes, deslizamentos, tempestades, incendios, mochila, numeros, ou geral',
+                  },
+                  challengeOrQuestion: {
+                    type: Type.STRING,
+                    description: 'Pergunta curta ou pequeno desafio educativo',
+                  },
+                  interactiveOptions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: '2 a 3 opções dinâmicas de continuação (ex: Fazer missão, Ouvir história, Continuar)',
+                  },
+                  suggestedFollowUps: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: '2 a 3 perguntas curtas sugeridas',
+                  },
+                  emergencyTip: {
+                    type: Type.STRING,
+                    description: 'Lembrete de segurança em emergências com adulto responsável',
+                  },
                 },
-                topicIllustration: {
-                  type: Type.STRING,
-                  description: 'Ilustração temática relevante ao assunto falado: enchentes, deslizamentos, tempestades, incendios, mochila, numeros, ou geral',
-                },
-                challengeOrQuestion: {
-                  type: Type.STRING,
-                  description: 'Pergunta curta ou pequeno desafio educativo',
-                },
-                interactiveOptions: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: '2 a 3 opções dinâmicas de continuação (ex: Fazer missão, Ouvir história, Continuar)',
-                },
-                suggestedFollowUps: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: '2 a 3 perguntas curtas sugeridas',
-                },
-                emergencyTip: {
-                  type: Type.STRING,
-                  description: 'Lembrete de segurança em emergências com adulto responsável',
-                },
+                required: ['reply', 'avatarState', 'interactiveOptions', 'suggestedFollowUps'],
               },
-              required: ['reply', 'avatarState'],
-            },
-          };
+            };
 
-          response = await ai.models.generateContent({
-            model: modelUsed,
-            contents: contentsPayload,
-            config: callConfig,
-          });
+            response = await ai.models.generateContent({
+              model: modelUsed,
+              contents: contentsPayload,
+              config: callConfig,
+            });
 
-          if (response && response.text) {
-            lastModelError = '';
-            isRateLimited = false;
-            break; // Sucesso imediato
+            if (response && response.text) {
+              lastModelError = '';
+              isRateLimited = false;
+              break; // Successfully got response
+            }
+          } catch (err: any) {
+            lastModelError = err?.message || String(err);
+            const is429 = lastModelError.includes('429') || lastModelError.includes('RESOURCE_EXHAUSTED') || lastModelError.includes('Quota exceeded');
+            if (is429) {
+              isRateLimited = true;
+              console.warn(`Modelo ${model} retornou 429 (tentativa ${attempt + 1}). Aguardando 1.5s...`);
+              await new Promise((r) => setTimeout(r, 1500));
+            } else {
+              console.warn('Modelo de IA indisponível.');
+              break;
+            }
           }
-        } catch (err: any) {
-          lastModelError = err?.message || String(err);
-          const is429 = lastModelError.includes('429') || lastModelError.includes('RESOURCE_EXHAUSTED') || lastModelError.includes('Quota exceeded');
-          if (is429) {
-            isRateLimited = true;
-            console.warn(`Modelo ${model} retornou 429. Alternando imediatamente para o modelo de reserva...`);
-          } else {
-            console.warn(`Modelo ${model} falhou com erro:`, lastModelError);
-          }
+        }
+
+        if (response && response.text) {
+          break;
         }
       }
 
       // If all models hit rate limits / quota zero or failed
       if (!response || !response.text) {
         const quotaMessage = 'A Vigia está temporariamente indisponível. Aguarde um momento e tente novamente.';
-        return res.json({
-          reply: quotaMessage,
+        return res.status(503).json({
+          status: 'unavailable', reply: quotaMessage,
           avatarState: 'serious',
           topicIllustration: 'geral',
           challengeOrQuestion: 'Quer tentar me perguntar de novo em alguns instantes?',
           interactiveOptions: ['Tentar novamente em instantes', 'Ver Dicas de Segurança'],
           suggestedFollowUps: ['O que é uma enchente?', 'O que vai na mochila de emergência?'],
           emergencyTip: 'Em caso de emergência, avise um adulto e ligue 199 (Defesa Civil) ou 193 (Bombeiros)!',
-          debugInfo: {
-            modelUsed: candidateModels.join(', '),
-            promptSent: contentsPrompt,
-            rawResponse: 'Cota de API excedida (429)',
-            error: lastModelError || 'Limite de cota de API atingido (429)',
-            status: isRateLimited ? 'Cota Excedida (429)' : 'Erro de Modelo',
-          },
+          ...(process.env.EXPOSE_DEBUG === 'true' && !process.env.NODE_ENV && {
+            debugInfo: {
+              modelUsed: candidateModels.join(', '),
+              promptSent: contentsPrompt,
+              rawResponse: 'Cota de API excedida (429)',
+              error: lastModelError || 'Limite de cota de API atingido (429)',
+              status: isRateLimited ? 'Cota Excedida (429)' : 'Erro de Modelo',
+            },
+          }),
         });
       }
 
@@ -422,49 +287,45 @@ app.post('/api/chat', async (req, res) => {
           cleanJson = cleanJson.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '').trim();
         }
         parsedData = JSON.parse(cleanJson);
-      } catch (e) {
-        parsedData = {
-          reply: rawText || 'Boa pergunta! Vamos aprender juntos sobre prevenção e Defesa Civil.',
-          avatarState: 'speaking',
-          challengeOrQuestion: 'Você quer que eu explique com um exemplo do dia a dia?',
-          interactiveOptions: ['Explicar de forma simples', 'Fazer um desafio rápido', 'Continuar conversando'],
-          suggestedFollowUps: ['O que é uma enchente?', 'Por que não posso brincar na água da enchente?', 'O que vai na mochila de emergência?'],
-          emergencyTip: 'Em caso de emergência com chuva forte, avise um adulto e ligue 199 ou 193!',
-        };
-      }
+      } catch { throw new Error('Resposta inválida da IA.'); }
+      if (!parsedData || ['emergencyTip','challengeOrQuestion','topicIllustration'].some(k=>parsedData[k]!==undefined && typeof parsedData[k]!=='string'))throw new Error('Resposta inválida da IA.');
+      if (!parsedData || typeof parsedData.reply !== 'string' || parsedData.reply.length > 10000 || !['idle','listening','thinking','speaking','explaining','asking','celebrating','serious','closing','alert'].includes(parsedData.avatarState) || !Array.isArray(parsedData.interactiveOptions) || !Array.isArray(parsedData.suggestedFollowUps) || [...parsedData.interactiveOptions,...parsedData.suggestedFollowUps].some(v => typeof v !== 'string')) throw new Error('Resposta inválida da IA.');
 
-      // Resposta processada e retornada dinamicamente sem cache estático
       return res.json({
         ...parsedData,
-        debugInfo: {
-          modelUsed,
-          promptSent: contentsPrompt,
-          rawResponse: rawText,
-          error: null,
-          status: 'Sucesso',
-        },
+        ...(process.env.EXPOSE_DEBUG === 'true' && !process.env.NODE_ENV && {
+          debugInfo: {
+            modelUsed,
+            promptSent: contentsPrompt,
+            rawResponse: rawText,
+            error: null,
+            status: 'Sucesso',
+          },
+        }),
       });
     } catch (error: any) {
-      console.error('Erro detalhado na API /api/chat:', error);
+      console.error('Chat indisponível.');
       const errorMessage = error?.message || String(error);
       const is429Err = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Quota exceeded');
       const finalReply = is429Err
         ? 'A Vigia está temporariamente indisponível. Aguarde um momento e tente novamente.'
-        : `Tive um imprevisto técnico ao consultar o Gemini: ${errorMessage}. Por favor, tente perguntar novamente!`;
+        : 'A IA está indisponível. Tente novamente mais tarde.';
       return res.status(500).json({
-        error: `Erro ao chamar Gemini API (${modelUsed}): ${errorMessage}`,
+        status: 'unavailable', error: 'Serviço de IA indisponível.',
         reply: finalReply,
         avatarState: 'serious',
         interactiveOptions: ['Tentar novamente', 'Perguntar sobre enchentes'],
         suggestedFollowUps: ['O que é uma enchente?', 'O que fazer em emergências?'],
         emergencyTip: 'Em perigo real, avise um adulto responsável e ligue 199 para a Defesa Civil ou 193 para os Bombeiros!',
-        debugInfo: {
-          modelUsed,
-          promptSent: contentsPrompt,
-          rawResponse: '',
-          error: errorMessage,
-          status: is429Err ? 'Cota Excedida (429)' : 'Erro',
-        },
+        ...(process.env.EXPOSE_DEBUG === 'true' && !process.env.NODE_ENV && {
+          debugInfo: {
+            modelUsed,
+            promptSent: contentsPrompt,
+            rawResponse: '',
+            error: errorMessage,
+            status: is429Err ? 'Cota Excedida (429)' : 'Erro',
+          },
+        }),
       });
     }
 });
@@ -512,18 +373,19 @@ app.post('/api/transcribe', async (req, res) => {
         break;
       } catch (err: any) {
         lastError = err?.message || String(err);
-        console.warn(`Tentativa de transcrição com modelo ${model} falhou:`, lastError);
+        console.warn('Transcrição indisponível.');
       }
     }
 
     if (lastError && !transcribedText) {
-      console.error('[Transcrição] Erro detalhado da transcrição:', lastError);
+      console.error('Transcrição indisponível.');
     }
 
-    return res.json({ text: transcribedText });
+    if (lastError) return res.status(503).json({ status: 'unavailable', error: 'Transcrição indisponível.' });
+    return res.json({ text: transcribedText, status: transcribedText ? 'ok' : 'no_speech' });
   } catch (err: any) {
-    console.error('[Transcrição] Erro na API /api/transcribe:', err);
-    return res.status(500).json({ error: 'Erro ao processar transcrição', details: err?.message || String(err) });
+    console.error('Transcrição indisponível.');
+    return res.status(500).json({ error: 'Erro ao processar transcrição', status: 'unavailable' });
   }
 });
 
@@ -579,6 +441,7 @@ app.post('/api/analyze-scenario', async (req, res) => {
         return res.status(400).json({ error: 'Cenário não informado.' });
       }
 
+      if (isEmergency(scenario)) return res.json({ ...emergencyReply, summary: emergencyReply.reply });
       const ai = getGenAI();
       const prompt = `Analise este cenário de risco/emergência descrito por uma criança ou família e gere um plano de ação educativo e amigável:
 Cenário: "${scenario}"
@@ -589,7 +452,7 @@ Gere uma resposta em JSON com:
 - riskLevel: "Baixo", "Médio" ou "Alto"
 - riskScore: número de 1 a 100
 - summary: resumo amigável em 2 frases
-- actionSteps: array com 3 a 5 passos de ação preventivos e seguros (ex: ir para lugar alto, avisar adulto, desligar chave de luz)
+- actionSteps: array com 3 a 5 passos seguros. Crianças devem afastar-se do perigo com segurança e avisar um adulto; nunca mande tocar em eletricidade, atravessar água ou enfrentar o perigo.
 - essentialKitItems: array com 3 a 4 itens essenciais da mochila de emergência para este caso
 - emergencyNumbersToCall: array de números relevantes ex: ["199 (Defesa Civil)", "193 (Bombeiros)"]
 - customQuiz: objeto com { question: "pergunta curta de teste", options: ["op1", "op2", "op3"], correctIndex: número (0, 1 ou 2), explanation: "explicação curta" }
@@ -629,29 +492,12 @@ Gere uma resposta em JSON com:
       });
 
       const parsed = JSON.parse(response.text || '{}');
-      return res.json(parsed);
+      if (!validScenario(parsed)) throw new Error('Resposta inválida.');
+      const rewardToken=await issuePracticeReceipt(res.locals.uid,res.locals.firebaseUser,'scenario',parsed.customQuiz.correctIndex,20);
+      return res.json({ ...parsed, rewardToken, status: 'ok' });
     } catch (err: any) {
-      console.error('Erro em /api/analyze-scenario:', err);
-      return res.json({
-        riskLevel: 'Médio',
-        riskScore: 50,
-        summary: 'Sempre que houver dúvida ou risco de tempestade ou inundação, a principal regra é avisar um adulto de confiança!',
-        actionSteps: [
-          'Avisar um adulto responsável imediatamente',
-          'Procurar um local alto e coberto',
-          'Não tocar em tomadas ou aparelhos elétricos molhados',
-          'Ligar para 199 (Defesa Civil) ou 193 (Bombeiros)',
-        ],
-        essentialKitItems: ['Garrafa de água', 'Lanterna com pilhas', 'Apito de emergência', 'Documentos em saco plástico'],
-        emergencyNumbersToCall: ['199 (Defesa Civil)', '193 (Bombeiros)'],
-        customQuiz: {
-          question: 'O que você deve fazer em primeiro lugar em qualquer situação de emergência?',
-          options: ['Tentar resolver sozinho', 'Avisar um adulto responsável imediatamente', 'Esperar a chuva passar sem falar nada'],
-          correctIndex: 1,
-          explanation: 'Avisar um adulto responsável é sempre a primeira e mais importante atitude de segurança!',
-        },
-        encouragement: 'Você está no caminho certo para ser um Super Protetor da Defesa Civil!',
-      });
+      console.error('Análise indisponível.');
+      return res.status(503).json({ status: 'unavailable', error: 'Análise indisponível. Nenhuma classificação de risco foi calculada.' });
     }
   });
 });
@@ -667,7 +513,7 @@ Tema solicitado: "${topic || 'Prevenção Geral'}"
 Nível de dificuldade: "${difficulty || 'fácil'}"
 
 Gere uma resposta em JSON com:
-- question: pergunta clara para criança de 8 a 12 anos
+- question: pergunta clara para criança de 6 a 14 anos
 - options: array com exatamente 3 opções de resposta
 - correctIndex: índice da resposta correta (0, 1 ou 2)
 - explanation: explicação educativa e encorajadora do porquê está certa
@@ -695,46 +541,60 @@ Gere uma resposta em JSON com:
       });
 
       const parsed = JSON.parse(response.text || '{}');
-      return res.json({ id: 'ai_' + Date.now(), ...parsed });
+      if(!validQuiz(parsed) || ![10,15,20].includes(parsed.rewardStars)) throw new Error('Quiz inválido.');
+      const rewardToken=await issuePracticeReceipt(res.locals.uid,res.locals.firebaseUser,'quiz',parsed.correctIndex,parsed.rewardStars);
+      return res.json({ id: rewardToken, ...parsed, rewardToken });
     } catch (err: any) {
-      console.error('Erro em /api/generate-quiz:', err);
-      return res.json({
-        id: 'ai_fallback_' + Date.now(),
-        question: 'Qual é o número correto para ligar para a Defesa Civil em caso de emergência por chuvas forte?',
-        options: ['199', '190', '192'],
-        correctIndex: 0,
-        explanation: 'O número 199 é a linha direta gratuita da Defesa Civil para emergências ambientais e chuvas!',
-        rewardStars: 15,
-      });
+      console.error('Quiz indisponível.');
+      return res.status(503).json({status:'unavailable',error:'Quiz de IA indisponível. Use as atividades educativas da Jornada.'});
     }
   });
 });
 
 async function startServer() {
+  app.use((error:any,_req:any,res:any,_next:any)=>res.status(error.status && error.status<500?error.status:503).json({status:'unavailable',error:error.type==='entity.too.large'?'Conteúdo grande demais.':'Não foi possível processar a solicitação.'}));
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
+    app.use((req,res,next)=>{if(/^\/(?:server\.|server\/|artifacts\/|\.env|\.git|firebase.*json|firestore.*|dist\/server)/.test(req.path))return res.status(404).end();next();});
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), 'dist', ...(process.env.VIGIA_PUBLICATION_BUILD==='true'?['publication']:[]), 'public');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      if (req.path.startsWith('/api') || /\.[a-z0-9]+$/i.test(req.path)) return res.status(404).end();
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, runtime.host, () => {
     console.log(`DC Assistente rodando em http://localhost:${PORT}`);
   });
 
-  const wss = new WebSocketServer({ server, path: '/api/live-ws' });
+  const wss = new WebSocketServer({ server, path: '/api/live-ws', maxPayload: 65536, verifyClient: info => {
+    if (!allowedOrigin(info.origin)) return false;
+    const ticket = new URL(info.req.url!, 'http://localhost').searchParams.get('ticket');
+    const uid = ticket && consumeTicket(ticket);
+    if (!uid) return false;
+    (info.req as any).vigiaUid = uid;
+    return true;
+  } });
 
+  const liveCounts = new Map<string, number>();
   wss.on('connection', async (ws, req) => {
+    const uid = (req as any).vigiaUid;
+    if (wss.clients.size > 10 || liveCounts.has(uid)) { ws.close(1008, 'Limite de sessões'); return; }
+    liveCounts.set(uid, 1);
+    const lifetime = setTimeout(() => ws.close(1000, 'Tempo de sessão encerrado'), 5 * 60 * 1000);
+    ws.once('close', () => { clearTimeout(lifetime); liveCounts.delete(uid); });
+    if (demoMode || process.env.ENABLE_REAL_AI !== 'true') { ws.send(JSON.stringify({type:'error', message:'Voz ao vivo indisponível neste ambiente. Use texto ou os conteúdos educativos.'})); ws.close(); return; }
     console.log('[Live WS Proxy] Cliente conectado');
     let session: any = null;
     let clientClosed = false;
+    let turnInput='',turnOutput='';
+    let turnAudio:string[]=[];
 
     // Registra o fechamento antes do await de ai.live.connect. Sem isso, uma troca
     // rápida Texto/Voz pode fechar o browser enquanto o servidor ainda conecta,
@@ -756,7 +616,7 @@ async function startServer() {
     
     let dynamicSystemInstruction = VIGIA_LIVE_SYSTEM_INSTRUCTION;
     if (isEscapeGame) {
-       dynamicSystemInstruction += `\nCONTEXTO ATUAL: O usuário está em um JOGO 3D DE TREINAMENTO (ESCAPE). Ele é um agente da Defesa Civil e você é a "Vigia", um drone IA flutuante. VOCÊ É ONISCIENTE SOBRE O JOGO.
+       dynamicSystemInstruction += `\nCONTEXTO ATUAL: O usuário está em um JOGO 3D DE TREINAMENTO (ESCAPE). Ele é um agente da Defesa Civil e você é a "Vigia", um drone IA flutuante. Use apenas o estado informado do jogo. Se faltar informação, diga que não sabe.
 Controles que você deve ensinar se ele perguntar:
 - WASD/Setas: Andar
 - Shift: Correr
@@ -769,7 +629,6 @@ Controles que você deve ensinar se ele perguntar:
 - 1 a 4: Usar inventário.
 Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventário (fornecidos nos updates) e dê instruções claras e imersivas!`;
     }
-    dynamicSystemInstruction += `\n[IDIOMA E TRANSCRIÇÃO OBRIGATÓRIA]: VOCÊ E TODAS AS TRANSCRIÇÕES (ENTRADA E SAÍDA) DEVEM OPERAR EXCLUSIVAMENTE EM PORTUGUÊS DO BRASIL (pt-BR). É ESTRITAMENTE PROIBIDO TRANSCREVER OU GERAR QUALQUER PALAVRA EM INGLÊS, ESPANHOL OU OUTRO IDIOMA. SE O ÁUDIO CONTIVER RUÍDO OU AMBIGUIDADE, TRANSCREVA APENAS EM PORTUGUÊS OU MANTENHA SILÊNCIO.`;
 
     try {
       const liveModel = 'gemini-3.1-flash-live-preview';
@@ -789,8 +648,10 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
           realtimeInputConfig: {
             automaticActivityDetection: {
               disabled: false,
-              prefixPaddingMs: 20,
-              silenceDurationMs: 450,
+              startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
+              endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+              prefixPaddingMs: 40,
+              silenceDurationMs: 650,
             },
           },
           speechConfig: {
@@ -823,13 +684,19 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
           onmessage: (msg: any) => {
             if (ws.readyState !== ws.OPEN) return;
             const content = msg.serverContent;
+            if(content?.inputTranscription?.text)turnInput=(turnInput+' '+content.inputTranscription.text).slice(-4000);
+            if (isEmergency(turnInput)) {
+              ws.send(JSON.stringify({ type: 'emergency', text: emergencyReply.reply }));
+              session?.close(); ws.close(); return;
+            }
             if (content?.inputTranscription?.text) {
               ws.send(JSON.stringify({ type: 'input_transcription', text: content.inputTranscription.text }));
             }
             if (content?.outputTranscription?.text) {
-              ws.send(JSON.stringify({ type: 'output_transcription', text: content.outputTranscription.text }));
+              turnOutput=(turnOutput+' '+content.outputTranscription.text).slice(-10000);
             }
             if (content?.interrupted) {
+              turnInput='';turnOutput='';turnAudio=[];
               ws.send(JSON.stringify({ type: 'interrupted' }));
             }
             if (content?.modelTurn?.parts) {
@@ -837,11 +704,15 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
                 if (part.inlineData?.data) {
                   // Log when server gets audio from Gemini
                   // console.log(`[TELEMETRIA-BACKEND] ${Date.now()}ms - T_SRV_AUDIO_FROM_GEMINI e T_SRV_AUDIO_TO_CLIENT`);
-                  ws.send(JSON.stringify({ type: 'audio_chunk', pcmBase64: part.inlineData.data }));
+                  turnAudio.push(part.inlineData.data);
+                  if(turnAudio.reduce((n,a)=>n+a.length,0)>2000000){ws.close(1008,'Resposta grande demais');return;}
                 }
               }
             }
             if (content?.turnComplete) {
+              if(turnOutput)ws.send(JSON.stringify({type:'output_transcription',text:turnOutput}));
+              for(const chunk of turnAudio)ws.send(JSON.stringify({type:'audio_chunk',pcmBase64:chunk}));
+              turnInput='';turnOutput='';turnAudio=[];
               console.log(`[TELEMETRIA-BACKEND] ${Date.now()}ms - T_SRV_TURN_END (Gemini confirmou fim do turno)`);
               ws.send(JSON.stringify({ type: 'turn_complete' }));
             }
@@ -863,7 +734,10 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
 
       let firstAudioReceived = false;
 
+      let windowStart = Date.now(), frames = 0;
       ws.on('message', (data: any) => {
+        if (Date.now() - windowStart > 1000) { windowStart = Date.now(); frames = 0; }
+        if (++frames > 60) { ws.close(1008, 'Limite de mensagens'); return; }
         try {
           const payload = JSON.parse(data.toString());
           if (payload.type === 'realtime_audio' && payload.pcmBase64 && session) {
@@ -878,13 +752,15 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
               },
             });
           } else if (payload.type === 'realtime_text' && typeof payload.text === 'string' && session) {
+            if (payload.text.length > 4000) { ws.close(1008); return; }
+            if (isEmergency(payload.text)) { ws.send(JSON.stringify({type:'emergency',text:emergencyReply.reply})); session.close(); ws.close(); return; }
             session.sendRealtimeInput({ text: payload.text });
           } else if (payload.type === 'audio_stream_end' && session) {
             session.sendRealtimeInput({ audioStreamEnd: true });
             firstAudioReceived = false;
           }
         } catch (e) {
-          console.error('[Live WS Proxy] Erro ao processar mensagem do cliente:', e);
+          console.error('[Live WS Proxy] Mensagem inválida.');
         }
       });
 
@@ -904,4 +780,4 @@ Se o jogador perguntar o que fazer, analise o objetivo, o XP atual e o inventár
   });
 }
 
-startServer();
+startServer().catch(()=>{console.error('Falha ao iniciar o servidor.');process.exitCode=1;});

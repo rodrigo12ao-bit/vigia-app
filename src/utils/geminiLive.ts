@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import { AvatarState } from '../types';
 
 type LiveState =
@@ -79,7 +80,6 @@ export interface GeminiLiveCallbacks {
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
   onInputLevel?: (rms: number) => void;
-  onOutputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onClose?: () => void;
 }
@@ -96,8 +96,6 @@ export class GeminiLiveSession {
   private mediaStream: MediaStream | null = null;
   private processorNode: AudioNode | null = null;
   private mediaSourceNode: MediaStreamAudioSourceNode | null = null;
-  private outputAnalyserNode: AnalyserNode | null = null;
-  private outputMonitorTimer: number | null = null;
   private callbacks: GeminiLiveCallbacks;
 
   private state: LiveState = 'idle';
@@ -110,15 +108,11 @@ export class GeminiLiveSession {
   private outputContextTracked = false;
   private streamTracked = false;
 
-  private readonly MAX_ACTIVE_SOURCES = 300;
   private nextPlayTime = 0;
   private activeSources: ActiveSource[] = [];
   private generation = 0;
   private hasReceivedFirstAudioChunk = false;
   private serverTurnComplete = false;
-  private isInterruptedThisTurn = false;
-  private isInitialGreeting = true;
-  private isMuted = false;
   private pcmBuffer: number[] = [];
   private lastInputLevelEmit = 0;
 
@@ -133,9 +127,6 @@ export class GeminiLiveSession {
     const token = ++this.sessionToken;
     this.stopped = false;
     this.cleanupDone = false;
-    this.isInitialGreeting = true;
-    this.isInterruptedThisTurn = false;
-    this.pcmBuffer = [];
     this.setState('connecting');
 
     this.startPromise = this.startInternal(token).finally(() => {
@@ -156,13 +147,6 @@ export class GeminiLiveSession {
         return;
       }
       this.outputAudioCtx = outputCtx;
-      
-      const analyser = outputCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.4;
-      analyser.connect(outputCtx.destination);
-      this.outputAnalyserNode = analyser;
-
       this.outputContextTracked = true;
       Telemetry.trackResource('outputContexts', 1);
       this.nextPlayTime = outputCtx.currentTime;
@@ -171,7 +155,11 @@ export class GeminiLiveSession {
       const contextParam = this.callbacks.context
         ? `?context=${encodeURIComponent(this.callbacks.context)}`
         : '';
-      const wsUrl = `${protocol}//${window.location.host}/api/live-ws${contextParam}`;
+      const response=await apiFetch('/api/live-ticket',{method:'POST'});
+      if(!response.ok)throw new Error('Voz indisponível.');
+      const {ticket}=await response.json();
+      if(!this.isCurrent(token))return;
+      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}${contextParam.replace('?', '&')}`;
       const socket = new WebSocket(wsUrl);
 
       if (!this.isCurrent(token)) {
@@ -244,10 +232,7 @@ export class GeminiLiveSession {
       case 'input_transcription':
         if (payload.text) {
           this.callbacks.onInputTranscription?.(payload.text);
-          if (this.state === 'assistantSpeaking') {
-            // Fala do usuário confirmada pelo servidor durante a fala da Vigia: ativa interrupção (Barge-In)
-            this.interruptPlayback();
-          } else {
+          if (this.state !== 'assistantSpeaking') {
             this.setState('processing');
             this.callbacks.onAvatarStateChange?.('thinking');
           }
@@ -269,13 +254,17 @@ export class GeminiLiveSession {
       case 'turn_complete':
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
-        this.isInitialGreeting = false;
-        if (!this.isInterruptedThisTurn) {
-          this.finishTurnWhenPlaybackEnds();
-        }
+        this.finishTurnWhenPlaybackEnds();
         return;
 
+      case 'emergency':
+        this.callbacks.onOutputTranscription?.(payload.text);
+        this.callbacks.onAvatarStateChange?.('alert');
+        this.stop();
+        this.callbacks.onClose?.();
+        return;
       case 'close':
+        this.stop();
         this.callbacks.onClose?.();
         return;
 
@@ -283,6 +272,8 @@ export class GeminiLiveSession {
         this.setState('error');
         this.callbacks.onAvatarStateChange?.('serious');
         this.callbacks.onError?.(payload.message || 'Erro na sessão ao vivo.');
+        this.stop();
+        this.callbacks.onClose?.();
         return;
     }
   }
@@ -352,9 +343,6 @@ export class GeminiLiveSession {
       }
 
       if (!usedWorklet) {
-        // RISCO 4: ScriptProcessor está deprecado pelo W3C. Migrar para AudioWorklet universal
-        // quando houver suporte garantido nos navegadores alvo.
-        console.warn('[GeminiLive] Usando ScriptProcessor (deprecado). Atualize o navegador para suporte completo ao AudioWorklet.');
         const scriptNode = inputCtx.createScriptProcessor(2048, 1, 1);
         scriptNode.onaudioprocess = (event) => {
           this.processInputPCM(event.inputBuffer.getChannelData(0));
@@ -387,11 +375,12 @@ export class GeminiLiveSession {
     const rms = Math.sqrt(energy / Math.max(1, float32Array.length));
 
     const now = performance.now();
-    if (now - this.lastInputLevelEmit > 25) {
+    if (now - this.lastInputLevelEmit > 50) {
       this.lastInputLevelEmit = now;
       this.callbacks.onInputLevel?.(rms);
     }
 
+    // O RMS é somente telemetria/visualização. Ele não encerra turnos nem interrompe a resposta.
     if (rms > 0.02 && !Telemetry.currentInteraction.start) {
       Telemetry.resetInteraction();
       Telemetry.record('T2', 'Atividade sonora local observada', { rms });
@@ -407,17 +396,12 @@ export class GeminiLiveSession {
       this.pcmBuffer.push(resampled[index]);
     }
 
-    if (rms > 0.015) {
-      this.isInitialGreeting = false;
-    }
-
-    // 1024 amostras = ~64 ms em 16 kHz. Envia áudio continuamente para o Gemini.
+    // 1024 amostras = ~64 ms em 16 kHz. Mantém boa cadência sem tempestade de mensagens.
     while (this.pcmBuffer.length >= 1024) {
       const chunk = this.pcmBuffer.splice(0, 1024);
       const base64PCM = this.float32ToBase64Pcm16(chunk);
       try {
         socket.send(JSON.stringify({ type: 'realtime_audio', pcmBase64: base64PCM }));
-        this.isInterruptedThisTurn = false; // Áudio do usuário enviado: libera o turno para a IA responder
         Telemetry.record('T3', 'Primeiro buffer enviado ao backend');
       } catch (error) {
         console.error('[GeminiLive] Falha ao enviar áudio:', error);
@@ -426,8 +410,6 @@ export class GeminiLiveSession {
     }
   }
 
-  // RISCO 3: Resampling executado no main thread a cada frame de áudio (~64ms).
-  // Em dispositivos lentos pode causar jank. Mover para AudioWorklet é a solução ideal.
   private resampleLinear(input: Float32Array, sourceRate: number, targetRate: number): Float32Array {
     const ratio = sourceRate / targetRate;
     const length = Math.max(1, Math.floor(input.length / ratio));
@@ -461,10 +443,6 @@ export class GeminiLiveSession {
 
   private handleAudioChunk(base64Data: string): void {
     Telemetry.record('T4', 'Primeiro audio_chunk recebido');
-    this.isInitialGreeting = false;
-    if (this.isInterruptedThisTurn) {
-      return;
-    }
     if (!this.hasReceivedFirstAudioChunk) {
       this.hasReceivedFirstAudioChunk = true;
       this.serverTurnComplete = false;
@@ -477,7 +455,7 @@ export class GeminiLiveSession {
 
   private playPCMChunk(base64Data: string, generation: number): void {
     const context = this.outputAudioCtx;
-    if (!context || context.state === 'closed' || generation !== this.generation || this.isMuted) return;
+    if (!context || context.state === 'closed' || generation !== this.generation) return;
 
     try {
       if (context.state === 'suspended') void context.resume();
@@ -488,21 +466,16 @@ export class GeminiLiveSession {
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
       const sampleCount = Math.floor(bytes.byteLength / 2);
       const float32 = new Float32Array(sampleCount);
-      let chunkEnergy = 0;
       for (let index = 0; index < sampleCount; index += 1) {
         const sample = view.getInt16(index * 2, true);
-        const floatVal = sample / (sample < 0 ? 32768 : 32767);
-        float32[index] = floatVal;
-        chunkEnergy += floatVal * floatVal;
+        float32[index] = sample / (sample < 0 ? 32768 : 32767);
       }
-      const outputRms = Math.sqrt(chunkEnergy / Math.max(1, sampleCount));
-      this.callbacks.onOutputLevel?.(outputRms);
 
       const audioBuffer = context.createBuffer(1, float32.length, 24000);
       audioBuffer.getChannelData(0).set(float32);
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(this.outputAnalyserNode || context.destination);
+      source.connect(context.destination);
 
       const startAt = Math.max(context.currentTime, this.nextPlayTime);
       source.start(startAt);
@@ -511,16 +484,6 @@ export class GeminiLiveSession {
 
       const entry: ActiveSource = { source, generation };
       this.activeSources.push(entry);
-      this.startOutputLevelMonitor();
-
-      // RISCO 2: Evita crescimento ilimitado em caso de falha de turn_complete.
-      if (this.activeSources.length > this.MAX_ACTIVE_SOURCES) {
-        const oldest = this.activeSources.shift();
-        if (oldest) {
-          try { oldest.source.onended = null; oldest.source.stop(); oldest.source.disconnect(); } catch { /* já encerrado */ }
-        }
-      }
-
       source.onended = () => {
         this.activeSources = this.activeSources.filter((item) => item !== entry);
         this.finishTurnWhenPlaybackEnds();
@@ -533,7 +496,6 @@ export class GeminiLiveSession {
   private handleServerInterruption(): void {
     console.log('[GeminiLive] Interrupção confirmada pelo Gemini');
     Telemetry.log('INTERRUPTED_BY_GEMINI');
-    this.isInterruptedThisTurn = true;
     this.generation += 1;
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
@@ -556,41 +518,7 @@ export class GeminiLiveSession {
     }
   }
 
-  /**
-   * Monitora em tempo real a reprodução real do alto-falante via AnalyserNode.
-   * Roda a 40 FPS enquanto houver fontes ativas tocando.
-   */
-  private startOutputLevelMonitor(): void {
-    if (this.outputMonitorTimer) return;
-    const buffer = new Uint8Array(128);
-
-    this.outputMonitorTimer = window.setInterval(() => {
-      if (!this.outputAnalyserNode || this.activeSources.length === 0 || this.stopped) {
-        if (this.outputMonitorTimer) {
-          window.clearInterval(this.outputMonitorTimer);
-          this.outputMonitorTimer = null;
-        }
-        this.callbacks.onOutputLevel?.(0);
-        return;
-      }
-      this.outputAnalyserNode.getByteTimeDomainData(buffer);
-      let sum = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        const v = (buffer[i] - 128) / 128;
-        sum += v * v;
-      }
-      const rms = Math.sqrt(sum / buffer.length);
-      this.callbacks.onOutputLevel?.(rms);
-    }, 25);
-  }
-
   private stopAudioPlayback(): void {
-    if (this.outputMonitorTimer) {
-      window.clearInterval(this.outputMonitorTimer);
-      this.outputMonitorTimer = null;
-    }
-    this.callbacks.onOutputLevel?.(0);
-
     for (const { source } of this.activeSources) {
       try {
         source.onended = null;
@@ -616,40 +544,6 @@ export class GeminiLiveSession {
     const socket = this.ws;
     if (!socket || socket.readyState !== WebSocket.OPEN || !contextText.trim()) return;
     socket.send(JSON.stringify({ type: 'realtime_text', text: `[CONTEXTO_DO_APP]: ${contextText.trim()}` }));
-  }
-
-  /**
-   * ARQ 3: Interrompe localmente a reprodução de áudio da Vigia.
-   * Usado pelo botão "Interromper" no modo Live. Não cancela a geração no Gemini —
-   * apenas para o áudio já enfileirado localmente e aguarda novo turno.
-   */
-  public setMuted(muted: boolean): void {
-    this.isMuted = muted;
-    if (muted) {
-      this.stopAudioPlayback();
-    }
-  }
-
-  public interruptPlayback(): void {
-    if (this.stopped) return;
-    Telemetry.log('INTERRUPT_PLAYBACK_LOCAL', { generation: this.generation });
-    this.isInterruptedThisTurn = true;
-    this.generation += 1;
-    this.stopAudioPlayback();
-    this.hasReceivedFirstAudioChunk = false;
-    this.serverTurnComplete = true;
-
-    // Cancela a geração no servidor Gemini enviando o sinal WebSocket de término de áudio
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      try {
-        this.ws.send(JSON.stringify({ type: 'audio_stream_end' }));
-      } catch {
-        // Ignora erro de socket fechado
-      }
-    }
-
-    this.setState('listening');
-    this.callbacks.onAvatarStateChange?.('listening');
   }
 
   public stop(): void {

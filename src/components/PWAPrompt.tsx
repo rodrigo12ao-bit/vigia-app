@@ -3,7 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export const PWAPrompt: React.FC = () => {
+export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -52,6 +52,7 @@ export const PWAPrompt: React.FC = () => {
     setOfflineReady(false);
   };
 
+  if(!visible)return null;
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 items-end">
       <AnimatePresence>
@@ -68,7 +69,7 @@ export const PWAPrompt: React.FC = () => {
                 <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
                 <h3 className="font-bold text-sm">Nova versão!</h3>
               </div>
-              <button onClick={closeRefresh} className="text-slate-400 hover:text-white cursor-pointer">
+              <button aria-label="Fechar aviso de atualização" onClick={closeRefresh} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -95,11 +96,11 @@ export const PWAPrompt: React.FC = () => {
                 <Download className="w-5 h-5 text-emerald-400" />
                 <h3 className="font-bold text-sm">App Baixado!</h3>
               </div>
-              <button onClick={closeOffline} className="text-slate-400 hover:text-white cursor-pointer">
+              <button aria-label="Fechar aviso offline" onClick={closeOffline} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-300">O Vigia está pronto para funcionar sem internet.</p>
+            <p className="text-xs text-slate-300">Dicas e atividades salvas ficam disponíveis sem internet. IA, contas e Sala Segura precisam de conexão.</p>
           </motion.div>
         )}
 

@@ -1,4 +1,6 @@
+import {feedbackPreferences} from '../lib/activityFeedback';
 import React, { useEffect } from 'react';
+import {useDialog} from '../hooks/useDialog';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import {
@@ -28,6 +30,7 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
   badges,
   starsScore,
 }) => {
+  const dialogRef=useDialog(isOpen,onClose);
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   const fireConfetti = () => {
@@ -44,7 +47,7 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen && unlockedCount > 0) {
+    if (isOpen && unlockedCount > 0 && feedbackPreferences().animations&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       fireConfetti();
     }
   }, [isOpen, unlockedCount]);
@@ -69,7 +72,7 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Medalhas e conquistas"
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
@@ -106,7 +109,7 @@ export const BadgesModal: React.FC<BadgesModalProps> = ({
               <Star className="w-5 h-5 fill-yellow-300 text-yellow-300 animate-spin" />
               <span>Pontuação Total:</span>
             </div>
-            <span className="text-xl font-black">{starsScore} Estrelas</span>
+            <span className="text-xl font-black">{starsScore} XP</span>
           </div>
 
           {/* Badges List */}

@@ -55,8 +55,8 @@ export const TOPICS_DATA: TopicItem[] = [
       ],
       whatToDoDuring: [
         'Avise imediatamente um adulto de confiança assim que a água começar a subir.',
-        'Desligue os aparelhos elétricos com ajuda de um adulto.',
-        'Vá com sua família e bichinhos para o ponto mais alto da casa ou do bairro.',
+        'Mantenha distância de aparelhos e fios molhados. Peça ajuda a um adulto; não tente desligá-los.',
+        'Siga com um adulto as orientações oficiais para um local seguro. Não atravesse áreas alagadas nem volte para buscar objetos.',
       ],
       whatNeverToDo: [
         'NUNCA entre na água do alagamento! Ela pode ter sujeiras perigosas e buracos escondidos.',

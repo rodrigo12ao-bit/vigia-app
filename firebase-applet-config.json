@@ -1,12 +1,11 @@
 {
-  "projectId": "data-prism-rt8c4",
-  "appId": "1:136387485761:web:c49fc5027d56a3fb2266c0",
-  "apiKey": "AIzaSyDsIdkl0vdCVjDTBakqshsLgKH9c7d9HTw",
-  "authDomain": "data-prism-rt8c4.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-vigiaversaoestav-ac59ea5f-3238-4d29-8c1c-cb456a24701c",
-  "storageBucket": "data-prism-rt8c4.firebasestorage.app",
-  "messagingSenderId": "136387485761",
-  "measurementId": "",
-  "oAuthClientId": "136387485761-0h7j0otkqva9j0c9l0oqe7bsev2in2r2.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "projectId": "vigia-aplicativo-7ba1a",
+  "appId": "1:973117005911:web:10c70c402a49569eec8312",
+  "storageBucket": "vigia-aplicativo-7ba1a.firebasestorage.app",
+  "apiKey": "AIzaSyCSexm1D01a49XvT2tprc6NcLK0iHwfLYE",
+  "authDomain": "vigia-aplicativo-7ba1a.firebaseapp.com",
+  "messagingSenderId": "973117005911",
+  "projectNumber": "973117005911",
+  "version": "2",
+  "firestoreDatabaseId": "(default)"
 }

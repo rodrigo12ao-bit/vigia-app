@@ -1,3 +1,4 @@
+import {feedbackPreferences} from '../lib/activityFeedback';
 // Web Audio API Synthesizer for Games
 // Provides immediate, rich sound effects and ambient music with 0 external asset dependency.
 
@@ -34,7 +35,7 @@ class GameAudioEngine {
   }
 
   public playClick() {
-    if (this.muted) return;
+    if (this.muted||!feedbackPreferences().sounds) return;
     try {
       this.initContext();
       if (!this.ctx) return;
@@ -60,7 +61,7 @@ class GameAudioEngine {
   }
 
   public playCorrect() {
-    if (this.muted) return;
+    if (this.muted||!feedbackPreferences().sounds) return;
     try {
       this.initContext();
       if (!this.ctx) return;
@@ -90,7 +91,7 @@ class GameAudioEngine {
   }
 
   public playWrong() {
-    if (this.muted) return;
+    if (this.muted||!feedbackPreferences().sounds) return;
     try {
       this.initContext();
       if (!this.ctx) return;
@@ -119,7 +120,7 @@ class GameAudioEngine {
   }
 
   public playVictory() {
-    if (this.muted) return;
+    if (this.muted||!feedbackPreferences().sounds) return;
     try {
       this.initContext();
       if (!this.ctx) return;
@@ -153,7 +154,7 @@ class GameAudioEngine {
   }
 
   public playBadgeUnlock() {
-    if (this.muted) return;
+    if (this.muted||!feedbackPreferences().sounds) return;
     try {
       this.initContext();
       if (!this.ctx) return;
@@ -182,6 +183,7 @@ class GameAudioEngine {
   }
 
   public toggleBgm(start: boolean) {
+    if(start&&!feedbackPreferences().sounds)return;
     if (start && !this.isBgmPlaying) {
       try {
         this.initContext();
@@ -219,3 +221,5 @@ class GameAudioEngine {
 }
 
 export const gameAudio = new GameAudioEngine();
+
+if(typeof window!=='undefined')window.addEventListener('vigia-feedback-settings',()=>{if(!feedbackPreferences().sounds)gameAudio.toggleBgm(false);});

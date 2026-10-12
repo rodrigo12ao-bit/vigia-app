@@ -157,10 +157,10 @@ export const MODULES_DATA: ModuleData[] = [
             },
             {
               id: 'h5',
-              title: 'Família no Segundo Andar com Mochila',
+              title: 'Família em Local Seguro com um Adulto',
               isHazard: false,
               icon: '🏠🎒',
-              explanation: 'ATITUDE SUPER SEGURA! Ir para lugares altos com os mantimentos e documentos é a melhor decisão!',
+              explanation: 'Procure com um adulto um local seguro indicado pela Defesa Civil, fora da área de risco. Não atravesse alagamentos nem volte para buscar objetos. Se a saída estiver perigosa, peça socorro.',
               praise: 'Muito bem! Essa é uma atitude nota 10 de prevenção!',
             },
             {

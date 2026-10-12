@@ -1,9 +1,20 @@
+import {AvatarGenderContext} from './lib/avatarSettings';
+import { FeatureBoundary } from './components/FeatureBoundary';
+import { apiFetch } from './lib/api';
+import { fetchOrCreateUserProfile } from './lib/salaSeguraService';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
-import { INITIAL_BADGES } from './data/quizzes';
+import {defaultBadges as INITIAL_BADGES,hydrateBadges} from './lib/badges';
 import { speakText, stopSpeaking } from './utils/speech';
-import { Navbar } from './components/Navbar';
+import {useAdventure} from './hooks/useAdventure';
+import type {ActivityClaim} from './lib/adventureModel';
+import {RewardCelebration} from './components/learning/RewardCelebration';
+import { Navbar,type AppTab } from './components/Navbar';
+const HomeTab=React.lazy(()=>import('./components/HomeTab'));
+const LearningCenter=React.lazy(()=>import('./components/learning/LearningCenter'));
+const SchoolDashboard=React.lazy(()=>import('./components/SchoolDashboard'));
+const HelpTab=React.lazy(()=>import('./components/HelpTab'));
 import { ChatTab } from './components/ChatTab';
 // Lazy loading das abas secundárias e módulos 3D pesados para carregamento instantâneo
 const GameHubTab = React.lazy(() => import('./components/games/hub/GameHubTab'));
@@ -31,11 +42,27 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  increment,
+  arrayUnion,
+  onSnapshot,
   User as FirebaseUser,
 } from './lib/firebase';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'games' | 'topics' | 'phones' | 'sala_segura'>('chat');
+  const [profileReady,setProfileReady]=useState(false);
+  const accountVersion=useRef(0);
+  const conversationVersion=useRef(0);
+  const renderedAccountVersion=accountVersion.current;
+  const renderedConversationVersion=conversationVersion.current;
+  const [notice,setNotice]=useState('');
+  const [demo,setDemo]=useState(false);
+  const [localDemo,setLocalDemo]=useState(true);
+  useEffect(()=>{apiFetch('/api/status').then(r=>r.json()).then(s=>{setDemo(s.demo);setLocalDemo(s.localDemo!==false);}).catch(()=>{});const listener=(e:Event)=>setNotice((e as CustomEvent).detail);window.addEventListener('vigia-error',listener);return ()=>window.removeEventListener('vigia-error',listener);},[]);
+  const [activeTab,setActiveTab]=useState<AppTab>('home');
+  const [userRole,setUserRole]=useState('infantil');
+  const [initialMission,setInitialMission]=useState<string|null>(null);
+  const openLearning=(id?:string)=>{setInitialMission(id||null);setActiveTab('learn');};
+  const readAloud=(text:string)=>{if(renderedAccountVersion!==accountVersion.current)return;const consentKey='vigia_reading_voice_consent:'+(auth.currentUser?.uid||'guest');if(!localStorage.getItem(consentKey)){if(!window.confirm('A leitura usa a voz disponível no aparelho. Alguns dispositivos podem processar o texto em serviços do fabricante. Deseja ouvir?'))return;localStorage.setItem(consentKey,'true');}if(!window.speechSynthesis){setNotice('Leitura de voz indisponível neste aparelho.');return;}setIsAudioMuted(false);speakText(text,()=>setIsSpeaking(true),()=>setIsSpeaking(false));};
 
   const [isDailyMissionOpen, setIsDailyMissionOpen] = useState(false);
   const [isScenarioAnalyzerOpen, setIsScenarioAnalyzerOpen] = useState(false);
@@ -44,13 +71,13 @@ export default function App() {
   // Auth & Entry Flow States
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [nickname, setNickname] = useState<string>(() => {
-    return localStorage.getItem('dc_nickname') || 'Super Protetor';
+    return 'Super Protetor';
   });
   const [isGuest, setIsGuest] = useState<boolean>(() => {
     return localStorage.getItem('dc_is_guest') === 'true';
   });
   const [avatarGender, setAvatarGender] = useState<'female' | 'male'>(() => {
-    return (localStorage.getItem('dc_avatar_gender') as 'female' | 'male') || 'female';
+    return 'female';
   });
   const [isWelcomeOpen, setIsWelcomeOpen] = useState<boolean>(() => {
     // Show welcome screen if not guest and not logged in (will be updated by auth state listener)
@@ -99,7 +126,7 @@ export default function App() {
     lastSentPrompt: 'Nenhuma pergunta enviada ainda',
     lastApiResponse: 'Aguardando primeira interação...',
     apiStatus: 'Pronto',
-    modelName: 'gemini-3.6-flash',
+    modelName: 'gemini-3.5-flash',
     lastError: 'Nenhum erro registrado',
     sendTimestamp: null,
     responseTimestamp: null,
@@ -112,106 +139,55 @@ export default function App() {
 
   // Persistent Stars Score & Badges
   const [starsScore, setStarsScore] = useState<number>(() => {
-    const saved = localStorage.getItem('dc_stars_score');
+    const saved = null;
     const parsed = Number(saved);
     return Number.isFinite(parsed) ? parsed : 0;
   });
 
   const [badges, setBadges] = useState<Badge[]>(() => {
     try {
-      const saved = localStorage.getItem('dc_badges');
+      const saved = null;
       return saved ? JSON.parse(saved) : INITIAL_BADGES;
     } catch {
       return INITIAL_BADGES;
     }
   });
 
-  // Firebase Auth State Observer
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        setIsGuest(false);
-        localStorage.setItem('dc_is_guest', 'false');
-        setIsWelcomeOpen(false);
-
-        // Fetch user progress from Firestore
-        try {
-          const userRef = doc(db, 'users', user.uid);
-          const snap = await getDoc(userRef);
-          if (snap.exists()) {
-            const data = snap.data();
-            if (data.nickname) {
-              setNickname(data.nickname);
-              localStorage.setItem('dc_nickname', data.nickname);
-            }
-            if (typeof data.starsScore === 'number') {
-              setStarsScore(data.starsScore);
-            }
-            if (data.avatarGender === 'male' || data.avatarGender === 'female') {
-              setAvatarGender(data.avatarGender);
-              localStorage.setItem('dc_avatar_gender', data.avatarGender);
-            }
-            if (Array.isArray(data.badges)) {
-              setBadges((prev) =>
-                prev.map((b) => ({
-                  ...b,
-                  unlocked: data.badges.includes(b.id) || b.unlocked,
-                }))
-              );
-            }
-          } else {
-            // First time login - set doc
-            await setDoc(userRef, {
-              uid: user.uid,
-              email: user.email || '',
-              nickname: user.displayName || 'Super Protetor',
-              avatarId: 'default',
-              starsScore: starsScore || 50,
-              badges: badges.filter((b) => b.unlocked).map((b) => b.id),
-              completedGames: [],
-              isAdultConfirmed: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-          }
-        } catch (err) {
-          console.error('Erro ao sincronizar dados do usuário:', err);
-        }
-      } else {
-        setCurrentUser(null);
-        if (!localStorage.getItem('dc_is_guest')) {
-          setIsWelcomeOpen(true);
-        }
+  useEffect(()=>{
+    let disposed=false;let stopProfile:(()=>void)|undefined;
+    const unsubscribe=onAuthStateChanged(auth,async user=>{
+      const version=++accountVersion.current;stopProfile?.();stopProfile=undefined;setUserRole('infantil');setInitialMission(null);
+      chatAbortRef.current?.abort(); sendingRef.current=false;chatAbortRef.current=null;
+      stopSpeaking();setIsSpeaking(false);setIsLoading(false);setChatMode('text');
+      setIsProfileModalOpen(false);setIsScenarioAnalyzerOpen(false);setIsDynamicQuizOpen(false);setIsDailyMissionOpen(false);
+      setProfileReady(false);setCurrentUser(user);setStarsScore(0);setBadges(INITIAL_BADGES);setNickname('Super Protetor');setAvatarGender('female');setActiveTab('home');handleResetChat(true);
+      if(user){
+        setIsGuest(false);localStorage.setItem('dc_is_guest','false');setIsWelcomeOpen(false);
+        try{
+          await fetchOrCreateUserProfile(user.uid,user.email,sessionStorage.getItem('vigia_pending_nickname') || 'Super Protetor');
+          const snapshot=await getDoc(doc(db,'users',user.uid));
+          if(disposed || version!==accountVersion.current)return;
+          const data=snapshot.data() || {};
+          setNickname(data.nickname || 'Super Protetor');setStarsScore(data.starsScore ?? 0);setAvatarGender(data.avatarGender==='male'?'male':'female');
+          setBadges(hydrateBadges(data.badges));
+          setUserRole(['educador','responsavel'].includes(data.role)?data.role:'infantil');
+          setProfileReady(true);
+          stopProfile=onSnapshot(doc(db,'users',user.uid),snap=>{if(disposed||version!==accountVersion.current||!snap.exists())return;const p=snap.data();setStarsScore(p.starsScore||0);setBadges(hydrateBadges(p.badges));setNickname(p.nickname||'Super Protetor');},()=>setNotice('Não foi possível atualizar seu perfil. Verifique a conexão.'));
+        }catch{if(!disposed&&version===accountVersion.current){try{const cached=JSON.parse(localStorage.getItem('vigia_progress:'+user.uid)||'null');if(cached){setNickname(cached.nickname||'Super Protetor');setStarsScore(cached.starsScore||0);setBadges(cached.badges||INITIAL_BADGES);setProfileReady(true);}}catch{}setNotice('Seu perfil está sem conexão. As atividades salvas continuam disponíveis; o acompanhamento requer conexão.');}}
+      }else{
+        try{const data=JSON.parse(localStorage.getItem('vigia_progress:guest') || '{}');setNickname(data.nickname||'Super Protetor');setStarsScore(data.starsScore||0);setBadges(data.badges||INITIAL_BADGES);setAvatarGender(data.avatarGender==='male'?'male':'female');}catch{}
+        setProfileReady(true);setIsWelcomeOpen(localStorage.getItem('dc_is_guest')!=='true');
       }
     });
+    return ()=>{disposed=true;++accountVersion.current;chatAbortRef.current?.abort();stopProfile?.();unsubscribe();};
+  },[]);
+  useEffect(()=>{
+    if(!profileReady)return;
+    const uid=currentUser?.uid;
+    const progress={starsScore,nickname,avatarGender,badges};
+    try{localStorage.setItem('vigia_progress:'+ (uid || 'guest'),JSON.stringify(progress));}catch{setNotice('O armazenamento local está cheio. Seu progresso pode não ter sido salvo.');}
 
-    return () => unsubscribe();
-  }, []);
-
-  // Sync state to localStorage & Firestore
-  useEffect(() => {
-    localStorage.setItem('dc_stars_score', starsScore.toString());
-    localStorage.setItem('dc_nickname', nickname);
-    localStorage.setItem('dc_avatar_gender', avatarGender);
-
-    if (currentUser) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        updateDoc(userRef, {
-          starsScore,
-          nickname,
-          avatarGender,
-          badges: badges.filter((b) => b.unlocked).map((b) => b.id),
-          updatedAt: new Date().toISOString(),
-        }).catch(() => {});
-      } catch (e) {}
-    }
-  }, [starsScore, badges, nickname, avatarGender, currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('dc_badges', JSON.stringify(badges));
-  }, [badges]);
+  },[profileReady,currentUser,starsScore,badges,nickname,avatarGender]);
 
   const handleContinueAsGuest = () => {
     setIsGuest(true);
@@ -223,7 +199,7 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-    } catch (e) {}
+    } catch { setNotice('Não foi possível sair da conta. Tente novamente.'); return; }
     setIsGuest(false);
     localStorage.removeItem('dc_is_guest');
     setIsProfileModalOpen(false);
@@ -231,45 +207,38 @@ export default function App() {
   };
 
   const handleResetProgress = async () => {
-    setStarsScore(0);
-    setBadges(INITIAL_BADGES);
-    localStorage.setItem('dc_stars_score', '0');
-    localStorage.setItem('dc_badges', JSON.stringify(INITIAL_BADGES));
-
-    if (currentUser) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          starsScore: 0,
-          badges: [],
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (e) {}
-    }
+    if(renderedAccountVersion!==accountVersion.current)return;
+    const version=accountVersion.current;
+    try {
+      if(currentUser)await updateDoc(doc(db,'users',currentUser.uid),{starsScore:0,badges:[],updatedAt:new Date().toISOString()});
+      else localStorage.setItem('vigia_progress:guest',JSON.stringify({starsScore:0,badges:INITIAL_BADGES,nickname,avatarGender}));
+      if(version!==accountVersion.current)return;
+      setStarsScore(0);setBadges(INITIAL_BADGES);
+    }catch{setNotice('Não foi possível reiniciar o progresso. Seus dados anteriores foram preservados.');}
   };
-
-  const handleUpdateNickname = async (newNick: string) => {
-    setNickname(newNick);
-    localStorage.setItem('dc_nickname', newNick);
-
-    if (currentUser) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          nickname: newNick,
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (e) {}
-    }
+  const handleUpdateNickname = async (newNick:string) => {
+    if(renderedAccountVersion!==accountVersion.current)return;
+    const version=accountVersion.current;
+    try {
+      if(currentUser)await updateDoc(doc(db,'users',currentUser.uid),{nickname:newNick.slice(0,80),updatedAt:new Date().toISOString()});
+      if(version!==accountVersion.current)return;
+      setNickname(newNick.slice(0,80));
+    }catch{setNotice('Não foi possível salvar o apelido. Verifique a conexão.');}
   };
 
   const handleAddStars = (points: number) => {
+    if(renderedAccountVersion!==accountVersion.current)return;
+    if(currentUser?.uid!==auth.currentUser?.uid)return;
     setStarsScore((prev) => prev + points);
+    if(currentUser)updateDoc(doc(db,'users',currentUser.uid),{starsScore:increment(points),updatedAt:new Date().toISOString()}).catch(()=>setNotice('Pontos ainda não sincronizados. Verifique a conexão.'));
   };
 
   const handleUnlockBadge = (badgeId: string) => {
+    if(renderedAccountVersion!==accountVersion.current)return;
+    if(currentUser?.uid!==auth.currentUser?.uid)return;
+    if(currentUser)updateDoc(doc(db,'users',currentUser.uid),{badges:arrayUnion(badgeId)}).catch(()=>setNotice('Conquista ainda não sincronizada.'));
     setBadges((prevBadges) =>
-      prevBadges.map((b) => {
+      (prevBadges.some(b=>b.id===badgeId)?prevBadges:[...prevBadges,{id:badgeId,title:'Conquista',description:'Nova conquista de aprendizagem.',icon:'🛡️',unlocked:false,category:'general' as const}]).map((b) => {
         if (b.id === badgeId && !b.unlocked) {
           return { ...b, unlocked: true, unlockedAt: new Date().toLocaleDateString() };
         }
@@ -278,7 +247,11 @@ export default function App() {
     );
   };
 
+  const adventure=useAdventure(currentUser?.uid,starsScore,handleAddStars,handleUnlockBadge);
+  const rewardActivity=(claim:ActivityClaim,points:number)=>adventure.earn(claim,points);
+
   const speakMessage = (text: string) => {
+    if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return;
     if (isAudioMuted) return;
     speakText(
       text,
@@ -302,8 +275,11 @@ export default function App() {
     text: string,
     image?: { data: string; mimeType: string }
   ) => {
-    if ((!text.trim() && !image) || sendingRef.current) return;
+    if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return;
+    if ((!text.trim() && !image) || sendingRef.current || !profileReady) return;
+    if(messages.length>=198){setNotice('Esta conversa atingiu o limite. Abra uma nova conversa; seu histórico está preservado.');return;}
 
+    const version=accountVersion.current;
     // mark sending immediately to prevent duplicate invocations
     sendingRef.current = true;
 
@@ -369,12 +345,13 @@ export default function App() {
     setMessages((prev) => [...prev, initialAssistantMsg]);
 
     try {
-      let response = await fetch('/api/chat/stream', {
+      const response = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text || 'Analise esta imagem sobre segurança e riscos.',
-          chatHistory: messages.map((m) => ({ role: m.role, content: m.content })),
+          readingLevel: (()=>{try{return JSON.parse(localStorage.getItem('vigia_learning_v2:'+(currentUser?.uid||'guest'))||'null')?.progress?.reading;}catch{return undefined;}})(),
+          chatHistory: messages.slice(-30).map((m) => ({ role: m.role, content: m.content })),
           image: image ? { data: image.data, mimeType: image.mimeType } : undefined,
           avatarGender: avatarGender,
           nickname: nickname,
@@ -384,128 +361,36 @@ export default function App() {
         signal: controller.signal,
       });
 
-      // Fallback automático para /api/chat caso o streaming não esteja disponível
-      if (!response.ok || !response.body) {
-        response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text || 'Analise esta imagem sobre segurança e riscos.',
-            chatHistory: messages.map((m) => ({ role: m.role, content: m.content })),
-            image: image ? { data: image.data, mimeType: image.mimeType } : undefined,
-            avatarGender: avatarGender,
-            nickname: nickname,
-            starsScore: starsScore,
-            unlockedBadgesCount: badges.filter((b) => b.unlocked).length,
-          }),
-          signal: controller.signal,
-        });
+      const respTs = performance.now();
+      setDebugInfo((prev) => ({
+        ...prev,
+        responseTimestamp: respTs,
+        duration_send_to_response: Math.round(respTs - sendTs),
+      }));
 
-        if (!response.ok) {
-          throw new Error('Falha na resposta do servidor');
-        }
-
-        const data = await response.json();
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
-              ? {
-                  ...m,
-                  content: data.reply || 'Tive um pequeno contratempo para processar essa resposta.',
-                  emotion: (data.avatarState as AvatarState) || 'speaking',
-                  emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
-                  challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
-                  interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
-                  suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
-                }
-              : m
-          )
-        );
-        if (data.avatarState) setAvatarState(data.avatarState as AvatarState);
-        return;
+      if (!response.ok) {
+        throw new Error('Falha na resposta do servidor');
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let rawAccumulated = '';
-      let firstTokenReceived = false;
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const textChunk = decoder.decode(value, { stream: true });
-        const lines = textChunk.split('\n');
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const dataStr = line.slice(6).trim();
-          if (dataStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(dataStr);
-            if (parsed.reply) {
-              rawAccumulated = JSON.stringify(parsed);
-            } else if (parsed.chunk) {
-              rawAccumulated += parsed.chunk;
-            }
-
-            if (!firstTokenReceived) {
-              firstTokenReceived = true;
-              const respTs = performance.now();
-              setDebugInfo((prev) => ({
-                ...prev,
-                responseTimestamp: respTs,
-                duration_send_to_response: Math.round(respTs - sendTs),
-              }));
-            }
-
-            // Extract partial reply string from JSON stream
-            let extractedReply = '';
-            const match = rawAccumulated.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)/);
-            if (match) {
-              try {
-                extractedReply = JSON.parse(`"${match[1]}"`);
-              } catch (e) {
-                extractedReply = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      const data = await response.json();
+      if(controller.signal.aborted || version!==accountVersion.current)return;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMsgId
+            ? {
+                ...m,
+                content: data.reply || 'Tive um pequeno contratempo para processar essa resposta.',
+                emotion: (data.avatarState as AvatarState) || 'speaking',
+                emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
+                challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
+                interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
+                suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
               }
-            } else if (rawAccumulated.trim() && !rawAccumulated.startsWith('{')) {
-              extractedReply = rawAccumulated;
-            }
+            : m
+        )
+      );
 
-            if (extractedReply) {
-              setMessages((prev) =>
-                prev.map((m) => (m.id === assistantMsgId ? { ...m, content: extractedReply, emotion: 'speaking' } : m))
-              );
-            }
-          } catch (err) {
-            // Partial JSON chunk line
-          }
-        }
-      }
-
-      // Final full JSON parse when stream ends
-      try {
-        const finalObj = JSON.parse(rawAccumulated);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
-              ? {
-                  ...m,
-                  content: finalObj.reply || m.content || 'Resposta finalizada.',
-                  emotion: (finalObj.avatarState as AvatarState) || 'speaking',
-                  emergencyTip: finalObj.emergencyTip && finalObj.emergencyTip.trim() ? finalObj.emergencyTip : undefined,
-                  challengeOrQuestion: finalObj.challengeOrQuestion && finalObj.challengeOrQuestion.trim() ? finalObj.challengeOrQuestion : undefined,
-                  interactiveOptions: Array.isArray(finalObj.interactiveOptions) && finalObj.interactiveOptions.length > 0 ? finalObj.interactiveOptions : undefined,
-                  suggestedFollowUps: Array.isArray(finalObj.suggestedFollowUps) && finalObj.suggestedFollowUps.length > 0 ? finalObj.suggestedFollowUps : undefined,
-                }
-              : m
-          )
-        );
-        if (finalObj.avatarState) setAvatarState(finalObj.avatarState as AvatarState);
-      } catch (e) {
-        // Preserve extracted text if incomplete closing JSON tag
-      }
+      if (data.avatarState) setAvatarState(data.avatarState as AvatarState);
 
       // Record approximate avatar render time
       requestAnimationFrame(() => {
@@ -554,9 +439,7 @@ export default function App() {
         }));
       }
     } finally {
-      setIsLoading(false);
-      sendingRef.current = false;
-      chatAbortRef.current = null;
+      if(chatAbortRef.current===controller){setIsLoading(false);sendingRef.current=false;chatAbortRef.current=null;}
     }
   };
 
@@ -570,7 +453,10 @@ export default function App() {
     handleSendMessage(question);
   };
 
-  const handleResetChat = () => {
+  const handleResetChat = (force=false) => {
+    if(!force && renderedAccountVersion!==accountVersion.current)return;
+    ++conversationVersion.current;
+    chatAbortRef.current?.abort();
     stopSpeaking();
     setIsSpeaking(false);
     setMessages([
@@ -592,22 +478,28 @@ export default function App() {
   };
 
   const handleLoadSession = (sessionMessages: ChatMessage[]) => {
+    if(renderedAccountVersion!==accountVersion.current)return;
+    ++conversationVersion.current;
+    chatAbortRef.current?.abort();
     stopSpeaking();
     setIsSpeaking(false);
     setMessages(sessionMessages);
     setAvatarState('idle');
   };
 
+  useEffect(()=>{const listener=(e:Event)=>{const d=(e as CustomEvent).detail;if((d.uid||'guest')!==(auth.currentUser?.uid||'guest'))return;document.documentElement.style.setProperty('--vigia-text-size',d.textSize==='large'?'20px':'16px');};window.addEventListener('vigia-reading',listener);return()=>window.removeEventListener('vigia-reading',listener);},[]);
   const unlockedBadgesCount = badges.filter((b) => b.unlocked).length;
 
   return (
-    <div className={`bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
+    <AvatarGenderContext.Provider value={avatarGender}><div className={`vigia-app bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
       activeTab === 'chat' ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh'
     }`}>
+      {demo && <div role="status" className="bg-amber-100 text-amber-950 px-3 py-2 text-xs text-center font-bold">{localDemo?'DEMONSTRAÇÃO LOCAL • contas fictícias':'PRÉVIA ONLINE • use apenas dados fictícios'} • respostas da IA simuladas • voz ao vivo indisponível</div>}
+      {notice && <div role="alert" className="bg-rose-100 text-rose-900 p-3 text-sm">{notice} <button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
       {/* Header Navigation */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={tab=>{if(tab==='learn')setInitialMission(null);setActiveTab(tab);}}
         starsScore={starsScore}
         unlockedBadgesCount={unlockedBadgesCount}
         totalBadgesCount={badges.length}
@@ -631,18 +523,24 @@ export default function App() {
         }}
       />
 
+      {!profileReady && <div role="status" className="p-4 text-center">Carregando seu perfil com segurança…</div>}
       {/* Main View Area */}
       <main className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
-        <AnimatePresence mode="wait">
+        <FeatureBoundary key={activeTab+':'+(currentUser?.uid||'guest')} onReset={()=>setActiveTab('chat')}><AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={activeTab+':'+(currentUser?.uid||'guest')}
             initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -3 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className={`w-full ${activeTab === 'chat' ? 'h-full flex flex-col min-h-0' : 'min-h-full'}`}
           >
-            {activeTab === 'chat' && (
+            {['home','learn','school'].includes(activeTab)&&profileReady&&<React.Suspense fallback={<div role="status" className="learn-shell">Preparando sua próxima atividade…</div>}>
+              {activeTab==='home'&&<HomeTab uid={currentUser?.uid} nickname={nickname} role={userRole} onLearn={openLearning} onChat={()=>setActiveTab('chat')} onSchool={()=>setActiveTab('school')} xp={starsScore} badgesCount={badges.filter(b=>b.unlocked).length} adventure={adventure.state}/>}
+              {activeTab==='learn'&&<LearningCenter key={currentUser?.uid||'guest'} xp={starsScore} badges={badges} adventure={adventure.state} pendingRewards={adventure.pending} rewardNotice={adventure.notice} onSyncRewards={adventure.sync} onReward={rewardActivity} uid={currentUser?.uid} initialMission={initialMission} onAddStars={handleAddStars} onUnlockBadge={handleUnlockBadge} onSpeak={readAloud} onAsk={handleAskDCFromTopic} onOpenQuiz={()=>setIsDynamicQuizOpen(true)} onOpenScenario={()=>setIsScenarioAnalyzerOpen(true)} onOpenDaily={()=>setIsDailyMissionOpen(true)} onOpenSchool={()=>setActiveTab('school')}/>}
+              {activeTab==='school'&&<SchoolDashboard uid={currentUser?.uid} onLearn={()=>openLearning()}/>}
+            </React.Suspense>}
+            {activeTab === 'chat' && profileReady && (
               <ChatTab
                 messages={messages}
                 onSendMessage={handleSendMessage}
@@ -685,7 +583,7 @@ export default function App() {
                 }
               >
                 <div className="h-full">
-                  <GameHubTab
+                  <GameHubTab userId={currentUser?.uid}
                     onAddStars={handleAddStars}
                     onUnlockBadge={handleUnlockBadge}
                     onSpeak={speakMessage}
@@ -710,18 +608,7 @@ export default function App() {
               </React.Suspense>
             )}
 
-            {activeTab === 'phones' && (
-              <React.Suspense
-                fallback={
-                  <div className="flex-1 flex items-center justify-center p-12 text-slate-400 font-bold text-xs">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mr-3"></div>
-                    Carregando Telefones úteis...
-                  </div>
-                }
-              >
-                <EmergencyNumbersCard onSpeak={speakMessage} />
-              </React.Suspense>
-            )}
+            {activeTab==='phones'&&<React.Suspense fallback={<p className="learn-shell">Preparando orientações…</p>}><HelpTab onSala={()=>setActiveTab('sala_segura')} onSchool={()=>setActiveTab('school')} onPrivacy={()=>setLegalModalType('privacy')} onSpeak={readAloud} role={userRole}/></React.Suspense>}
 
             {activeTab === 'sala_segura' && (
               <React.Suspense
@@ -740,7 +627,7 @@ export default function App() {
               </React.Suspense>
             )}
           </motion.div>
-        </AnimatePresence>
+        </AnimatePresence></FeatureBoundary>
       </main>
 
 
@@ -752,7 +639,7 @@ export default function App() {
               🛡️ Vigia - Assistente Virtual Educativa de Proteção e Defesa Civil
             </span>
             <span className="text-[11px] bg-orange-100 text-orange-800 px-3 py-1 rounded-full font-bold">
-              Defesa Civil Brasil • Emergência 199 / 193
+              Educação para prevenção • Emergência 199 / 193
             </span>
           </div>
         </footer>
@@ -767,7 +654,7 @@ export default function App() {
       />
 
       {/* Daily Mission Modal */}
-      <DailyMissionModal
+      <DailyMissionModal onReward={rewardActivity} key={'daily:'+(currentUser?.uid || 'guest')}
         isOpen={isDailyMissionOpen}
         onClose={() => setIsDailyMissionOpen(false)}
         onAddStars={handleAddStars}
@@ -776,7 +663,7 @@ export default function App() {
       />
 
       {/* AI Scenario Risk Analyzer Modal */}
-      <ScenarioAnalyzerModal
+      <ScenarioAnalyzerModal onReward={rewardActivity} key={'scenario:'+(currentUser?.uid || 'guest')}
         isOpen={isScenarioAnalyzerOpen}
         onClose={() => setIsScenarioAnalyzerOpen(false)}
         onAddStars={handleAddStars}
@@ -784,7 +671,7 @@ export default function App() {
       />
 
       {/* AI Dynamic Quiz Generator Modal */}
-      <DynamicAIQuizModal
+      <DynamicAIQuizModal onReward={rewardActivity} key={'quiz:'+(currentUser?.uid || 'guest')}
         isOpen={isDynamicQuizOpen}
         onClose={() => setIsDynamicQuizOpen(false)}
         onAddStars={handleAddStars}
@@ -817,7 +704,7 @@ export default function App() {
       />
 
       {/* User Profile & Progress Modal */}
-      <ProfileModal
+      <ProfileModal key={'profile:'+(currentUser?.uid || 'guest')} userId={currentUser?.uid} userRole={userRole}
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         userEmail={currentUser?.email || null}
@@ -825,10 +712,11 @@ export default function App() {
         onUpdateNickname={handleUpdateNickname}
         starsScore={starsScore}
         badges={badges}
-        completedGamesCount={badges.filter((b) => b.unlocked).length}
+        completedGamesCount={adventure.state.completed}
         isGuest={isGuest}
         onSignOut={handleSignOut}
         onResetProgress={handleResetProgress}
+        onOpenBadges={()=>{setIsProfileModalOpen(false);setIsBadgesModalOpen(true);}}
       />
 
       {/* Terms and Privacy Legal Modals */}
@@ -838,8 +726,9 @@ export default function App() {
       />
 
       {/* PWA Components */}
-      <PWAPrompt />
+      <RewardCelebration key={'reward:'+(currentUser?.uid||'guest')} uid={currentUser?.uid}/>
+      <PWAPrompt visible={activeTab==='phones'}/>
       <OfflineWarning />
-    </div>
+    </div></AvatarGenderContext.Provider>
   );
 }

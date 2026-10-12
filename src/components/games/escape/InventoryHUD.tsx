@@ -13,6 +13,7 @@ export const InventoryHUD = () => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
       const key = e.key;
+      if(key.toLowerCase()==='f'){toggleFlashlight();return;}
       if (['1', '2', '3', '4'].includes(key)) {
         const index = parseInt(key) - 1;
         const item = inventory[index];
@@ -41,11 +42,11 @@ export const InventoryHUD = () => {
   }, [inventory, health, isFlashlightOn]);
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-none">
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-auto">
       {slots.map(index => {
         const item = inventory[index];
         return (
-          <div key={index} className={`w-14 h-14 bg-slate-800/80 border-2 rounded-lg flex flex-col items-center justify-center relative shadow-lg backdrop-blur-sm
+          <button type="button" aria-label={'Usar item '+(index+1)} onClick={()=>{window.dispatchEvent(new KeyboardEvent('keydown',{key:String(index+1),code:'Digit'+(index+1)}));}} key={index} className={`w-14 h-14 bg-slate-800/80 border-2 rounded-lg flex flex-col items-center justify-center relative shadow-lg backdrop-blur-sm
             ${item && item.id === 'item_mochila' && isFlashlightOn ? 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'border-slate-600'}
           `}>
             <span className="absolute top-1 left-1 text-[10px] text-slate-400 font-bold">{index + 1}</span>
@@ -62,7 +63,7 @@ export const InventoryHUD = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </button>
         );
       })}
     </div>

@@ -1,3 +1,4 @@
+import { useDialog } from '../hooks/useDialog';
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShieldCheck, Lock, EyeOff, UserCheck } from 'lucide-react';
@@ -8,12 +9,13 @@ interface LegalModalsProps {
 }
 
 export const LegalModals: React.FC<LegalModalsProps> = ({ type, onClose }) => {
+  const dialogRef=useDialog(!!type,onClose);
   if (!type) return null;
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Informações de privacidade e termos"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -42,15 +44,15 @@ export const LegalModals: React.FC<LegalModalsProps> = ({ type, onClose }) => {
                 <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-start gap-3">
                   <Lock className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                   <p className="font-semibold text-indigo-950">
-                    O Vigia foi projetado para crianças de 8 a 12 anos em conformidade com as diretrizes de segurança e proteção de dados infantis.
+                    O Vigia foi projetado para crianças de 6 a 14 anos, com níveis de leitura, para aprendizado de prevenção sob supervisão de um adulto.
                   </p>
                 </div>
 
                 <h4 className="font-black text-slate-900 text-sm flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-emerald-600" /> 1. O que NÃO coletamos
+                  <EyeOff className="w-4 h-4 text-emerald-600" /> 1. Cuidados com seus dados
                 </h4>
                 <p>
-                  Não solicitamos nome completo da criança, endereço residencial, telefone, escola, localização GPS exata ou fotografias pessoais.
+                  Use um apelido e não envie nomes completos, endereço, escola, localização exata ou fotografias pessoais. O campo de imagens é opcional e pode receber conteúdo pessoal se você o escolher.
                 </p>
 
                 <h4 className="font-black text-slate-900 text-sm flex items-center gap-2">
@@ -61,11 +63,16 @@ export const LegalModals: React.FC<LegalModalsProps> = ({ type, onClose }) => {
                 </p>
 
                 <h4 className="font-black text-slate-900 text-sm flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" /> 3. Uso do Progresso
+                  <ShieldCheck className="w-4 h-4 text-amber-600" /> 3. Como usamos as informações
                 </h4>
                 <p>
-                  Os dados salvos (estrelas, medalhas e conquistas) servem exclusivamente para personalizar o aprendizado do usuário no aplicativo. Não vendemos dados nem exibimos anúncios publicitários.
+                  Salvamos seu perfil e progresso para continuar o aprendizado. Não vendemos dados nem exibimos anúncios. Abra os assuntos abaixo com um adulto para conhecer os detalhes.
                 </p>
+                <details className="topic-detail"><summary>Conversas, imagens e voz</summary><p>{import.meta.env.MODE==='publication'?'Nesta prévia online, a IA é simulada. Texto e imagens escolhidos são enviados ao servidor do Vigia; não são enviados ao Gemini. Voz ao vivo e transcrição estão indisponíveis. Use somente dados fictícios.':'Em ambiente conectado com IA real habilitada, o conteúdo enviado à IA é processado pela API Gemini. Na demonstração local, a IA é simulada e os dados usam emuladores.'} Reconhecimento e leitura de voz do navegador podem usar serviços do fabricante do dispositivo. A análise pode falhar e não substitui avaliação profissional.</p></details>
+                <details className="topic-detail"><summary>Histórico e uso sem conexão</summary><p>Para visitantes, históricos e anexos ficam neste aparelho; para contas, ficam no Firestore. Você pode excluir conversas pelo histórico. As atividades carregadas podem funcionar offline. O progresso de uma conta aguarda sincronização no mesmo perfil.</p></details>
+                <details className="topic-detail"><summary>Professores e responsáveis</summary><p>O painel escolar mostra apelido, atividades e denúncias somente de alunos com vínculo aprovado pelo professor e pelo responsável. Não compartilha históricos privados nem o plano familiar. Denúncias podem ser revisadas manualmente por adultos vinculados, sem prazo garantido. Em emergência, procure ajuda imediatamente.</p></details>
+                <details className="topic-detail"><summary>Exportar e excluir dados</summary><p>Você pode exportar seus dados pelo perfil. {import.meta.env.MODE==='publication'?'A exclusão de conta online exige um processo de retenção aprovado e ainda não está habilitada.':'Na demonstração local, responsáveis vinculados podem excluir contas infantis fictícias, e adultos podem excluir contas sem vínculos pendentes. Conversas compartilhadas são encerradas e o conteúdo da conta excluída é substituído. Denúncias privadas podem permanecer para revisão. A exclusão de produção exige um processo de retenção aprovado e ainda não está habilitada.'}</p></details>
+                <details className="topic-detail"><summary>Avisos oficiais e localização</summary><p>Os avisos são consultados no INMET. O filtro pelo nome da região funciona neste aparelho e não coleta nem transmite sua localização.</p></details>
               </>
             ) : (
               <>

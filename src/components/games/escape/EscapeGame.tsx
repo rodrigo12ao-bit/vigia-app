@@ -1,6 +1,6 @@
 import { ErrorBoundary } from "../../ErrorBoundary";
 import React, { useState, useEffect } from 'react';
-import { pauseAudio, playAudio } from './sound'; // wait, no, just use lucide
+ // wait, no, just use lucide
 import { Pause, Play, RotateCcw, LogOut, Heart, Star, ShieldAlert, Volume2, VolumeX, ShieldCheck, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EscapeEngine } from './EscapeEngine';
@@ -53,6 +53,7 @@ export default function EscapeGame({ onAddStars, onUnlockBadge, onSpeak, onExit 
   }, [health, inventory, phase, isFlashlightOn, flashlightBattery, isLiveActive, score]);
 
   useEffect(() => {
+    useEscapeStore.setState({health:100,score:0,inventory:[],unlockedGates:[],activeSwitches:[],isPaused:false,phase:1,message:'',isSpeaking:false,isFlashlightOn:false,flashlightBattery:100,isPunching:false,heldItem:null,thrownItems:[]});
     return () => {
       if (liveSessionRef.current) {
         liveSessionRef.current.stop();

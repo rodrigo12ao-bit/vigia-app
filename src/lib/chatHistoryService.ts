@@ -1,165 +1,46 @@
-import { db, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from './firebase';
-import { ChatMessage, ChatSession } from '../types';
-
-const GUEST_STORAGE_KEY = 'vigia_guest_chat_sessions_v1';
-
-// Helper to serialize ChatMessage dates for storage
-function cleanUndefined(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(cleanUndefined);
-  }
-  if (obj !== null && typeof obj === 'object') {
-    return Object.keys(obj).reduce((acc, key) => {
-      if (obj[key] !== undefined) {
-        acc[key] = cleanUndefined(obj[key]);
+import { db, doc, collection, getDocs, getDoc, writeBatch } from './firebase';
+import { ChatSession } from '../types';
+import { createHistoryStore } from './historyStore';
+const store = createHistoryStore({
+  async read(uid) {
+    const snapshot=await getDocs(collection(db,'users',uid,'chat_sessions'));
+    return Promise.all(snapshot.docs.map(async snapshot=>{
+      const session=snapshot.data();
+      if(session.separateAttachments) {
+        const attachments=await getDocs(collection(db,'users',uid,'chat_sessions',snapshot.id,'attachments'));
+        const images=new Map(attachments.docs.map(d=>[d.id,d.data().data]));
+        session.messages=session.messages.map((m:any)=>({...m,...(images.has(m.id)?{imageUrl:images.get(m.id)}:{})}));
       }
-      return acc;
-    }, {} as any);
-  }
-  return obj;
-}
-
-function serializeSession(session: ChatSession): any {
-  const serialized = {
-    ...session,
-    messages: session.messages.map((m) => ({
-      ...m,
-      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
-    })),
-  };
-  return cleanUndefined(serialized);
-}
-
-// Helper to deserialize ChatMessage dates after reading
-function deserializeSession(data: any): ChatSession {
-  return {
-    id: data.id,
-    title: data.title || 'Conversa sem título',
-    createdAt: data.createdAt || new Date().toISOString(),
-    updatedAt: data.updatedAt || new Date().toISOString(),
-    lastMessagePreview: data.lastMessagePreview || '',
-    messages: (data.messages || []).map((m: any) => ({
-      ...m,
-      timestamp: typeof m.timestamp === 'string' ? new Date(m.timestamp) : new Date(m.timestamp || Date.now()),
-    })),
-  };
-}
-
-// Load all sessions for current user (or guest)
-export async function loadSessions(userId?: string): Promise<ChatSession[]> {
-  if (userId) {
-    try {
-      const userSessionsRef = collection(db, 'users', userId, 'chat_sessions');
-      const snapshot = await getDocs(userSessionsRef);
-      const sessions: ChatSession[] = [];
-      snapshot.forEach((docSnap) => {
-        if (docSnap.exists()) {
-          sessions.push(deserializeSession(docSnap.data()));
-        }
-      });
-      // Sort newest updated first
-      sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-      return sessions;
-    } catch (err) {
-      console.error('Erro ao carregar sessões do Firestore:', err);
-      // Fallback to local storage if Firestore fails
-    }
-  }
-
-  // Guest / Fallback localStorage
-  try {
-    const raw = localStorage.getItem(GUEST_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const sessions = (parsed || []).map(deserializeSession);
-    sessions.sort((a: ChatSession, b: ChatSession) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    return sessions;
-  } catch (err) {
-    console.error('Erro ao carregar do localStorage:', err);
-    return [];
-  }
-}
-
-// Save or update a session
-export async function saveSession(session: ChatSession, userId?: string): Promise<void> {
-  const serialized = serializeSession(session);
-
-  if (userId) {
-    try {
-      const sessionDocRef = doc(db, 'users', userId, 'chat_sessions', session.id);
-      await setDoc(sessionDocRef, serialized, { merge: true });
-      return;
-    } catch (err) {
-      console.error('Erro ao salvar sessão no Firestore:', err);
-    }
-  }
-
-  // Guest localStorage
-  try {
-    const existing = await loadSessions();
-    const idx = existing.findIndex((s) => s.id === session.id);
-    if (idx >= 0) {
-      existing[idx] = session;
-    } else {
-      existing.unshift(session);
-    }
-    const serializedList = existing.map(serializeSession);
-    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(serializedList));
-  } catch (err) {
-    console.error('Erro ao salvar sessão no localStorage:', err);
-  }
-}
-
-// Delete a session by ID
-export async function deleteSession(sessionId: string, userId?: string): Promise<void> {
-  if (userId) {
-    try {
-      const sessionDocRef = doc(db, 'users', userId, 'chat_sessions', sessionId);
-      await deleteDoc(sessionDocRef);
-    } catch (err) {
-      console.error('Erro ao deletar sessão do Firestore:', err);
-    }
-  }
-
-  // Local storage update
-  try {
-    const existing = await loadSessions();
-    const filtered = existing.filter((s) => s.id !== sessionId);
-    const serializedList = filtered.map(serializeSession);
-    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(serializedList));
-  } catch (err) {
-    console.error('Erro ao deletar do localStorage:', err);
-  }
-}
-
-// Delete all sessions for user / guest
-export async function deleteAllSessions(userId?: string): Promise<void> {
-  if (userId) {
-    try {
-      const existing = await loadSessions(userId);
-      for (const s of existing) {
-        const sessionDocRef = doc(db, 'users', userId, 'chat_sessions', s.id);
-        await deleteDoc(sessionDocRef);
+      return session;
+    }));
+  },
+  async write(uid,session) {
+    const previous=await getDoc(doc(db,'users',uid,'chat_sessions',session.id));
+    const savedImages=new Set<string>(previous.data()?.attachmentIds || []);
+    const attachmentIds:string[]=[];
+    const batch=writeBatch(db);
+    const messages=session.messages.map((m:any)=>{
+      const {imageUrl,...rest}=m;
+      if(imageUrl){
+        if(imageUrl.length>250000)throw new Error('Anexo grande demais. O histórico anterior foi preservado.');
+        attachmentIds.push(m.id);
+        if(!savedImages.has(m.id))batch.set(doc(db,'users',uid,'chat_sessions',session.id,'attachments',m.id),{data:imageUrl});
       }
-    } catch (err) {
-      console.error('Erro ao deletar todas as sessões do Firestore:', err);
-    }
+      return rest;
+    });
+    const metadata={...session,messages,separateAttachments:true,attachmentIds};
+    if(new TextEncoder().encode(JSON.stringify(metadata)).byteLength>800000)throw new Error('Histórico grande demais. Inicie uma nova conversa.');
+    batch.set(doc(db,'users',uid,'chat_sessions',session.id),metadata);
+    await batch.commit();
+  },
+  async remove(uid,id) {
+    const batch=writeBatch(db), attachments=await getDocs(collection(db,'users',uid,'chat_sessions',id,'attachments'));
+    for(const attachment of attachments.docs)batch.delete(attachment.ref);
+    batch.delete(doc(db,'users',uid,'chat_sessions',id));await batch.commit();
   }
-
-  try {
-    localStorage.removeItem(GUEST_STORAGE_KEY);
-  } catch (err) {
-    console.error('Erro ao limpar localStorage:', err);
-  }
-}
-
-// Rename a session
-export async function renameSession(sessionId: string, newTitle: string, userId?: string): Promise<void> {
-  const existingList = await loadSessions(userId);
-  const target = existingList.find((s) => s.id === sessionId);
-  if (target) {
-    target.title = newTitle;
-    target.updatedAt = new Date().toISOString();
-    await saveSession(target, userId);
-  }
-}
+},localStorage);
+export const loadSessions=store.load;
+export const saveSession=store.save;
+export const deleteSession=store.remove;
+export async function deleteAllSessions(uid?:string){for(const s of await store.load(uid))await store.remove(s.id,uid);}
+export async function renameSession(id:string,title:string,uid?:string){const target=(await store.load(uid)).find(s=>s.id===id);if(!target)throw new Error('Conversa indisponível.');await store.save({...target,title:title.slice(0,120),updatedAt:new Date().toISOString()},uid);}

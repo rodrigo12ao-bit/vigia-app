@@ -1,11 +1,14 @@
+import { FeatureBoundary } from '../../FeatureBoundary';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Star, Trophy, ArrowRight, ShieldCheck, Gamepad2, ChevronLeft, Volume2, VolumeX, Music, Map as MapIcon, Flag } from 'lucide-react';
 import { Badge } from '../../../types';
-import EscapeGame from '../escape/EscapeGame';
+const ESCAPE_ENABLED=false; // Paused for the presentation; source and saved progress are preserved.
+const EscapeGame=React.lazy(()=>import('../escape/EscapeGame'));
 import { LearningTrailMap } from '../../learning/LearningTrailMap';
 
 interface GameHubTabProps {
+  userId?: string;
   onAddStars: (amount: number) => void;
   onUnlockBadge: (badgeId: string) => void;
   onSpeak: (text: string) => void;
@@ -15,6 +18,7 @@ interface GameHubTabProps {
 }
 
 export default function GameHubTab({
+  userId,
   onAddStars,
   onUnlockBadge,
   onSpeak,
@@ -29,7 +33,7 @@ export default function GameHubTab({
   const level = Math.floor(stars / 100) + 1;
   const xpInLevel = stars % 100;
 
-  if (activeGame === 'escape') {
+  if (ESCAPE_ENABLED && activeGame === 'escape') {
     return (
       <div className="w-full min-h-[600px] h-[calc(100dvh-150px)] bg-slate-900 text-slate-100 flex flex-col relative overflow-hidden shadow-inner border-y border-slate-800">
         <div className="absolute top-4 left-4 z-50">
@@ -41,12 +45,12 @@ export default function GameHubTab({
             Sair do Jogo
           </button>
         </div>
-        <EscapeGame 
+        <FeatureBoundary onReset={()=>setActiveGame('hub')}><React.Suspense fallback={<p role="status">Carregando Escape…</p>}><EscapeGame
           onAddStars={onAddStars} 
           onUnlockBadge={onUnlockBadge} 
           onSpeak={onSpeak} 
           onExit={() => setActiveGame('hub')}
-        />
+        /></React.Suspense></FeatureBoundary>
       </div>
     );
   }
@@ -63,7 +67,7 @@ export default function GameHubTab({
             Voltar para o Hub
           </button>
         </div>
-        <LearningTrailMap
+        <LearningTrailMap userId={userId}
           onAddStars={onAddStars}
           onUnlockBadge={onUnlockBadge}
           onSpeak={onSpeak}
@@ -146,13 +150,13 @@ export default function GameHubTab({
             <div className="relative z-10 p-8 sm:p-10 flex flex-col sm:flex-row items-center sm:items-stretch gap-8">
               <div className="flex-1 text-center sm:text-left">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-black uppercase tracking-widest mb-4">
-                  Novo Jogo
+                  Em desenvolvimento
                 </div>
                 <h1 className="text-5xl sm:text-6xl font-black text-white italic tracking-tighter mb-2 drop-shadow-md">
                   ESCAPE!
                 </h1>
                 <p className="text-xl sm:text-2xl text-slate-300 font-medium mb-6">
-                  Você consegue chegar a um lugar seguro?
+                  Disponibilidade pausada para revisão da experiência.
                 </p>
                 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mb-8">
@@ -163,17 +167,17 @@ export default function GameHubTab({
                     </p>
                   </div>
                   <div className="bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700/50">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Fases Abertas</p>
-                    <p className="text-sm font-black text-white">Mundo 1 - Enchente</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Desenvolvimento</p>
+                    <p className="text-sm font-black text-white">Escape pausado</p>
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => setActiveGame('escape')}
-                  className="w-full sm:w-auto flex items-center justify-center gap-3 bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-lg transition-all hover:bg-slate-200 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                  disabled={!ESCAPE_ENABLED} aria-label="Escape em desenvolvimento" onClick={() => {if(ESCAPE_ENABLED)setActiveGame('escape');}}
+                  className="w-full sm:w-auto flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-lg transition-all hover:bg-slate-200 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                 >
                   <Play className="w-5 h-5 fill-slate-900" />
-                  JOGAR AGORA
+                  EM DESENVOLVIMENTO
                 </button>
               </div>
               

@@ -1,11 +1,34 @@
 services:
   - type: web
     name: vigia-app
-    env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build:publication
+    startCommand: npm run start:publication
+    healthCheckPath: /api/status
+    autoDeployTrigger: off
     envVars:
       - key: NODE_ENV
         value: production
-      - key: GEMINI_API_KEY
-        sync: false
+      - key: NODE_VERSION
+        value: 24.13.1
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: 'true'
+      - key: HOST
+        value: 0.0.0.0
+      - key: VIGIA_MODE
+        value: preview
+      - key: ENABLE_REAL_AI
+        value: 'false'
+      - key: ENABLE_CLOUD_FIREBASE
+        value: 'true'
+      - key: FIREBASE_PROJECT_ID
+        value: vigia-aplicativo-7ba1a
+      - key: FIREBASE_DATABASE_ID
+        value: '(default)'
+      - key: ALLOWED_ORIGINS
+        value: https://vigia-app.onrender.com
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-service-account.json
+# Configure o arquivo privado somente em Secret Files no Render.
+# Este Blueprint não cria credenciais, não publica regras e não altera dados.

@@ -1,0 +1,11 @@
+{
+  "firestore": { "database": "(default)", "location": "southamerica-east1", "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
+  "auth": {
+    "authorizedDomains": ["vigia-app.onrender.com", "vigia-aplicativo-7ba1a.firebaseapp.com", "vigia-aplicativo-7ba1a.web.app"],
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {"oAuthBrandDisplayName": "Vigia", "supportEmail": "rodrigo12ao@gmail.com"}
+    }
+  },
+  "emulators": { "auth": { "host": "127.0.0.1", "port": 9099 }, "firestore": { "host": "127.0.0.1", "port": 8080 }, "ui": { "enabled": false }, "singleProjectMode": true }
+}

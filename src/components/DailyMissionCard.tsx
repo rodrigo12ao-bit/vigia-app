@@ -1,3 +1,4 @@
+import {auth} from '../lib/firebase';
 import React, { useState, useEffect } from 'react';
 import { Target, Star, Flame, CheckCircle, ArrowRight, Shield, Sparkles } from 'lucide-react';
 import { getTodayMission, DailyMission } from '../data/dailyMissionsData';
@@ -13,11 +14,11 @@ export const DailyMissionCard: React.FC<DailyMissionCardProps> = ({ onOpenModal 
   const [streak, setStreak] = useState<number>(0);
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('dc_daily_mission_date');
+    const savedDate = localStorage.getItem('vigia_daily_date:'+(auth.currentUser?.uid || 'guest'));
     const todayStr = new Date().toISOString().slice(0, 10);
     setCompletedToday(savedDate === todayStr);
 
-    const savedStreak = Number(localStorage.getItem('dc_daily_mission_streak'));
+    const savedStreak = Number(localStorage.getItem('vigia_daily_streak:'+(auth.currentUser?.uid || 'guest')));
     setStreak(Number.isFinite(savedStreak) ? savedStreak : 0);
   }, []);
 

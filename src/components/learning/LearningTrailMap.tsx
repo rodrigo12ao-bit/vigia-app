@@ -1,3 +1,5 @@
+import type {ActivityClaim} from '../../lib/adventureModel';
+import {playActivityFeedback,feedbackPreferences} from '../../lib/activityFeedback';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -43,7 +45,10 @@ import { PlayerAvatarModal } from './PlayerAvatarModal';
 import { DailyMissionCard } from '../DailyMissionCard';
 
 interface LearningTrailMapProps {
+  userId?: string;
+  globalXp?:number;
   onAddStars: (points: number) => void;
+  onReward?:(claim:ActivityClaim,points:number)=>Promise<any>;
   onUnlockBadge: (badgeId: string) => void;
   onSpeak?: (text: string) => void;
   onOpenDailyMission?: () => void;
@@ -61,16 +66,17 @@ const DEFAULT_JOURNEY_STATE: UserJourneyState = {
 };
 
 export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
+  userId,
+  globalXp,
   onAddStars,
+  onReward,
   onUnlockBadge,
   onSpeak,
   onOpenDailyMission,
 }) => {
-  const [journeyState, setJourneyState] = useState<UserJourneyState>(() => {
-    const saved = localStorage.getItem('vigia_learning_journey');
-    return saved ? JSON.parse(saved) : DEFAULT_JOURNEY_STATE;
-  });
-
+  const [journeyState,setJourneyState]=useState<UserJourneyState>(DEFAULT_JOURNEY_STATE);
+  const [hydrated,setHydrated]=useState(false);
+  const [syncError,setSyncError]=useState('');
   const [selectedModuleId, setSelectedModuleId] = useState<string>('m2'); // Start on Enchentes
   const [activeLevel, setActiveLevel] = useState<LevelData | null>(null);
 
@@ -81,39 +87,22 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isBgmOn, setIsBgmOn] = useState(false);
 
-  // Sync to localStorage and Firestore
-  useEffect(() => {
-    localStorage.setItem('vigia_learning_journey', JSON.stringify(journeyState));
-
-    // Async sync to Firestore if user is authenticated
-    const syncFirestore = async () => {
-      if (auth.currentUser) {
-        try {
-          const userRef = doc(db, 'users', auth.currentUser.uid);
-          await setDoc(userRef, { gameJourney: journeyState }, { merge: true });
-        } catch (err) {
-          // Silent fallback for offline
-        }
-      }
-    };
-    syncFirestore();
-  }, [journeyState]);
-
-  // Load from Firestore on mount if available
-  useEffect(() => {
-    const loadFromFirestore = async () => {
-      if (auth.currentUser) {
-        try {
-          const userRef = doc(db, 'users', auth.currentUser.uid);
-          const snap = await getDoc(userRef);
-          if (snap.exists() && snap.data().gameJourney) {
-            setJourneyState(snap.data().gameJourney);
-          }
-        } catch (e) {}
-      }
-    };
-    loadFromFirestore();
-  }, []);
+  useEffect(()=>{
+    let cancelled=false;setHydrated(false);setJourneyState(DEFAULT_JOURNEY_STATE);setActiveLevel(null);
+    (async()=>{
+      try{
+        const saved=userId?(await getDoc(doc(db,'users',userId))).data()?.gameJourney:JSON.parse(localStorage.getItem('vigia_journey:guest') || 'null');
+        if(cancelled)return;setJourneyState(saved || DEFAULT_JOURNEY_STATE);setHydrated(true);
+      }catch{if(!cancelled)setSyncError('Progresso indisponível. A gravação está pausada para preservar seus dados.');}
+    })();return ()=>{cancelled=true;};
+  },[userId]);
+  useEffect(()=>{
+    if(!hydrated)return;
+    const timer=setTimeout(()=>{
+      try{localStorage.setItem('vigia_journey:'+(userId||'guest'),JSON.stringify(journeyState));}catch{setSyncError('Não foi possível salvar seu progresso local.');}
+      if(userId)setDoc(doc(db,'users',userId),{gameJourney:journeyState},{merge:true}).catch(()=>setSyncError('Não foi possível sincronizar o progresso.'));
+    },500);return ()=>clearTimeout(timer);
+  },[journeyState,hydrated,userId]);
 
   const currentModule = MODULES_DATA.find((m) => m.id === selectedModuleId) || MODULES_DATA[1];
 
@@ -150,18 +139,19 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
       };
     });
 
-    onAddStars(stars * 10);
+    if(onReward)void onReward({kind:'trail',id:levelId,stars,score},stars*10).catch(()=>setSyncError('Recompensa ainda não sincronizada.'));else onAddStars(stars*10);
+    playActivityFeedback('correct',userId);
 
     // Unlock badge if level rewards one
     if (activeLevel?.badgeRewardId) {
       onUnlockBadge(activeLevel.badgeRewardId);
-      gameAudio.playBadgeUnlock();
+      if(!onReward&&feedbackPreferences(userId).sounds)gameAudio.playBadgeUnlock();
     } else {
-      gameAudio.playVictory();
+      if(!onReward&&feedbackPreferences(userId).sounds)gameAudio.playVictory();
     }
 
     if (onSpeak) {
-      onSpeak('Parabéns, Guardião! Você concluiu a missão com sucesso e avançou seu nível de proteção!');
+      onSpeak('Parabéns, Guardião! Você concluiu a fase e registrou mais uma descoberta!');
     }
 
     setActiveLevel(null);
@@ -231,10 +221,11 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
         playerNickname: journeyState.playerNickname,
       };
       setJourneyState(resetState);
-      localStorage.setItem('vigia_learning_journey', JSON.stringify(resetState));
+      localStorage.setItem('vigia_journey:'+(userId||'guest'), JSON.stringify(resetState));
     }
   };
 
+  if(!hydrated)return <div role="status" className="p-4">{syncError || 'Carregando seu progresso…'}</div>;
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
       {/* VIDEOGAME HUD HEADER */}
@@ -264,7 +255,7 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
-                  Nível {journeyState.userLevel}
+                  Nível {globalXp!==undefined?Math.floor(globalXp/100)+1:journeyState.userLevel}
                 </span>
                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${playerAvatarObj.badgeBg}`}>
                   {playerAvatarObj.title}
@@ -286,7 +277,7 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
               <span className="text-[10px] font-black text-slate-400 uppercase block tracking-wider">Pontuação Total</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Sparkles className="w-4 h-4 text-amber-400" />
-                <span className="text-base sm:text-lg font-black text-amber-300">{journeyState.xp} XP</span>
+                <span className="text-base sm:text-lg font-black text-amber-300">{globalXp??journeyState.xp} XP</span>
               </div>
             </div>
 

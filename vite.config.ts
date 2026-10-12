@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'prompt', // Solicita atualização quando há nova versão
-        includeAssets: ['icons/icon.svg', 'model/vigia_dog_premium.glb', 'robots.txt'], // Assets estáticos para cache
+        includeAssets: ['icons/icon.svg', 'robots.txt'], // Assets estáticos para cache
         manifest: {
           name: 'Vigia',
           short_name: 'Vigia',
@@ -32,9 +32,10 @@ export default defineConfig(() => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,glb,ts,tsx}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          globIgnores: ['**/vendor-three-*.js', '**/graphics-*.js', '**/Avatar3D-*.js', '**/EscapeGame-*.js'],
           // Permite cachear o modelo 3D pesado
-          maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15MB limite
+          maximumFileSizeToCacheInBytes: 2 * 1024 * 1024, // 15MB limite
           runtimeCaching: [
             {
               // Não cachear as rotas da API Gemini ou Firebase Firestore para garantir dados frescos/segurança
@@ -68,14 +69,18 @@ export default defineConfig(() => {
       },
     },
     build: {
+      outDir: 'dist/public',
       chunkSizeWarningLimit: 1200,
       rollupOptions: {
         output: {
+          onlyExplicitManualChunks: true,
+
+          chunkFileNames: chunk => chunk.name !== 'vendor-react' && chunk.moduleIds.some(id => id.includes('/three/') || id.includes('@react-three/') || id.includes('@dimforge/')) ? 'assets/graphics-[name]-[hash].js' : 'assets/[name]-[hash].js',
           manualChunks(id) {
+            if (id.includes('commonjsHelpers')) return 'vendor-utils';
             if (id.includes('node_modules')) {
-              if (id.includes('three') || id.includes('@react-three')) {
-                return 'vendor-three';
-              }
+              if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+
               if (id.includes('lucide-react')) {
                 return 'vendor-lucide';
               }

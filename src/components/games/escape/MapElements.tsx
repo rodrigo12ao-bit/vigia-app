@@ -1,9 +1,10 @@
+import {WorldLabel as Text} from './WorldLabel';
 import React, { useState, useRef, useEffect } from 'react';
 import { RigidBody, interactionGroups } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
-import { Gltf, Text, Float, MeshDistortMaterial, Edges, Grid } from '@react-three/drei';
+import { Gltf, Float, MeshDistortMaterial, Edges, Grid } from '@react-three/drei';
 import * as THREE from 'three';
-import { HolographicAndroidHead } from '../../Avatar';
+
 import { useEscapeStore } from './escapeStore';
 
 export const Wall = ({ position, args, color = '#3d3d3d' }: any) => {

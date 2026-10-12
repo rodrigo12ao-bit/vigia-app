@@ -1,7 +1,9 @@
-import React, { Suspense, useMemo, useState } from 'react';
+import {WorldLabel as Text} from './WorldLabel';
+import { TouchControls, touchEnabled } from './TouchControls';
+import React, { Suspense, useMemo, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics, InstancedRigidBodies } from '@react-three/rapier';
-import { KeyboardControls, PointerLockControls, Environment, Text, Sparkles, SoftShadows } from '@react-three/drei';
+import { KeyboardControls, PointerLockControls, Sparkles } from '@react-three/drei';
 import { PlayerController } from './PlayerController';
 import { CompanionDrone } from './CompanionDrone';
 import { FirstPersonBody } from './FirstPersonBody';
@@ -28,15 +30,23 @@ interface EscapeEngineProps {
   onSpeak?: (text: string) => void;
 }
 
+function WorldReady({onReady}:{onReady:()=>void}) {
+  useEffect(()=>{onReady();},[onReady]);
+  return null;
+}
 export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: EscapeEngineProps) => {
-  const { phase, health, setHealth, inventory, addToInventory, unlockedGates, unlockGate, activeSwitches, activateSwitch, setMessage, setPhase, score, thrownItems } = useEscapeStore();
+  const { phase, isPaused, health, setHealth, inventory, addToInventory, unlockedGates, unlockGate, activeSwitches, activateSwitch, setMessage, setPhase, score, thrownItems } = useEscapeStore();
   const [levelComplete, setLevelComplete] = useState(false);
+  const completed=useRef(false);
+  const [worldReady,setWorldReady]=useState(false);
+  const markReady=React.useCallback(()=>setWorldReady(true),[]);
 
   const handleHazard = (damage: number, message: string) => {
-    setHealth(health - damage);
+    const nextHealth=useEscapeStore.getState().health-damage;
+    setHealth(nextHealth);
     escapeAudio.playDamage();
     setMessage(message);
-    if (health - damage <= 0) {
+    if (nextHealth <= 0) {
       onGameOver?.();
     }
   };
@@ -77,20 +87,16 @@ export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: Esca
   };
 
   const handleSafeZone = () => {
-    if (!levelComplete) {
-      if (phase === 1 && score < 40) {
+    if (!completed.current) {
+      if (phase === 1 && useEscapeStore.getState().score < 40) {
         setMessage("Você precisa coletar mais suprimentos e XP antes de avançar!");
         return;
       }
 
+      completed.current=true;
       setLevelComplete(true);
       setMessage("Área segura alcançada! Próxima fase...");
-      
-      // Auto-advance after 3 seconds
-      setTimeout(() => {
-        setPhase(phase + 1);
-        setLevelComplete(false);
-      }, 3000);
+      onVictory?.();
     }
   };
 
@@ -135,7 +141,7 @@ export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: Esca
 
     if (wallPositions.length > 0) {
       elements.push(
-        <InstancedRigidBodies key="walls-instanced" positions={wallPositions} colliders="cuboid" type="fixed">
+        <InstancedRigidBodies key="walls-instanced" instances={wallPositions.map((position,index)=>({key:'wall-'+index,position}))} colliders="cuboid" type="fixed">
           <instancedMesh args={[undefined as any, undefined as any, wallPositions.length]} castShadow receiveShadow>
             <boxGeometry args={[tileSize, 2, tileSize]} />
             <meshStandardMaterial color="#3d3d3d" roughness={0.9} metalness={0.1} />
@@ -240,10 +246,9 @@ export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: Esca
   }, [levelData]);
 
   return (
-    <div className="w-full h-full bg-slate-900 relative cursor-crosshair">
+    <div data-escape-ready={worldReady?'true':'false'} className="w-full h-full bg-slate-900 relative cursor-crosshair">
       <KeyboardControls map={keyboardMap}>
         <Canvas shadows camera={{ fov: 60 }}>
-          <SoftShadows size={20} samples={10} focus={0.5} />
           {/* Iluminação Natural e Tempestade */}
           <color attach="background" args={['#0a0f14']} />
           <fog attach="fog" args={['#0a0f14', 5, 30]} />
@@ -253,14 +258,15 @@ export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: Esca
           </directionalLight>
           
           {/* Efeito de Chuva / Tempestade */}
-          <Sparkles count={8000} scale={[200, 50, 200]} size={3} speed={2} opacity={0.6} color="#82ccdd" position={[0, 20, 0]} />
+          <Sparkles count={touchEnabled()?400:1500} scale={[200, 50, 200]} size={3} speed={2} opacity={0.6} color="#82ccdd" position={[0, 20, 0]} />
+
           
-          <Environment preset="night" />
           
           <Suspense fallback={
             <Text position={[0, 2, -5]} color="white">Carregando Mundo 3D...</Text>
           }>
-            <Physics gravity={[0, -9.81, 0]}>
+            <Physics gravity={[0, -9.81, 0]} paused={isPaused}>
+              <WorldReady onReady={markReady}/>
               <PlayerController startPosition={startPos} />
               <FirstPersonBody />
               <CompanionDrone />
@@ -272,13 +278,14 @@ export const EscapeEngine = ({ levelData, onGameOver, onVictory, onSpeak }: Esca
             
           </Suspense>
           
-          <PointerLockControls />
+          {!touchEnabled() && <PointerLockControls />}
         </Canvas>
       </KeyboardControls>
       
+      <TouchControls/>
       {/* Click to start overlay for PointerLock */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-2 rounded pointer-events-none text-center">
-        Clique na tela para focar e jogar<br/><span className="text-sm text-slate-300">W, A, S, D para mover. Espaço para pular. ESC para pausar.</span>
+      <div className="hidden sm:block absolute top-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-4 py-2 rounded pointer-events-none text-center">
+        {touchEnabled()?'Use os controles de toque':'Clique na tela para focar e jogar'}<br/><span className="text-sm text-slate-300">W, A, S, D para mover. Espaço para pular. ESC para pausar.</span>
       </div>
     </div>
   );

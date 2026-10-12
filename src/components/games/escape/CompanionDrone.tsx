@@ -1,8 +1,9 @@
+import {WorldLabel as Text} from './WorldLabel';
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Float, Sparkles, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { PremiumAvatarModel } from '../../Avatar';
+import { PremiumAvatarModel } from '../../Avatar3D';
 import { useEscapeStore } from './escapeStore';
 
 export const CompanionDrone = () => {

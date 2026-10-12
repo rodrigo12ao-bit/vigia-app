@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/api';
+import { prepareImage } from '../lib/images';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -79,13 +81,13 @@ interface ChatTabProps {
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
   onLoadSession?: (messages: ChatMessage[]) => void;
+  onChatModeChange?: (mode: 'text' | 'live') => void;
   isAudioMuted?: boolean;
   onToggleAudioMute?: () => void;
   debugInfo?: DebugInfo;
   onSpeechRecognized?: (text: string) => void;
   currentUser?: any;
   isGuest?: boolean;
-  onChatModeChange?: (mode: 'text' | 'live') => void;
 }
 
 const QUICK_PROMPTS = [
@@ -204,211 +206,6 @@ const renderTopicGraphic = (topic?: string, contentText: string = '') => {
   }
 };
 
-// ----------------------------------------------------------------------
-// VISUALIZADOR DE ONDAS SONORAS NEON (9 BARRAS FLUÍDAS)
-// ----------------------------------------------------------------------
-interface VoiceWaveVisualizerProps {
-  isListening: boolean;
-  isSpeaking: boolean;
-  isProcessing: boolean;
-  micVolume: number;
-  outputVolume: number;
-}
-
-const VoiceWaveVisualizer: React.FC<VoiceWaveVisualizerProps> = ({
-  isListening,
-  isSpeaking,
-  isProcessing,
-  micVolume,
-  outputVolume,
-}) => {
-  // Ponderação simétrica de sensibilidade das 9 barras (centro mais reativo)
-  const barWeights = [0.35, 0.55, 0.75, 0.92, 1.0, 0.92, 0.75, 0.55, 0.35];
-
-  if (!isListening && !isSpeaking && !isProcessing) {
-    return <div className="h-14" />;
-  }
-
-  // Volume de entrada ou saída
-  const rawVol = isSpeaking ? outputVolume : isListening ? micVolume : 0;
-  // Curva de expansão não-linear (potência 0.45): expande variações baixas para visual super expressivo
-  const expandedVol = Math.pow(Math.min(1, Math.max(0, rawVol)), 0.45);
-
-  let colorStyle = 'from-emerald-400 via-teal-300 to-emerald-500 drop-shadow-[0_0_12px_rgba(52,211,153,0.9)]';
-  if (isSpeaking) {
-    colorStyle = 'from-sky-400 via-cyan-300 to-sky-500 drop-shadow-[0_0_12px_rgba(56,189,248,0.9)]';
-  } else if (isProcessing) {
-    colorStyle = 'from-indigo-400 via-purple-300 to-indigo-500 drop-shadow-[0_0_12px_rgba(129,140,248,0.9)]';
-  }
-
-  return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-2 h-14 px-4 py-1">
-      {barWeights.map((weight, i) => {
-        let targetHeight = 6;
-        if (isProcessing) {
-          targetHeight = 8 + Math.sin(Date.now() / 100 + i * 0.7) * 14;
-        } else {
-          // Variação drástica de altura de 6px a 56px (quase 10x de amplitude)
-          targetHeight = Math.max(6, Math.min(56, 6 + expandedVol * 50 * weight));
-        }
-
-        return (
-          <motion.span
-            key={i}
-            animate={{ height: targetHeight }}
-            transition={{
-              type: 'spring',
-              stiffness: 450,
-              damping: 22,
-              mass: 0.35,
-            }}
-            className={`w-1.5 sm:w-2 rounded-full bg-gradient-to-t ${colorStyle}`}
-          />
-        );
-      })}
-    </div>
-  );
-};
-
-// ----------------------------------------------------------------------
-// COMPONENTES AUXILIARES DO MODO TEXTO (TYPEWRITER, TYPING DOTS)
-// ----------------------------------------------------------------------
-const renderFormattedMarkdown = (rawText: string) => {
-  if (!rawText) return null;
-
-  const lines = rawText.split('\n');
-  return (
-    <div className="space-y-2 text-sm sm:text-base leading-relaxed text-slate-100 font-normal">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-1" />;
-
-        const parseBold = (content: string) => {
-          const parts = content.split(/(\*\*.*?\*\*)/g);
-          return parts.map((part, pIdx) => {
-            if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-              return (
-                <strong key={pIdx} className="font-black text-amber-300 drop-shadow-xs">
-                  {part.slice(2, -2)}
-                </strong>
-              );
-            }
-            return part;
-          });
-        };
-
-        if (trimmed.startsWith('# ')) {
-          return (
-            <h3 key={idx} className="text-base font-black text-amber-300 tracking-wide mt-2 mb-1 border-b border-amber-500/20 pb-1">
-              {parseBold(trimmed.replace(/^#\s*/, ''))}
-            </h3>
-          );
-        }
-
-        if (trimmed.startsWith('## ') || trimmed.startsWith('### ')) {
-          return (
-            <h4 key={idx} className="text-sm font-black text-indigo-300 tracking-wide mt-2 mb-1">
-              {parseBold(trimmed.replace(/^#{2,3}\s*/, ''))}
-            </h4>
-          );
-        }
-
-        if (trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          const cleanLine = trimmed.replace(/^[•\-\*]\s*/, '');
-          return (
-            <div key={idx} className="flex items-start gap-2.5 pl-2 my-1 bg-slate-900/40 p-2 rounded-xl border border-slate-700/50">
-              <span className="w-2 h-2 rounded-full bg-amber-400 mt-2 shrink-0 shadow-xs shadow-amber-400/50" />
-              <div className="flex-1">{parseBold(cleanLine)}</div>
-            </div>
-          );
-        }
-
-        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-        if (numMatch) {
-          const num = numMatch[1];
-          const cleanLine = numMatch[2];
-          return (
-            <div key={idx} className="flex items-start gap-2.5 pl-2 my-1.5 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-700/60 shadow-xs">
-              <span className="w-5 h-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                {num}
-              </span>
-              <div className="flex-1 font-medium">{parseBold(cleanLine)}</div>
-            </div>
-          );
-        }
-
-        return (
-          <p key={idx} className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">
-            {parseBold(trimmed)}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-
-const TypewriterText: React.FC<{ text: string; isLatest: boolean }> = ({ text, isLatest }) => {
-  const [displayedText, setDisplayedText] = useState(isLatest ? '' : text);
-
-  useEffect(() => {
-    if (!isLatest) {
-      setDisplayedText(text);
-      return;
-    }
-
-    const words = text.split(' ');
-    let currentIndex = 0;
-    setDisplayedText('');
-
-    const interval = setInterval(() => {
-      currentIndex += 1;
-      setDisplayedText(words.slice(0, currentIndex).join(' '));
-      if (currentIndex >= words.length) {
-        clearInterval(interval);
-      }
-    }, 18);
-
-    return () => clearInterval(interval);
-  }, [text, isLatest]);
-
-  return <div className="min-w-0">{renderFormattedMarkdown(displayedText)}</div>;
-};
-
-const TypingDotsIndicator: React.FC = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    exit={{ opacity: 0, y: -5 }}
-    className="flex flex-col items-start min-w-0 mb-3"
-  >
-    <div className="flex items-center gap-1.5 px-1 mb-1 text-[10px] font-bold text-slate-400">
-      <span className="text-indigo-300 font-extrabold">Vigia</span>
-      <span>•</span>
-      <span>preparando resposta...</span>
-    </div>
-    <div className="bg-slate-800/70 border border-slate-700/60 p-3 sm:p-3.5 rounded-2xl rounded-tl-xs shadow-lg backdrop-blur-md flex items-center gap-2.5 max-w-[85%]">
-      <Sparkles className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-      <div className="flex items-center gap-1.5 px-1">
-        <motion.span
-          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
-          transition={{ repeat: Infinity, duration: 0.7, delay: 0 }}
-          className="w-2 h-2 bg-indigo-400 rounded-full inline-block"
-        />
-        <motion.span
-          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
-          transition={{ repeat: Infinity, duration: 0.7, delay: 0.2 }}
-          className="w-2 h-2 bg-indigo-300 rounded-full inline-block"
-        />
-        <motion.span
-          animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
-          transition={{ repeat: Infinity, duration: 0.7, delay: 0.4 }}
-          className="w-2 h-2 bg-indigo-200 rounded-full inline-block"
-        />
-      </div>
-    </div>
-  </motion.div>
-);
-
 export const ChatTab: React.FC<ChatTabProps> = ({
   messages,
   onSendMessage,
@@ -419,16 +216,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onSelectPrompt,
   onResetChat,
   onLoadSession,
+  onChatModeChange,
   isAudioMuted = false,
   onToggleAudioMute,
   debugInfo,
   onSpeechRecognized,
   currentUser,
   isGuest = true,
-  onChatModeChange,
 }) => {
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
-  const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
+  useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
+  const [historyReady,setHistoryReady]=useState(false);
+  const sessionMetadata=useRef<{id:string;title:string;createdAt:string}|null>(null);
+  const restoredMessages=useRef<ChatMessage[]|null>(null);
+  const pendingSave=useRef<{session:ChatSession;uid?:string}|null>(null);
+  const switchLock=useRef(false);
+  const flushSession=async()=>{const pending=pendingSave.current;if(!pending)return;await saveSession(pending.session,pending.uid);if(pendingSave.current===pending)pendingSave.current=null;};
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [inputText, setInputText] = useState('');
   const [interactionState, setInteractionState] = useState<ConversationState>('IDLE');
@@ -451,7 +254,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   }, [chatMode, isLoading, isSpeaking, interactionState]);
 
   const [micVolume, setMicVolume] = useState(0);
-  const [outputVolume, setOutputVolume] = useState(0);
   const [interimSpeech, setInterimSpeech] = useState('');
   const [micPermissionError, setMicPermissionError] = useState(false);
   const [speechFeedbackMsg, setSpeechFeedbackMsg] = useState<string | null>(null);
@@ -461,7 +263,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // History & Session State
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -542,68 +343,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     isLoadingRef.current = isLoading;
   }, [isListening, isSpeaking, isLoading]);
 
-  // Load chat sessions on mount or when user changes
   useEffect(() => {
-    async function fetchSessions() {
-      const list = await loadSessions(userId);
-      setSessions(list);
-      if (list.length > 0 && !currentSessionId) {
-        setCurrentSessionId(list[0].id);
-      }
-    }
-    fetchSessions();
-  }, [userId]);
-
-  // Sync current messages to current session in history
-  useEffect(() => {
-    if (messages.length === 0) return;
-
-    const firstUserMsg = messages.find((m) => m.role === 'user');
-    const autoTitle = firstUserMsg ? firstUserMsg.content.slice(0, 30) + '...' : 'Conversa com Vigia';
-    const lastMsg = messages[messages.length - 1];
-
-    const activeId = currentSessionId || 'sess_' + Date.now();
-    if (!currentSessionId) {
-      setCurrentSessionId(activeId);
-    }
-
-    const sessionObj: ChatSession = {
-      id: activeId,
-      title: autoTitle,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      lastMessagePreview: lastMsg?.content ? lastMsg.content.slice(0, 50) : '',
-      messages,
-    };
-
-    const timer = setTimeout(() => {
-      saveSession(sessionObj, userId).then(async () => {
-        const updatedList = await loadSessions(userId);
-        setSessions(updatedList);
-      });
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [messages, userId, currentSessionId]);
-
-  // Quando no modo Texto, garante que microfone e voz iniciem 100% desligados por padrão
-  useEffect(() => {
-    onChatModeChange?.(chatMode);
-    if (chatMode === 'text') {
-      stopListening();
-      stopSpeaking();
-      setInteractionState('IDLE');
-      setInterimSpeech('');
-    }
-  }, [chatMode, onChatModeChange]);
+    let cancelled=false; setHistoryReady(false); setSessions([]); setCurrentSessionId(null); sessionMetadata.current=null;pendingSave.current=null;
+    loadSessions(userId).then(list=>{ if(cancelled)return; setSessions(list); setHistoryReady(true); }).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
+    return ()=>{cancelled=true;};
+  },[userId]);
+  useEffect(()=>{
+    if(!historyReady || isLoading || !messages.some(m=>m.role==='user'))return;
+    if(restoredMessages.current===messages)return;
+    const first=messages.find(m=>m.role==='user')!;
+    const id=currentSessionId || crypto.randomUUID();
+    if(!currentSessionId){setCurrentSessionId(id);sessionMetadata.current={id,title:first.content.slice(0,30),createdAt:new Date().toISOString()};return;}
+    const meta=sessionMetadata.current || {id,title:first.content.slice(0,30),createdAt:new Date().toISOString()};
+    const object:ChatSession={...meta,updatedAt:new Date().toISOString(),lastMessagePreview:messages.at(-1)?.content.slice(0,50)||'',messages};
+    pendingSave.current={session:object,uid:userId};
+    let cancelled=false;
+    const timer=setTimeout(()=>{flushSession().then(()=>loadSessions(userId)).then(list=>{if(!cancelled)setSessions(list);}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
+    return ()=>{cancelled=true;clearTimeout(timer);};
+  },[historyReady,messages,isLoading,userId,currentSessionId]);
 
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
   useEffect(() => {
     if (chatMode !== 'live') return;
 
-    // BUG 4: suppressStateReset=true para não forçar IDLE enquanto o Live ainda conecta
-    stopListening(true);
+    stopListening();
     stopSpeaking();
     setLiveSubtitle('');
     setInterimSpeech('');
@@ -621,12 +385,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'listening':
             setInteractionState('LISTENING');
             setLiveIsSpeaking(false);
-            setLiveSubtitle(''); // ARQ 4: Limpa legenda ao iniciar novo turno de escuta
             break;
           case 'userSpeaking':
             setInteractionState('USER_SPEAKING');
             setLiveIsSpeaking(false);
-            setLiveSubtitle(''); // Limpa transcrição anterior da Vigia quando usuário começa a falar
             break;
           case 'processing':
             setInteractionState('PROCESSING');
@@ -635,12 +397,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           case 'assistantSpeaking':
             setInteractionState('SPEAKING');
             setLiveIsSpeaking(true);
-            setInterimSpeech(''); // Limpa transcrição do usuário quando a Vigia começa a falar
-            break;
-          case 'stopping':
-            // ARQ 2: Estado sem handler anterior. Mostra feedback neutro durante encerramento.
-            setInteractionState('CONNECTING');
-            setLiveIsSpeaking(false);
             break;
           case 'error':
             setInteractionState('ERROR');
@@ -658,13 +414,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       },
       onInputLevel: (rms) => {
         if (disposed || liveSessionRef.current !== session) return;
-        setOutputVolume(0);
-        setMicVolume(Math.min(1, Math.pow(rms * 12, 0.7)));
-      },
-      onOutputLevel: (rms) => {
-        if (disposed || liveSessionRef.current !== session) return;
-        setMicVolume(0);
-        setOutputVolume(Math.min(1, Math.pow(rms * 12, 0.7)));
+        setMicVolume(Math.min(1, rms * 12));
       },
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
@@ -688,7 +438,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     });
 
     liveSessionRef.current = session;
-    session.setMuted(isLiveAudioMuted);
     void session.start();
 
     return () => {
@@ -730,9 +479,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
-  // BUG 4: suppressStateReset evita que stopListening() force IDLE no modo Live,
-  // onde o estado é autoridade exclusiva do GeminiLiveSession.
-  const stopListening = (suppressStateReset = false) => {
+  const stopListening = () => {
     if (silenceBufferTimerRef.current) {
       window.clearTimeout(silenceBufferTimerRef.current);
       silenceBufferTimerRef.current = null;
@@ -749,7 +496,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
     stopMicStream();
-    if (!suppressStateReset) setInteractionState('IDLE');
+    setInteractionState('IDLE');
     setMicVolume(0);
   };
 
@@ -917,12 +664,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         reader.onloadend = async () => {
           const base64Audio = (reader.result as string).split(',')[1];
           try {
-            const resp = await fetch('/api/transcribe', {
+            const resp = await apiFetch('/api/transcribe', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ audio: base64Audio, mimeType: audioBlob.type }),
             });
             const data = await resp.json();
+            if(!resp.ok || data.status==='unavailable'){setSpeechFeedbackMsg('Transcrição indisponível. Use texto e tente mais tarde.');stopListening();return;}
             const text = (data.text || '').trim();
 
             if (text && text !== 'NO_SPEECH') {
@@ -938,8 +686,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               }
             }
           } catch (err: any) {
-            console.error('[Transcrição] erro:', err);
-            setSpeechFeedbackMsg('Não consegui ouvir. Pode falar novamente?');
+            setSpeechFeedbackMsg('Transcrição indisponível. Verifique a conexão e use texto.');
             setTimeout(() => setSpeechFeedbackMsg(null), 3000);
 
             if (isListeningRef.current && mediaStreamRef.current) {
@@ -1031,11 +778,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
-  // BUG 3: auto-resume NUNCA deve rodar no modo Live. O microfone do Live
-  // é gerenciado exclusivamente pelo GeminiLiveSession. Chamar
-  // startListeningWithPermission() em modo Live abriria um segundo MediaStream.
   useEffect(() => {
-    if (prevSpeakingRef.current && !isSpeaking && chatMode !== 'live' && !isAudioMuted && !isLoading) {
+    if (prevSpeakingRef.current && !isSpeaking && chatMode === 'live' && !isAudioMuted && !isLoading) {
       autoResumeTimerRef.current = window.setTimeout(() => {
         if (!isListening && !isSendingRef.current && !isManuallyPausedRef.current) {
           startListeningWithPermission();
@@ -1052,28 +796,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     prevSpeakingRef.current = isSpeaking;
   }, [isSpeaking, chatMode, isAudioMuted, isLoading]);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('A imagem é muito grande. Escolha uma foto de até 10MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const mimeType = file.type || 'image/jpeg';
-      const base64Data = result.split(',')[1];
-      setSelectedImage({
-        data: base64Data,
-        mimeType,
-        previewUrl: result,
-      });
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file=e.target.files?.[0];e.target.value='';if(!file)return;
+    try{setSelectedImage(await prepareImage(file));}catch(e){setSpeechFeedbackMsg(e instanceof Error?e.message:'Imagem indisponível.');}
   };
 
   const handleRemoveImage = () => {
@@ -1100,16 +825,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
-  // ARQ 3: No modo Live, para o áudio local via interruptPlayback().
-  // No modo Texto, para o TTS do browser via stopSpeaking().
   const handleInterruptSpeech = () => {
-    if (chatMode === 'live') {
-      liveSessionRef.current?.interruptPlayback();
-      setLiveIsSpeaking(false);
-      setInteractionState('LISTENING');
-    } else {
-      stopSpeaking();
-    }
+    stopSpeaking();
   };
 
   const toggleMicListening = () => {
@@ -1122,7 +839,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       stopListening();
     } else {
       isManuallyPausedRef.current = false;
-      if (!localStorage.getItem('vigia_mic_explained')) {
+      if (!localStorage.getItem('vigia_mic_explained:'+(userId||'guest'))) {
         setShowPermissionPrompt(true);
       } else {
         startListeningWithPermission();
@@ -1131,60 +848,28 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleConfirmMicPermission = () => {
-    localStorage.setItem('vigia_mic_explained', 'true');
+    localStorage.setItem('vigia_mic_explained:'+(userId||'guest'), 'true');
     setShowPermissionPrompt(false);
     startListeningWithPermission();
   };
 
-  const handleCopyMessage = (text: string, msgId: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopyMessage = async (text: string, msgId: string) => {
+    try{await navigator.clipboard.writeText(text);}catch{setSpeechFeedbackMsg('Não foi possível copiar. Selecione o texto manualmente.');return;}
     setCopiedMsgId(msgId);
     setTimeout(() => setCopiedMsgId(null), 2000);
   };
-  // Handlers para Arraste e Solte de Fotos (Drag & Drop)
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isDraggingOver) setIsDraggingOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      if (file.size > 10 * 1024 * 1024) {
-        setSpeechFeedbackMsg('A imagem é muito grande. Escolha uma foto de até 10MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setSelectedImage({
-          data: result.split(',')[1],
-          mimeType: file.type || 'image/jpeg',
-          previewUrl: result,
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   // Create new chat
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    if(switchLock.current)return;
     if (inputText.trim()) {
       if (!window.confirm('Você tem uma mensagem não enviada. Deseja iniciar um novo chat mesmo assim?')) {
         return;
       }
     }
+    if(isLoading)return;
+    switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
+    restoredMessages.current=null; sessionMetadata.current=null;
     onResetChat?.();
     const newId = 'sess_' + Date.now();
     setCurrentSessionId(newId);
@@ -1192,28 +877,28 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setShowHistoryDrawer(false);
   };
 
-  // BUG 2: Anteriormente o corpo do forEach estava vazio — o histórico era limpado
-  // mas jamais restaurado. Agora chama onLoadSession para repopular o estado do pai.
-  const handleSelectSession = (session: ChatSession) => {
+  // Switch to a chat session
+  const handleSelectSession = async (session: ChatSession) => {
+    if(isLoading || switchLock.current)return;
+    switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
+    restoredMessages.current=session.messages;
+    sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
+    onLoadSession?.(session.messages);
     setCurrentSessionId(session.id);
-    if (session.messages.length > 0) {
-      onLoadSession?.(session.messages);
-    } else if (onResetChat) {
-      onResetChat();
-    }
     setShowHistoryDrawer(false);
   };
 
   // Confirm and delete session
   const handleConfirmDeleteSession = async () => {
-    if (!sessionToDelete) return;
+    if (!sessionToDelete || isLoading) return;
+    if(pendingSave.current?.session.id===sessionToDelete.id)pendingSave.current=null;
     await deleteSession(sessionToDelete.id, userId);
     const updated = await loadSessions(userId);
     setSessions(updated);
 
     if (currentSessionId === sessionToDelete.id) {
       if (updated.length > 0) {
-        setCurrentSessionId(updated[0].id);
+        handleSelectSession(updated[0]);
       } else {
         handleNewChat();
       }
@@ -1223,6 +908,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // Delete all sessions
   const handleConfirmDeleteAll = async () => {
+    if(isLoading)return;
+    pendingSave.current=null;
     await deleteAllSessions(userId);
     setSessions([]);
     handleNewChat();
@@ -1232,16 +919,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // Rename session
   const handleSaveRename = async (sessionId: string) => {
-    if (!editingTitleText.trim()) return;
+    if (!editingTitleText.trim() || isLoading) return;
+    await flushSession();
     await renameSession(sessionId, editingTitleText.trim(), userId);
     const updated = await loadSessions(userId);
     setSessions(updated);
+    if(sessionMetadata.current?.id===sessionId)sessionMetadata.current={...sessionMetadata.current,title:editingTitleText.trim()};
     setEditingSessionId(null);
     setEditingTitleText('');
   };
 
   const [isConfirmEndCallOpen, setIsConfirmEndCallOpen] = useState(false);
-  // BUG 5: isVoiceActive removido (estado morto — nunca era lido nem modificado)
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
 
   const lastAssistantMsg = [...messages].reverse().find((m) => m.role === 'assistant');
 
@@ -1375,7 +1064,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Mode Switcher Segmented Control */}
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-0.5 shadow-inner">
               <button
@@ -1435,27 +1124,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <span className="hidden lg:inline">Ideias</span>
             </button>
 
-            {/* Audio Mute Toggle */}
-            {onToggleAudioMute && (
-              <button
-                onClick={onToggleAudioMute}
-                className={`p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  isAudioMuted ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                }`}
-                title={isAudioMuted ? 'Ativar som' : 'Som ativo'}
-              >
-                {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-              </button>
-            )}
-
             {/* Diagnostic Toggle */}
-            <button
+            {import.meta.env.DEV && (<button
               onClick={() => setShowDebugPanel(!showDebugPanel)}
               className="p-2 text-slate-400 hover:text-amber-400 bg-slate-800 rounded-xl border border-slate-700 transition-colors cursor-pointer"
               title="Painel de diagnóstico técnico"
             >
               <Bug className="w-4 h-4" />
-            </button>
+            </button>)}
           </div>
         </div>
 
@@ -1553,7 +1229,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
                 <h3 className="font-black text-base text-slate-900">Acesso ao Microfone</h3>
                 <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                  A Vigia usa o microfone somente enquanto você conversa. Toque em permitir para começar a falar.
+                  O microfone é usado durante a conversa. A fala pode ser processada pelo serviço de voz do navegador ou pelo Gemini, conforme o modo. Use apenas dados fictícios na demonstração. Não envie informações pessoais.
                 </p>
 
                 <div className="flex gap-2 pt-2">
@@ -1683,10 +1359,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      // BUG 1: Não zeramos liveSessionRef.current aqui.
-                      // O useEffect de cleanup do chatMode é a única autoridade de limpeza.
-                      // Fazer null aqui causava race condition quando setChatMode disparava
-                      // o useEffect antes que o stop() assync terminasse.
+                      stopListening();
+                      stopSpeaking();
+                      if (liveSessionRef.current) {
+                        try { liveSessionRef.current.stop(); } catch (e) {}
+                        liveSessionRef.current = null;
+                      }
                       setChatMode('text');
                       setIsConfirmEndCallOpen(false);
                     }}
@@ -1799,7 +1477,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                                 ) : (
                                   <>
                                     <div className="overflow-hidden flex-1">
-                                      <p className="text-xs font-bold truncate leading-snug">{session.title}</p>
+                                      <button type="button" className="text-xs font-bold truncate leading-snug max-w-full text-left" onClick={e=>{e.stopPropagation();handleSelectSession(session);}}><p>{session.title}</p></button>
                                       {session.lastMessagePreview && (
                                         <p className="text-[10px] text-slate-500 truncate mt-0.5">
                                           {session.lastMessagePreview}
@@ -1875,43 +1553,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="shrink-0 vigia-glass-dark border-b border-slate-800/80 overflow-hidden"
+                    className="shrink-0 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md overflow-hidden"
                   >
-                    <div className="p-3.5 sm:p-4 text-center max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60px] sm:min-h-[80px]">
-                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        {interactionState === 'SPEAKING' || liveIsSpeaking || liveSubtitle ? (
-                          <span className="text-sky-300 flex items-center gap-1.5 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-400/20">
-                            <Volume2 className="w-4 h-4 text-sky-400 animate-pulse" /> 🛡️ Vigia (Voz Ativa)
-                          </span>
-                        ) : (
-                          <span className="text-emerald-300 flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-400/20">
-                            <Mic className="w-4 h-4 text-emerald-400 animate-pulse" /> 👤 Você (Fale Livremente)
-                          </span>
-                        )}
+                    <div className="p-3 sm:p-4 text-center max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60px] sm:min-h-[80px]">
+                      <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <Subtitles className="w-3 h-3" /> Transcrição
                       </p>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-100 italic break-words [overflow-wrap:anywhere] line-clamp-3 leading-relaxed">
-                        {interactionState === 'SPEAKING' || liveIsSpeaking
-                          ? liveSubtitle || "Falando com você..."
-                          : interimSpeech || (interactionState === 'USER_SPEAKING' ? "Ouvindo sua voz..." : "Pode falar, estou te ouvindo!")}
+                      <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
+                        {interimSpeech || liveSubtitle || lastAssistantMsg?.content || "Aguardando..."}
                       </p>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* ONDAS SONORAS FLUÍDAS (Abaixo da Legenda, Acima do Avatar) */}
-              <div className="shrink-0 flex items-center justify-center pt-2 pb-1 bg-transparent pointer-events-none z-10 min-h-[44px]">
-                <VoiceWaveVisualizer
-                  isListening={isListening}
-                  isSpeaking={currentIsSpeaking}
-                  isProcessing={interactionState === 'PROCESSING' || interactionState === 'CONNECTING'}
-                  micVolume={micVolume}
-                  outputVolume={outputVolume}
-                />
+              {/* ONDAS SONORAS (Abaixo da Legenda, Acima do Avatar) */}
+              <div className="shrink-0 flex items-center justify-center pt-4 pb-2 bg-transparent pointer-events-none z-10 min-h-[40px]">
+                {(isListening || currentIsSpeaking) && (
+                  <div className="flex items-center justify-center gap-1.5 h-6">
+                      <motion.span animate={{ height: isListening ? [6, Math.max(10, micVolume * 20), 6] : [6, 14, 6] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
+                      <motion.span animate={{ height: isListening ? [10, Math.max(14, micVolume * 30), 10] : [10, 20, 10] }} transition={{ repeat: Infinity, duration: 0.5 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
+                      <motion.span animate={{ height: isListening ? [14, Math.max(18, micVolume * 40), 14] : [14, 24, 14] }} transition={{ repeat: Infinity, duration: 0.3 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-200' : 'bg-emerald-200'}`} />
+                      <motion.span animate={{ height: isListening ? [8, Math.max(12, micVolume * 25), 8] : [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.6 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
+                      <motion.span animate={{ height: isListening ? [5, Math.max(8, micVolume * 15), 5] : [5, 10, 5] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
+                  </div>
+                )}
               </div>
 
               {/* ZONA CENTRAL: O PALCO DO AVATAR (Livre, Limpo e Expansivo) */}
-              <div className="flex-1 min-h-0 relative flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-950 to-slate-950">
+              <div className="flex-1 min-h-0 relative flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/10 via-slate-950 to-slate-950">
                 
                 {/* O Avatar ocupa 100% dessa zona livremente */}
                 <Avatar
@@ -1923,77 +1593,75 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 />
               </div>
 
-              {/* ZONA INFERIOR: DOCK COMPACTO FUTURISTA */}
-              <div className="shrink-0 pb-4 sm:pb-6 pb-safe px-4 bg-transparent relative z-20 flex justify-center">
-                <div className="vigia-glass-dark p-2 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-center justify-center gap-2 sm:gap-4 max-w-fit mx-auto border border-slate-700/60">
+              {/* ZONA INFERIOR: DOCK COMPACTO (Apenas Ícones) */}
+              <div className="shrink-0 pb-4 sm:pb-6 px-4 bg-transparent relative z-20 flex justify-center">
+                <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 p-2 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 sm:gap-4 max-w-fit mx-auto">
                   
                   {/* Legendas Toggle */}
                   <button
                     onClick={() => setShowSubtitles(!showSubtitles)}
-                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
-                      showSubtitles ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
+                      showSubtitles ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title="Ativar/Desativar Legendas"
                   >
-                    <Subtitles className="w-5 h-5" />
+                    <Subtitles className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
-                  {/* Silenciar Áudio Exclusivo do Modo Voz */}
-                  <button
-                    onClick={() => {
-                      const nextMuted = !isLiveAudioMuted;
-                      setIsLiveAudioMuted(nextMuted);
-                      liveSessionRef.current?.setMuted(nextMuted);
-                    }}
-                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
-                      isLiveAudioMuted ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-xs' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
-                    }`}
-                    title={isLiveAudioMuted ? 'Áudio do Modo Voz Mutado' : 'Silenciar Áudio do Modo Voz'}
-                  >
-                    {isLiveAudioMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                  </button>
+                  {/* Silenciar Áudio */}
+                  {onToggleAudioMute && (
+                    <button
+                      onClick={onToggleAudioMute}
+                      className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
+                        isAudioMuted ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                      }`}
+                      title={isAudioMuted ? 'Áudio Mutado' : 'Silenciar'}
+                    >
+                      {isAudioMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+                    </button>
+                  )}
 
                   {/* Botão Principal: MICROFONE / INTERROMPER */}
                   {currentIsSpeaking ? (
                     <button
                       onClick={handleInterruptSpeech}
-                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-xl transition-all active:scale-95 cursor-pointer shrink-0 bg-sky-500 hover:bg-sky-600 text-white animate-pulse shadow-sky-500/30 flex items-center justify-center touch-target-min"
-                      title="Interromper fala da Vigia"
+                      className="p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 bg-sky-600 hover:bg-sky-700 text-white animate-pulse shadow-sky-500/30"
+                      title="Interromper fala"
                     >
-                      <VolumeX className="w-6 h-6 sm:w-7 sm:h-7" />
+                      <VolumeX className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   ) : (
                     <button
                       onClick={toggleMicListening}
-                      className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-xl transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min ${
+                      className={`p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 ${
                         isListening
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white animate-pulse shadow-emerald-500/40'
-                          : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700'
+                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse shadow-emerald-500/30'
+                          : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
                       }`}
-                      title={isListening ? 'Pausar Conversa' : 'Ativar Conversa por Voz'}
+                      title={isListening ? 'Pausar Conversa' : 'Ativar Conversa'}
                     >
-                      {isListening ? <Mic className="w-6 h-6 sm:w-7 sm:h-7" /> : <MicOff className="w-6 h-6 sm:w-7 sm:h-7 text-slate-400" />}
+                      {isListening ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </button>
                   )}
 
                   {/* Painel de Debug */}
-                  <button
+                  {import.meta.env.DEV && (<button
                     onClick={() => setShowDebugPanel(!showDebugPanel)}
-                    className={`w-11 h-11 rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min ${
-                      showDebugPanel ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40' : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                    className={`p-3 rounded-full transition-all cursor-pointer flex-shrink-0 ${
+                      showDebugPanel ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title="Painel Técnico"
                   >
-                    <Bug className="w-5 h-5" />
-                  </button>
+                    <Bug className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>)}
 
                   {/* Encerrar */}
                   <button
                     onClick={() => setIsConfirmEndCallOpen(true)}
-                    className="w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 transition-all cursor-pointer flex items-center justify-center shrink-0 touch-target-min"
-                    title="Encerrar Conversa de Voz"
+                    className="p-3 rounded-full bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 transition-all cursor-pointer flex-shrink-0"
+                    title="Encerrar"
                   >
-                    <PhoneOff className="w-5 h-5" />
+                    <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
 
                 </div>
@@ -2002,45 +1670,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             </div>
           ) : (
             /* MODE 1: CHATGPT-STYLE CONTINUOUS FEED */
-            <div
-              className="flex-1 min-h-0 min-w-0 flex flex-col bg-slate-950 relative overflow-hidden"
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              {/* Overlay de Arraste e Solte de Foto */}
-              <AnimatePresence>
-                {isDraggingOver && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute inset-0 bg-slate-950/95 border-2 border-dashed border-indigo-400 z-50 backdrop-blur-md flex flex-col items-center justify-center text-white space-y-3 pointer-events-none p-6 text-center"
-                  >
-                    <div className="w-16 h-16 rounded-3xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/40 flex items-center justify-center shadow-2xl animate-bounce">
-                      <ImageIcon className="w-8 h-8 text-amber-300" />
-                    </div>
-                    <h3 className="text-base font-black text-white">Solte sua foto aqui!</h3>
-                    <p className="text-xs text-slate-300 font-semibold max-w-sm">
-                      A Vigia analisará a imagem em busca de riscos, emergências e orientações de prevenção.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col bg-slate-950 relative overflow-hidden">
 
               {/* MESSAGES SCROLL FEED */}
               <div
                 ref={messagesContainerRef}
                 onScroll={handleScrollFeed}
-                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-3 sm:p-5 space-y-4 shadow-inner select-text no-scrollbar"
+                className="flex-1 min-h-0 min-w-0 overflow-y-auto p-2.5 sm:p-5 space-y-3.5 shadow-inner select-text"
               >
                 {messages.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 space-y-3 max-w-md mx-auto">
-                    <div className="w-14 h-14 rounded-3xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mx-auto flex items-center justify-center shadow-lg">
-                      <Sparkles className="w-7 h-7 text-amber-300 animate-pulse" />
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mx-auto flex items-center justify-center shadow-lg">
+                      <Sparkles className="w-6 h-6 text-amber-300" />
                     </div>
-                    <h3 className="text-base font-black text-white">Como a Vigia pode ajudar você hoje?</h3>
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                    <h3 className="text-sm font-black text-white">Como a Vigia pode ajudar você hoje?</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
                       Faça uma pergunta sobre prevenção de acidentes, emergências, tempestades ou o que fazer em caso de perigo.
                     </p>
                   </div>
@@ -2053,31 +1697,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       <motion.div
                         layout
                         key={msg.id}
-                        initial={{ opacity: 0, y: 15, scale: 0.96 }}
+                        initial={{ opacity: 0, y: 15, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ type: "spring", stiffness: 400, damping: 25 }}
                         className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0`}
                       >
                         {/* Header Label & Time */}
-                        <div className="flex items-center gap-1.5 px-1 mb-1 text-[11px] font-bold text-slate-400">
-                          <span className={isUser ? 'text-amber-400 font-black' : 'text-indigo-300 font-black'}>
+                        <div className="flex items-center gap-1.5 px-1 mb-1 text-[10px] font-bold text-slate-400">
+                          <span className={isUser ? 'text-amber-400 font-extrabold' : 'text-indigo-300 font-extrabold'}>
                             {isUser ? 'Você' : 'Vigia'}
                           </span>
                           <span>•</span>
                           <span>{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
 
-                        {/* Message Content Bubble */}
+                        {/* Message Content Bubble (Glassmorphism) */}
                         <div
-                          className={`max-w-[92%] sm:max-w-[85%] rounded-3xl p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed shadow-md backdrop-blur-md relative break-words [overflow-wrap:anywhere] min-w-0 border transition-all ${
+                          className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3 sm:p-3.5 text-xs sm:text-sm leading-relaxed shadow-lg backdrop-blur-md relative break-words [overflow-wrap:anywhere] min-w-0 border ${
                             isUser
-                              ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-amber-400/40 text-white rounded-tr-xs font-medium shadow-orange-500/10'
-                              : 'bg-slate-900/90 border-slate-800 text-slate-100 rounded-tl-xs font-medium'
+                              ? 'bg-gradient-to-br from-orange-500/90 to-amber-600/90 border-amber-400/30 text-white rounded-tr-xs font-medium'
+                              : 'bg-slate-800/60 border-slate-700/60 text-slate-100 rounded-tl-xs font-medium'
                           }`}
                         >
                           {/* Attached Image Preview in User Message */}
                           {msg.imageUrl && (
-                            <div className="mb-2 overflow-hidden rounded-2xl border border-white/20 max-w-xs shadow-md">
+                            <div className="mb-2 overflow-hidden rounded-xl border border-white/20 max-w-xs shadow-md">
                               <img
                                 src={msg.imageUrl}
                                 alt="Foto enviada para análise"
@@ -2086,29 +1730,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                             </div>
                           )}
 
-                          {isUser ? (
-                            <p className="whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0 text-sm leading-relaxed">{msg.content}</p>
-                          ) : (
-                            <TypewriterText text={msg.content} isLatest={msg === messages[messages.length - 1]} />
-                          )}
+                          <p className="learning-copy whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">{msg.content}</p>
 
                           {/* Action Buttons for Assistant Message */}
                           {!isUser && (
-                            <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-end gap-1.5 text-slate-400">
+                            <div className="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center justify-end gap-1.5 text-slate-400">
                               <button
                                 onClick={() => onReplayAudio(msg.content)}
-                                className="p-1.5 hover:text-amber-300 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer touch-target-min"
-                                title="Ouvir resposta em áudio"
+                                className="p-1 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Ouvir resposta"
                               >
-                                <Volume2 className="w-4 h-4" />
+                                <Volume2 className="w-3.5 h-3.5" />
                               </button>
 
                               <button
                                 onClick={() => handleCopyMessage(msg.content, msg.id)}
-                                className="p-1.5 hover:text-emerald-400 hover:bg-slate-800 rounded-xl transition-colors cursor-pointer touch-target-min"
+                                className="p-1 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                                 title="Copiar texto"
                               >
-                                {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                                {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                               </button>
                             </div>
                           )}
@@ -2118,8 +1758,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   })
                 )}
 
-                {/* Loading Indicator com Pontinhos Animados */}
-                {isLoading && <TypingDotsIndicator />}
+                {/* Loading Indicator */}
+                {isLoading && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-start min-w-0">
+                    <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 p-3 sm:p-3.5 rounded-2xl text-xs text-slate-300 flex items-center gap-2 shadow-lg max-w-[90%]">
+                      <Sparkles className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                      <span className="font-semibold truncate">A Vigia está preparando a resposta...</span>
+                    </div>
+                  </motion.div>
+                )}
 
                 <div ref={chatEndRef} />
               </div>
@@ -2128,10 +1775,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               {isUserScrolledUp && (
                 <button
                   onClick={scrollToBottom}
-                  className="absolute bottom-20 right-4 z-20 p-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full shadow-xl border border-amber-300/40 transition-all active:scale-95 cursor-pointer touch-target-min"
+                  className="absolute bottom-20 right-4 z-20 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-xl border border-indigo-400 transition-all cursor-pointer"
                   title="Ir para a mensagem mais recente"
                 >
-                  <ArrowDown className="w-5 h-5" />
+                  <ArrowDown className="w-4 h-4" />
                 </button>
               )}
 
@@ -2144,9 +1791,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <motion.span style={{ height: `${Math.max(6, micVolume * 24)}px` }} className="w-1 bg-emerald-400 rounded-full" />
-                    <motion.span style={{ height: `${Math.max(10, micVolume * 36)}px` }} className="w-1 bg-emerald-300 rounded-full" />
-                    <motion.span style={{ height: `${Math.max(6, micVolume * 20)}px` }} className="w-1 bg-emerald-400 rounded-full" />
+                    <motion.span animate={{ height: `${Math.max(6, micVolume * 24)}px` }} className="w-1 bg-emerald-400 rounded-full" />
+                    <motion.span animate={{ height: `${Math.max(10, micVolume * 36)}px` }} className="w-1 bg-emerald-300 rounded-full" />
+                    <motion.span animate={{ height: `${Math.max(6, micVolume * 20)}px` }} className="w-1 bg-emerald-400 rounded-full" />
                   </div>
                 </div>
               )}
@@ -2159,7 +1806,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               )}
 
               {/* FIXED BOTTOM MESSAGE FIELD */}
-              <div className="p-2.5 sm:p-3.5 bg-slate-900 border-t border-slate-800/90 shrink-0 z-20 w-full min-w-0 pb-safe">
+              <div className="p-2 sm:p-3 bg-slate-900 border-t border-slate-800 shrink-0 z-20 w-full min-w-0">
                 {/* Image Preview Area if selected */}
                 {selectedImage && (
                   <div className="mb-2 max-w-4xl mx-auto flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800">
@@ -2183,21 +1830,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
                 )}
 
-                {/* Horizontal Scrollable Quick Prompts Bar ("Rolo Horizontal") */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-1.5 no-scrollbar max-w-4xl mx-auto w-full min-w-0">
-                  {QUICK_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => onSelectPrompt(prompt.replace(/^[^\w\s]+/, '').trim())}
-                      className="shrink-0 px-3.5 py-2 rounded-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-orange-500 hover:to-amber-500 hover:text-white text-slate-300 border border-slate-700/80 hover:border-amber-400 text-xs font-extrabold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5 touch-target-min whitespace-nowrap"
-                    >
-                      <span>{prompt}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <form onSubmit={handleSubmit} className="flex items-end gap-2 max-w-4xl mx-auto w-full min-w-0">
+                <form onSubmit={handleSubmit} className="flex items-end gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full min-w-0">
                   {/* Hidden Image Input */}
                   <input
                     type="file"
@@ -2211,7 +1844,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer shrink-0 border touch-target-min ${
+                    className={`p-2.5 sm:p-3 rounded-2xl transition-all cursor-pointer shrink-0 border ${
                       selectedImage
                         ? 'bg-indigo-600 text-white border-indigo-400 shadow-md ring-2 ring-indigo-400/50'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
@@ -2222,14 +1855,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </button>
 
                   {/* Expandable Textarea */}
-                  <div className="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus-within:border-orange-500/80 focus-within:ring-2 focus-within:ring-orange-500/20 rounded-2xl p-2 transition-all">
+                  <div className="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus-within:border-indigo-500 rounded-2xl p-1.5 sm:p-2 transition-all">
                     <textarea
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder={selectedImage ? "Descreva ou pergunte algo sobre esta imagem..." : "Converse com a Vigia..."}
                       rows={1}
-                      className="w-full bg-transparent text-white text-xs sm:text-sm placeholder:text-slate-500 focus:outline-none resize-none max-h-24 sm:max-h-28 min-h-[36px] min-w-0 leading-relaxed font-medium"
+                      className="w-full bg-transparent text-white text-xs sm:text-sm placeholder:text-slate-500 focus:outline-none resize-none max-h-24 sm:max-h-28 min-h-[36px] min-w-0"
                     />
                   </div>
 
@@ -2238,7 +1871,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <button
                       type="button"
                       onClick={handleInterruptSpeech}
-                      className="w-11 h-11 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min"
+                      className="p-2.5 sm:p-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
                       title="Parar áudio da Vigia"
                     >
                       <VolumeX className="w-5 h-5 animate-pulse" />
@@ -2247,7 +1880,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <button
                       type="button"
                       onClick={toggleMicListening}
-                      className={`w-11 h-11 rounded-2xl font-bold transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min ${
+                      className={`p-2.5 sm:p-3 rounded-2xl font-bold transition-all active:scale-95 cursor-pointer shrink-0 ${
                         isListening
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
@@ -2262,7 +1895,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <button
                     type="submit"
                     disabled={!inputText.trim() || isLoading}
-                    className="w-11 h-11 btn-vigia-primary disabled:opacity-40 text-white transition-all active:scale-95 cursor-pointer shrink-0 flex items-center justify-center touch-target-min"
+                    className="p-2.5 sm:p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
                     title="Enviar mensagem"
                   >
                     <Send className="w-5 h-5" />

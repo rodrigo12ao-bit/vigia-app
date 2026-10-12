@@ -200,6 +200,9 @@ export interface UserProfile {
 }
 
 export interface SalaSeguraInvite {
+  reviewerUids?: string[];
+  approvals?: string[];
+  visibleTo?: string[];
   id: string;
   code: string;
   fromUid: string;

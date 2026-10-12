@@ -1,61 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+    // Profiles are private. Trusted roles/guardian links live in sala_authorities,
+    // written only by the server/operator. Invites and chats are server-owned.
+    // Messages preserve content/authorship; clients may add their own receipt.
+    function validUser(d, uid) {
+      return d.uid == uid && d.nickname is string && d.nickname.size() > 0 && d.nickname.size() <= 80
+        && d.get('role','infantil') in ['infantil','responsavel','educador']
+        && d.get('starsScore',0) is number && d.get('starsScore',0) >= 0 && d.get('starsScore',0) <= 1000000
+        && d.get('blockedUsers',[]) is list && d.get('blockedUsers',[]).size() <= 200
+        && d.get('badges',[]) is list && d.get('badges',[]).size() <= 200
+        && d.get('email','') is string && d.get('email','').size() <= 320;
     }
-
-    // USERS COLLECTION
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == userId;
+    function validSession(d,id) { return d.id == id && d.title is string && d.title.size() <= 120 && d.messages is list && d.messages.size() <= 200 && d.get('createdAt','') is string && d.get('updatedAt','') is string; }
+    function validAttachment(d) { return d.keys().hasOnly(['data']) && d.data is string && d.data.size() <= 250000; }
+    function validChat(d) { return d.participants is list && d.participants.size() == 2 && d.participants.toSet().size() == 2 && d.isApproved == true && d.unreadCount is map && d.unreadCount.keys().hasOnly(d.participants) && d.unreadCount[d.participants[0]] is int && d.unreadCount[d.participants[1]] is int && d.unreadCount[d.participants[0]] >= 0 && d.unreadCount[d.participants[1]] >= 0; }
+    function validMessage(d) { return d.keys().hasOnly(['senderUid','senderNickname','text','createdAt','status','readBy']) && d.senderUid is string && d.senderNickname is string && d.senderNickname.size() <= 80 && d.text is string && d.text.size() > 0 && d.text.size() <= 2000 && d.createdAt is string && d.status in ['sent','read'] && d.readBy is list && d.readBy.size() <= 2; }
+    function validReport(d) { return d.keys().hasOnly(['reporterUid','reportedUid','chatId','messageText','reason','status','createdAt']) && d.reporterUid is string && d.reportedUid is string && d.chatId is string && d.messageText is string && d.messageText.size() <= 2000 && d.reason is string && d.reason.size() > 0 && d.reason.size() <= 1000 && d.status in ['pending','reviewed'] && d.createdAt is string; }
+    function signed() { return request.auth != null && !exists(/databases/$(database)/documents/account_tombstones/$(request.auth.uid)); }
+    function owner(uid) { return signed() && request.auth.uid == uid; }
+    function guardian(uid) { return signed() && exists(/databases/$(database)/documents/sala_authorities/$(uid)) && get(/databases/$(database)/documents/sala_authorities/$(uid)).data.get('guardianUid', '') == request.auth.uid; }
+    function participant(chatId) { return signed() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants; }
+    function unblocked(chatId) {
+      let c = get(/databases/$(database)/documents/chats/$(chatId)).data;
+      return c.isApproved == true && c.participants.size() == 2 && !(c.participants[1] in get(/databases/$(database)/documents/users/$(c.participants[0])).data.get('blockedUsers', [])) && !(c.participants[0] in get(/databases/$(database)/documents/users/$(c.participants[1])).data.get('blockedUsers', []));
+    }
+    match /sala_authorities/{uid} { allow read: if owner(uid) || guardian(uid); allow write: if false; }
+    match /users/{uid} {
+      allow read: if owner(uid);
+      allow create: if owner(uid) && validUser(request.resource.data,uid) && !request.resource.data.keys().hasAny(['guardianUid','guardianEmail','isAdmin']) && request.resource.data.get('role','infantil') == 'infantil';
+      allow update: if owner(uid) && validUser(request.resource.data,uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nickname','avatarId','avatarGender','starsScore','badges','completedGames','gameJourney','isAdultConfirmed','consentVersion','consentAt','blockedUsers','updatedAt']);
       allow delete: if false;
-
-      // CHAT SESSIONS SUBCOLLECTION
       match /chat_sessions/{sessionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-
-        match /{allSubcollections=**} {
-          allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && validSession(request.resource.data,sessionId);
+        match /attachments/{id} {
+          allow read, delete: if owner(uid);
+          allow create, update: if owner(uid) && validAttachment(request.resource.data);
         }
       }
     }
-
-    // INVITES COLLECTION
-    match /invites/{inviteId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.fromUid == request.auth.uid;
-      allow update: if request.auth != null && (
-        resource.data.fromUid == request.auth.uid ||
-        resource.data.targetUid == request.auth.uid ||
-        resource.data.guardianUid == request.auth.uid
-      );
-      allow delete: if request.auth != null && (
-        resource.data.fromUid == request.auth.uid ||
-        resource.data.guardianUid == request.auth.uid
-      );
-    }
-
-    // CHATS COLLECTION
+    match /invite_codes/{code} { allow get: if signed(); allow list, write: if false; }
+    match /invites/{id} { allow read: if signed() && request.auth.uid in resource.data.visibleTo; allow write: if false; }
     match /chats/{chatId} {
-      allow read: if request.auth != null && (request.auth.uid in resource.data.participants);
-      allow create: if request.auth != null && (request.auth.uid in request.resource.data.participants);
-      allow update: if request.auth != null && (request.auth.uid in resource.data.participants);
-
-      // MESSAGES SUBCOLLECTION
-      match /messages/{messageId} {
-        allow read, write: if request.auth != null && (
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
-        );
+      allow read: if signed() && request.auth.uid in resource.data.participants;
+      allow create, delete: if false;
+      allow update: if participant(chatId) && validChat(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadCount']) && request.resource.data.unreadCount.diff(resource.data.unreadCount).affectedKeys().hasOnly([request.auth.uid]) && request.resource.data.unreadCount[request.auth.uid] == 0;
+      match /messages/{id} {
+        allow read: if participant(chatId);
+        allow create: if participant(chatId) && unblocked(chatId) && validMessage(request.resource.data) && request.resource.data.senderUid == request.auth.uid && request.resource.data.senderNickname == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.nickname && request.resource.data.status == 'sent' && request.resource.data.readBy == [request.auth.uid];
+        allow update: if participant(chatId) && validMessage(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy','status']) && request.resource.data.status == 'read' && request.resource.data.readBy.toSet().hasAll(resource.data.readBy) && request.resource.data.readBy.toSet().difference(resource.data.readBy.toSet()).hasOnly([request.auth.uid]);
+        allow delete: if false;
       }
     }
-
-    // REPORTS COLLECTION
-    match /reports/{reportId} {
-      allow create: if request.auth != null && request.resource.data.reporterUid == request.auth.uid;
-      allow read: if request.auth != null && resource.data.reporterUid == request.auth.uid;
+    match /reports/{id} {
+      allow create: if signed() && validReport(request.resource.data) && request.resource.data.reporterUid == request.auth.uid && participant(request.resource.data.chatId) && request.resource.data.reportedUid in get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.participants && request.resource.data.reportedUid != request.auth.uid && request.resource.data.status == 'pending';
+      allow read: if signed() && (resource.data.reporterUid == request.auth.uid || guardian(resource.data.reporterUid) || guardian(resource.data.reportedUid));
+      allow update: if (guardian(resource.data.reporterUid) || guardian(resource.data.reportedUid)) && validReport(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'reviewed';
+      allow delete: if false;
     }
+    match /account_tombstones/{uid} { allow read, write: if false; }
+    match /classrooms/{id} { allow read, write: if false; match /{document=**} {allow read, write: if false;} }
+    match /classroom_codes/{id} {allow read, write: if false;}
+    match /school_enrollments/{id} {allow read, write: if false;}
+    // Learning, awards and family confirmation are written by authenticated server routes.
+    match /users/{uid}/learning/{id} {allow read: if owner(uid);allow write: if false;}
+    match /users/{uid}/learning_awards/{id} {allow read: if owner(uid);allow write: if false;}
+    match /users/{uid}/family_requests/{id} {allow read: if owner(uid)||guardian(uid);allow write: if false;}
+    match /users/{uid}/adventure/{id} {allow read: if owner(uid);allow write: if false;}
+    match /users/{uid}/activity_awards/{id} {allow read: if owner(uid);allow write: if false;}
+    match /users/{uid}/practice_receipts/{id} {allow read, write: if false;}
+    match /{document=**} { allow read, write: if false; }
   }
 }

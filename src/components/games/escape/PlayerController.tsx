@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import { touchState, touchEnabled } from './TouchControls';
+import React, { useRef, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { RigidBody, CapsuleCollider, useRapier, interactionGroups } from '@react-three/rapier';
 import { useKeyboardControls } from '@react-three/drei';
@@ -21,6 +22,9 @@ interface PlayerControllerProps {
 
 export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerControllerProps) => {
   const ref = useRef<any>(null);
+  const [stance,setStance]=useState('standing');
+  const stanceRef=useRef('standing');
+  const halfHeight=stance==='prone'?0.1:stance==='crouch'?0.35:0.75;
   const lightRef = useRef<any>(null);
   const lastFootstep = useRef(0);
   const lastDamageTime = useRef(0);
@@ -37,7 +41,7 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
   // Handle interactions
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      if (isPaused) return;
+      if (isPaused || (!document.pointerLockElement && e.type!=='escape-interact')) return;
 
       // Left click: Punch or Grab
       if (e.button === 0) {
@@ -50,7 +54,7 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
         camera.getWorldDirection(rayDir);
         
         const ray = new rapier.Ray(rayOrigin, rayDir);
-        const hit = world.castRay(ray, 3.0, true); // max distance 3
+        const hit = world.castRay(ray, 3.0, true, undefined, undefined, undefined, ref.current); // max distance 3
         
         if (hit) {
           const collider = hit.collider;
@@ -90,8 +94,9 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
       }
     };
 
-    window.addEventListener('mousedown', handleMouseDown);
-    return () => window.removeEventListener('mousedown', handleMouseDown);
+    const interact=(e:Event)=>handleMouseDown({type:'escape-interact',button:(e as CustomEvent).detail} as MouseEvent);
+    window.addEventListener('mousedown', handleMouseDown);window.addEventListener('escape-interact',interact);
+    return ()=>{window.removeEventListener('mousedown',handleMouseDown);window.removeEventListener('escape-interact',interact);};
   }, [isPaused, camera, world, rapier, heldItem, setPunching]);
 
   useEffect(() => {
@@ -112,7 +117,7 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
     const origin = ref.current.translation();
     const rayDir = new Vector3(0, -1, 0);
     const ray = new rapier.Ray(origin, rayDir);
-    const hit = world.castRay(ray, 1.0, true);
+    const hit = world.castRay(ray, halfHeight+0.62, true, undefined, undefined, undefined, ref.current);
     if (hit) {
       const userData = hit.collider.parent()?.userData as any;
       if (userData && userData.hazardDamage) {
@@ -126,7 +131,10 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
       }
     }
 
-    const { forward, backward, left, right, jump, run, crouch, prone } = get();
+    const keys=get(); const {forward,backward,left,right,jump,run,crouch,prone}=Object.fromEntries(Object.keys(keys).map(k=>[k,keys[k]||touchState[k]]));
+    if(touchEnabled()){camera.rotation.order='YXZ';camera.rotation.y+=(Number(!!touchState.lookLeft)-Number(!!touchState.lookRight))*delta*1.5;}
+    const nextStance=prone?'prone':crouch?'crouch':'standing';
+    if(nextStance!==stanceRef.current){const heights={standing:.75,crouch:.35,prone:.1};const oldHeight=heights[stanceRef.current];const nextHeight=heights[nextStance];const pos=ref.current.translation();const ceiling=nextHeight>oldHeight&&world.castRay(new rapier.Ray(pos,{x:0,y:1,z:0}),nextHeight+.6,true,undefined,undefined,undefined,ref.current);if(!ceiling){ref.current.setTranslation({x:pos.x,y:pos.y+nextHeight-oldHeight,z:pos.z},true);stanceRef.current=nextStance;setStance(nextStance);}}
     const velocity = ref.current.linvel();
     
     // Define current stance and physics adjustments
@@ -162,7 +170,7 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
 
     ref.current.setLinvel({ x: direction.x, y: velocity.y, z: direction.z }, true);
 
-    if (jump && Math.abs(velocity.y) < 0.1 && !crouch && !prone) {
+    if (jump && Math.abs(velocity.y) < 0.1 && !!hit && !crouch && !prone) {
       ref.current.setLinvel({ x: velocity.x, y: 7, z: velocity.z }, true);
       escapeAudio.playJump();
     }
@@ -193,8 +201,8 @@ export const PlayerController = ({ startPosition = [0, 5, 0] }: PlayerController
   });
 
   return (
-    <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" position={startPosition as [number, number, number]} enabledRotations={[false, false, false]} collisionGroups={interactionGroups(1, [0])}>
-      <CapsuleCollider args={[0.75, 0.5]} />
+    <RigidBody ref={ref} colliders={false} mass={1} type="dynamic" ccd position={startPosition as [number, number, number]} enabledRotations={[false, false, false]} collisionGroups={interactionGroups(1, [0])}>
+      <CapsuleCollider args={[halfHeight, 0.5]} />
       {/* A luz precisa ficar fora do corpo para girar com a câmera no useFrame */}
       <spotLight 
         ref={lightRef}

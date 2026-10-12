@@ -1,3 +1,8 @@
+import {learningDay} from '../lib/adventureModel';
+import type {ActivityClaim} from '../lib/adventureModel';
+import {playActivityFeedback} from '../lib/activityFeedback';
+import {auth} from '../lib/firebase';
+import {useDialog} from '../hooks/useDialog';
 import React, { useState, useEffect } from 'react';
 import { Target, Star, Flame, CheckCircle, Clock, Award, Shield, Sparkles, X, ArrowRight, RotateCcw } from 'lucide-react';
 import { getTodayMission, getTimeUntilNextMission, DailyMission } from '../data/dailyMissionsData';
@@ -6,6 +11,7 @@ interface DailyMissionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddStars: (points: number) => void;
+  onReward?:(claim:ActivityClaim,points:number)=>Promise<any>;
   onUnlockBadge?: (badgeId: string) => void;
   starsScore: number;
 }
@@ -14,18 +20,24 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
   isOpen,
   onClose,
   onAddStars,
+  onReward,
   onUnlockBadge,
 }) => {
+  const accountKey=auth.currentUser?.uid || 'guest';
+  const dateKey='vigia_daily_date:'+accountKey,streakKey='vigia_daily_streak:'+accountKey;
+  const rewarded=React.useRef(false);
+  const dialogRef=useDialog(isOpen,onClose);
   const [mission, setMission] = useState<DailyMission>(getTodayMission());
-  const [todayDateStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const todayDateStr = learningDay();
+  const [rewardError, setRewardError] = useState('');
   
   const [completedToday, setCompletedToday] = useState<boolean>(() => {
-    const savedDate = localStorage.getItem('dc_daily_mission_date');
-    return savedDate === new Date().toISOString().slice(0, 10);
+    const savedDate = localStorage.getItem(dateKey);
+    return savedDate === learningDay();
   });
 
   const [streak, setStreak] = useState<number>(() => {
-    const savedStreak = Number(localStorage.getItem('dc_daily_mission_streak'));
+    const savedStreak = Number(localStorage.getItem(streakKey));
     return Number.isFinite(savedStreak) ? savedStreak : 0;
   });
 
@@ -44,18 +56,18 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
 
   // Sync state if date changed
   useEffect(() => {
-    const currentToday = new Date().toISOString().slice(0, 10);
-    const savedDate = localStorage.getItem('dc_daily_mission_date');
+    const currentToday = learningDay();
+    const savedDate = localStorage.getItem(dateKey);
     if (savedDate === currentToday) {
       setCompletedToday(true);
     } else {
       setCompletedToday(false);
-      setMission(getTodayMission());
+      rewarded.current=false;setMission(getTodayMission());
       setGameState('intro');
       setSelectedOption(null);
       setIsCorrect(null);
     }
-  }, [isOpen]);
+  }, [isOpen, todayDateStr]);
 
   if (!isOpen) return null;
 
@@ -65,21 +77,34 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
     setIsCorrect(null);
   };
 
-  const handleSelectOption = (index: number) => {
-    if (completedToday) return;
+  const handleSelectOption = async (index: number) => {
+    if (completedToday || rewarded.current) return;
     setSelectedOption(index);
     const correct = index === mission.question.correctIndex;
     setIsCorrect(correct);
+    if(!correct)playActivityFeedback('retry');
 
     if (correct) {
+      rewarded.current=true;
+      setRewardError('');
+      playActivityFeedback('correct');
+      try {
+        if(onReward) await onReward({kind:'daily',id:mission.id,day:todayDateStr,answer:index},mission.starReward);
+        else onAddStars(mission.starReward);
+      } catch(e) {
+        rewarded.current=false;
+        setIsCorrect(null);
+        setRewardError(e instanceof Error ? e.message : 'Não foi possível salvar a recompensa. Tente novamente.');
+        return;
+      }
       setGameState('result');
       setCompletedToday(true);
       
       // Calculate new streak
-      const lastDate = localStorage.getItem('dc_daily_mission_date');
+      const lastDate = localStorage.getItem(dateKey);
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      const yesterdayStr = learningDay(yesterday);
 
       let newStreak = streak;
       if (lastDate === yesterdayStr) {
@@ -89,11 +114,8 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
       }
       
       setStreak(newStreak);
-      localStorage.setItem('dc_daily_mission_date', todayDateStr);
-      localStorage.setItem('dc_daily_mission_streak', newStreak.toString());
-
-      // Reward stars
-      onAddStars(mission.starReward);
+      localStorage.setItem(dateKey, todayDateStr);
+      localStorage.setItem(streakKey, newStreak.toString());
 
       // Unlock special badge if streak >= 3
       if (newStreak >= 3 && onUnlockBadge) {
@@ -104,7 +126,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Missão diária" className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white p-4 sm:p-5 relative">
           <button
@@ -136,6 +158,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
 
         {/* Modal Body Scrollable */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+          {rewardError && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">{rewardError}</p>}
           {completedToday ? (
             /* ALREADY COMPLETED STATE */
             <div className="text-center py-4 space-y-4">
@@ -151,7 +174,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
                   Você mandou muito bem! 🎉
                 </h3>
                 <p className="text-xs text-slate-600 font-semibold max-w-sm mx-auto mt-1">
-                  Você já completou a missão de hoje e ganhou <span className="font-extrabold text-amber-600">+{mission.starReward} estrelas</span>! Volte amanhã para um novo desafio.
+                    Você já completou a missão de hoje! A recompensa aparece no seu progresso após confirmação. Volte amanhã para um novo desafio.
                 </p>
               </div>
 
@@ -162,8 +185,8 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
                     ⭐
                   </div>
                   <div className="text-left">
-                    <span className="text-xs font-extrabold text-amber-900 block">Recompensa Coletada</span>
-                    <span className="text-xs font-bold text-amber-700">+{mission.starReward} Estrelas adicionadas</span>
+                    <span className="text-xs font-extrabold text-amber-900 block">Aprendizado registrado</span>
+                    <span className="text-xs font-bold text-amber-700">Veja seu XP confirmado no progresso</span>
                   </div>
                 </div>
                 <Sparkles className="w-6 h-6 text-amber-500 animate-pulse" />
@@ -224,7 +247,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
                   <span className="text-xs font-black text-amber-900">Recompensa ao Concluir:</span>
                 </div>
                 <span className="text-sm font-black text-amber-800 bg-amber-200/60 px-3 py-1 rounded-full">
-                  +{mission.starReward} Estrelas ⭐
+                  +{mission.starReward} XP ⭐
                 </span>
               </div>
 
@@ -306,7 +329,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
                     <CheckCircle className="w-6 h-6" />
                   </div>
                   <h4 className="text-base font-black text-emerald-900">
-                    Resposta Correta! +{mission.starReward} Estrelas ⭐
+                    Resposta correta! ⭐
                   </h4>
                   <p className="text-xs text-emerald-800 font-medium">
                     {mission.question.explanation}
@@ -315,7 +338,7 @@ export const DailyMissionModal: React.FC<DailyMissionModalProps> = ({
                     onClick={() => setCompletedToday(true)}
                     className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs transition-colors"
                   >
-                    Resgatar Minhas Estrelas
+                    Continuar aprendendo
                   </button>
                 </div>
               )}

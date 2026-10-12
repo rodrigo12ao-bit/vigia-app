@@ -1,3 +1,7 @@
+import type {ActivityClaim} from '../lib/adventureModel';
+import {playActivityFeedback,feedbackPreferences} from '../lib/activityFeedback';
+import { useDialog } from '../hooks/useDialog';
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -17,6 +21,8 @@ import {
 } from 'lucide-react';
 
 interface ScenarioResult {
+  demo?: boolean;
+  rewardToken?:string;
   riskLevel: string;
   riskScore: number;
   summary: string;
@@ -36,6 +42,7 @@ interface ScenarioAnalyzerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddStars: (stars: number) => void;
+  onReward?:(claim:ActivityClaim,points:number)=>Promise<any>;
   onSpeak?: (text: string) => void;
 }
 
@@ -51,11 +58,15 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
   isOpen,
   onClose,
   onAddStars,
+  onReward,
   onSpeak,
 }) => {
   const [scenarioInput, setScenarioInput] = useState('');
   const [houseType, setHouseType] = useState('Casa Térrea');
   const [loading, setLoading] = useState(false);
+  const busy=React.useRef(false);
+  const answered=React.useRef(false);
+  const [serviceError,setServiceError]=useState('');
   const [result, setResult] = useState<ScenarioResult | null>(null);
 
   // Quiz state inside result
@@ -63,12 +74,14 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizSuccess, setQuizSuccess] = useState(false);
 
+  const dialogRef=useDialog(isOpen,onClose);
   if (!isOpen) return null;
 
   const handleAnalyze = async (scenarioTextToUse?: string) => {
     const textToAnalyze = scenarioTextToUse || scenarioInput;
     if (!textToAnalyze.trim()) return;
 
+    if(busy.current)return;busy.current=true;answered.current=false;setServiceError('');
     setLoading(true);
     setResult(null);
     setSelectedOption(null);
@@ -76,7 +89,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
     setQuizSuccess(false);
 
     try {
-      const resp = await fetch('/api/analyze-scenario', {
+      const resp = await apiFetch('/api/analyze-scenario', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -85,20 +98,24 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
         }),
       });
 
-      const data: ScenarioResult = await resp.json();
+      const body=await resp.json();
+      if(body.status==='emergency'){setServiceError(body.summary);return;}
+      if(!resp.ok||body.status==='unavailable')throw new Error(body.error || 'Serviço indisponível.');
+      const data: ScenarioResult = body;
       setResult(data);
       if (onSpeak && data.summary) {
         onSpeak(data.summary);
       }
     } catch (err) {
-      console.error('Erro no simulador:', err);
+      setServiceError(err instanceof Error?err.message:'Análise indisponível.');
     } finally {
-      setLoading(false);
+      busy.current=false;setLoading(false);
     }
   };
 
-  const handleQuizAnswer = (index: number) => {
-    if (quizSubmitted || !result) return;
+  const handleQuizAnswer = async (index: number) => {
+    if (quizSubmitted || answered.current || !result) return;
+    answered.current=true;
     setSelectedOption(index);
     setQuizSubmitted(true);
 
@@ -106,19 +123,21 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
     setQuizSuccess(isCorrect);
 
     if (isCorrect) {
-      onAddStars(20);
+      playActivityFeedback('correct');
+      try{if(onReward&&result.rewardToken)await onReward({kind:'scenario',id:result.rewardToken,answer:index},20);else if(!onReward)onAddStars(20);}catch(e){setServiceError(e instanceof Error?e.message:'Recompensa indisponível.');}
       try {
-        confetti({
-          particleCount: 80,
+        if(feedbackPreferences().animations&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)confetti({
+          particleCount: 45,
           spread: 70,
           origin: { y: 0.6 },
           colors: ['#10b981', '#f59e0b', '#3b82f6'],
         });
       } catch (e) {}
       if (onSpeak) {
-        onSpeak('Parabéns! Você acertou e ganhou 20 Estrelas Protetoras!');
+        onSpeak('Resposta certa! Você avançou na aprendizagem!');
       }
     } else {
+      playActivityFeedback('retry');
       if (onSpeak) {
         onSpeak('Quase lá! Veja a explicação da Vigia para aprender mais.');
       }
@@ -135,7 +154,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Análise educativa de cenário"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -149,7 +168,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg sm:text-xl font-black flex items-center gap-2">
-                  Simulador e Diagnóstico Inteligente IA
+                  Análise educativa de cenário
                   <span className="bg-white/20 text-white text-[10px] uppercase font-black px-2 py-0.5 rounded-full border border-white/30">
                     Gemini IA
                   </span>
@@ -169,6 +188,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
             </button>
           </div>
 
+          {serviceError && <p role="alert" className="p-4 bg-amber-50 text-amber-950">{serviceError}</p>}
           {/* Modal Body */}
           <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
             {/* Input Form Section */}
@@ -257,7 +277,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
                 <div className="flex items-center justify-between p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg">
                   <div className="flex items-center gap-3">
                     <div className={`px-3 py-1 rounded-xl text-xs font-black uppercase border shadow-md ${getRiskBadgeColor(result.riskLevel)}`}>
-                      Risco {result.riskLevel}
+                      {result.demo?'Risco fictício':'Estimativa educativa'} {result.riskLevel}
                     </div>
                     <div>
                       <p className="text-xs font-black text-slate-300">Nível de Atenção Calculado</p>
@@ -330,7 +350,7 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
                 <div className="bg-gradient-to-br from-indigo-900 to-slate-900 border-2 border-indigo-500/40 p-4 sm:p-5 rounded-2xl text-white shadow-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                      <Star className="w-3 h-3 fill-slate-950" /> Desafio IA de Aprendizado (+20 Estrelas)
+                      <Star className="w-3 h-3 fill-slate-950" /> Desafio IA de Aprendizado (+20 XP)
                     </span>
                     <span className="text-xs font-bold text-indigo-200">Teste o que aprendeu!</span>
                   </div>

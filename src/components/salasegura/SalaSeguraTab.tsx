@@ -78,15 +78,19 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
   const [reportSuccess, setReportSuccess] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
+  const actionLock=useRef(false);
+  const [actionError,setActionError]=useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load User Profile
   useEffect(() => {
+    let cancelled=false;setProfile(null);setChats([]);setPendingInvites([]);setActiveChat(null);setMessages([]);
     if (currentUser) {
       fetchOrCreateUserProfile(currentUser.uid, currentUser.email, currentUser.displayName || 'Super Protetor')
-        .then((p) => setProfile(p))
-        .catch(console.error);
+        .then((p) => {if(!cancelled)setProfile(p);})
+        .catch(()=>setActionError('Não foi possível carregar o perfil.'));
     }
+    return ()=>{cancelled=true;};
   }, [currentUser]);
 
   // Subscribe to Chats & Invites
@@ -126,16 +130,16 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
       // Mark unread messages as read
       const unreadMsgs = msgs.filter((m) => m.senderUid !== currentUser.uid && !m.readBy?.includes(currentUser.uid));
       if (unreadMsgs.length > 0) {
-        markChatAsRead(activeChat.id, currentUser.uid, unreadMsgs);
+        markChatAsRead(activeChat.id,currentUser.uid,unreadMsgs).catch(()=>setActionError('Não foi possível confirmar a leitura.'));
       }
     });
 
     return () => unsubMessages();
   }, [activeChat?.id, currentUser]);
 
-  const handleCopyInviteCode = () => {
+  const handleCopyInviteCode = async () => {
     if (!profile?.inviteCode) return;
-    navigator.clipboard.writeText(profile.inviteCode);
+    try{await navigator.clipboard.writeText(profile.inviteCode);}catch{setActionError('Não foi possível copiar. Selecione o código manualmente.');return;}
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -145,7 +149,8 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
     if (!profile || !inviteCodeInput.trim()) return;
 
     setInviteFeedback(null);
-    const res = await sendInviteByCode(profile, inviteCodeInput);
+    if(actionLock.current)return;actionLock.current=true;
+    let res;try{res=await sendInviteByCode(profile,inviteCodeInput);}catch(e){res={success:false,message:e instanceof Error?e.message:'Convite indisponível.'};}finally{actionLock.current=false;}
     setInviteFeedback(res);
 
     if (res.success) {
@@ -155,11 +160,11 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
 
   const handleApproveInvite = async (invite: SalaSeguraInvite) => {
     if (!currentUser) return;
-    await approveInvite(invite, currentUser.uid);
+    try{await approveInvite(invite,currentUser.uid);}catch(e){setActionError(e instanceof Error?e.message:'Aprovação indisponível.');}
   };
 
   const handleRejectInvite = async (inviteId: string) => {
-    await rejectInvite(inviteId);
+    try{await rejectInvite(inviteId);}catch{setActionError('Não foi possível recusar.');}
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -168,12 +173,14 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
 
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid) || '';
     const textToSend = messageInput.trim();
-    setMessageInput('');
+    if(actionLock.current)return;actionLock.current=true;
     setIsSending(true);
 
     try {
       await sendMessage(activeChat.id, profile, textToSend, recipientUid);
-    } finally {
+      setMessageInput('');
+    } catch(e) { setActionError(e instanceof Error?e.message:'Mensagem não enviada.'); } finally {
+      actionLock.current=false;
       setIsSending(false);
     }
   };
@@ -181,18 +188,23 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
   const handleBlockUser = async () => {
     if (!profile || !activeChat) return;
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid);
+    if(actionLock.current)return;actionLock.current=true;
+    try {
     if (recipientUid) {
       await blockUser(profile.uid, recipientUid);
       setProfile((prev) => prev ? { ...prev, blockedUsers: [...(prev.blockedUsers || []), recipientUid] } : null);
     }
     setShowBlockConfirm(false);
     setActiveChat(null);
+    }catch{setActionError('Não foi possível bloquear o contato. Tente novamente.');}finally{actionLock.current=false;}
   };
 
   const handleUnblockUser = async (targetUid: string) => {
     if (!profile) return;
-    await unblockUser(profile.uid, targetUid);
+    if(actionLock.current)return;actionLock.current=true;
+    try {await unblockUser(profile.uid, targetUid);
     setProfile((prev) => prev ? { ...prev, blockedUsers: (prev.blockedUsers || []).filter((u) => u !== targetUid) } : null);
+    }catch{setActionError('Não foi possível desbloquear o contato.');}finally{actionLock.current=false;}
   };
 
   const handleSubmitReport = async () => {
@@ -200,13 +212,15 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid) || '';
     const lastText = activeChat.lastMessageText || 'Chat';
 
-    await submitReport(profile.uid, recipientUid, activeChat.id, lastText, reportReason);
+    if(actionLock.current)return;actionLock.current=true;
+    try {await submitReport(profile.uid, recipientUid, activeChat.id, lastText, reportReason);
     setReportSuccess(true);
     setTimeout(() => {
       setReportSuccess(false);
       setShowReportModal(false);
       setReportReason('');
     }, 2000);
+    }catch{setActionError('A denúncia não foi registrada. Verifique sua conexão e tente novamente.');}finally{actionLock.current=false;}
   };
 
   const handleChangeRole = async (newRole: UserRole) => {
@@ -239,7 +253,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
           </div>
           <h2 className="text-2xl sm:text-3xl font-black">Sala Segura Vigia</h2>
           <p className="text-sm text-orange-100 max-w-md mx-auto leading-relaxed font-medium">
-            O ambiente de mensagens privadas com supervisão dos responsáveis e zero exposição de dados pessoais.
+            O ambiente de mensagens privadas com supervisão dos responsáveis e acesso restrito às pessoas autorizadas.
           </p>
 
           <div className="p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-left space-y-2 max-w-md mx-auto text-xs text-slate-100">
@@ -300,7 +314,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
             onClick={() => setShowRoleSelector(!showRoleSelector)}
             className="px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
-            Alterar
+            Sobre o perfil
           </button>
         </div>
       </div>
@@ -314,46 +328,8 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
             exit={{ opacity: 0, height: 0 }}
             className="bg-indigo-950/80 border border-indigo-800/80 rounded-2xl p-4 text-white text-xs space-y-3"
           >
-            <span className="font-extrabold text-amber-300 block">
-              Selecione o tipo de perfil para este dispositivo:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                onClick={() => handleChangeRole('infantil')}
-                className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                  profile?.role === 'infantil'
-                    ? 'bg-indigo-600 border-amber-300 text-white'
-                    : 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-              >
-                <span className="font-black">🧒 Perfil Infantil</span>
-                <span className="text-[10px] opacity-80">Requer aprovação do responsável para novos contatos.</span>
-              </button>
-
-              <button
-                onClick={() => handleChangeRole('responsavel')}
-                className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                  profile?.role === 'responsavel'
-                    ? 'bg-indigo-600 border-amber-300 text-white'
-                    : 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-              >
-                <span className="font-black">👨‍👩‍👧 Responsável</span>
-                <span className="text-[10px] opacity-80">Aprova contatos, gerencia bloqueios e supervisiona.</span>
-              </button>
-
-              <button
-                onClick={() => handleChangeRole('educador')}
-                className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                  profile?.role === 'educador'
-                    ? 'bg-indigo-600 border-amber-300 text-white'
-                    : 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300'
-                }`}
-              >
-                <span className="font-black">🏫 Educador</span>
-                <span className="text-[10px] opacity-80">Permite conexões educativas em ambiente escolar.</span>
-              </button>
-            </div>
+            <p>Perfis e vínculos de responsáveis dependem de verificação. Declarar ser adulto não muda as permissões.</p>
+            <p>Vínculos reais exigem uma operação verificada fora do aplicativo. A demonstração usa vínculos fictícios previamente configurados.</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -501,11 +477,11 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
               </div>
 
               <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-2xl flex items-center justify-between">
-                <span className="font-mono font-black text-lg text-white tracking-widest">
-                  {profile?.inviteCode || 'VIGIA-0000'}
+                <span className="font-mono font-black text-xs sm:text-sm text-white break-all tracking-normal min-w-0 pr-2">
+                  {profile?.inviteCode || 'Carregando código…'}
                 </span>
                 <button
-                  onClick={handleCopyInviteCode}
+                  disabled={!profile?.inviteCode} onClick={handleCopyInviteCode}
                   className="p-2 bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                 >
                   {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -530,7 +506,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
                   type="text"
                   value={inviteCodeInput}
                   onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
-                  placeholder="Ex: VIGIA-4829"
+                  placeholder="Cole o código completo VIGIA-…"
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-black text-slate-800 uppercase focus:bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
                   maxLength={10}
                 />
@@ -548,6 +524,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
                 </button>
               </form>
 
+              {actionError && <p role="alert" className="p-3 bg-rose-50 text-rose-900">{actionError}</p>}
               {inviteFeedback && (
                 <div
                   className={`p-2.5 rounded-xl text-xs font-semibold flex items-start gap-1.5 ${
@@ -598,7 +575,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleApproveInvite(inv)}
+                          disabled={!inv.reviewerUids?.includes(currentUser?.uid || '') || inv.approvals?.includes(currentUser?.uid || '')} onClick={() => handleApproveInvite(inv)}
                           className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
                         >
                           Aprovar
@@ -734,11 +711,11 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
             >
               <div className="flex items-center gap-2 text-rose-600">
                 <Flag className="w-5 h-5" />
-                <h3 className="font-black text-base text-slate-900">Denunciar à Moderação</h3>
+                <h3 className="font-black text-base text-slate-900">Registrar denúncia</h3>
               </div>
 
               <p className="text-xs text-slate-600 font-medium">
-                Sua denúncia é tratada com total sigilo pelos responsáveis e educadores. Selecione o motivo:
+                Sua denúncia será registrada como pendente para consulta pelo responsável verificado. Não há prazo garantido nem atendimento imediato. Selecione o motivo:
               </p>
 
               {reportSuccess ? (

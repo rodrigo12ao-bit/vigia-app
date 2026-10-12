@@ -1,3 +1,5 @@
+import { useDialog } from '../hooks/useDialog';
+import { salaRequest } from '../lib/api';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -26,6 +28,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
 } from '../lib/firebase';
 
 interface AuthModalProps {
@@ -54,11 +57,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // States
   const [loading, setLoading] = useState(false);
+  const busy=React.useRef(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [resetSentMessage, setResetSentMessage] = useState('');
 
+  const dialogRef=useDialog(isOpen,onClose);
   if (!isOpen) return null;
-
   const translateAuthError = (code: string) => {
     switch (code) {
       case 'auth/invalid-credential':
@@ -78,32 +82,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleCreateUserDocument = async (uid: string, userEmail: string | null, userNickname: string, isAdult: boolean) => {
-    try {
-      const userRef = doc(db, 'users', uid);
-      const snap = await getDoc(userRef);
-      if (!snap.exists()) {
-        await setDoc(userRef, {
-          uid,
-          email: userEmail || '',
-          nickname: userNickname || 'Super Protetor',
-          avatarId: 'default',
-          starsScore: 50,
-          badges: ['primeiros_passos'],
-          completedGames: [],
-          isAdultConfirmed: isAdult,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    } catch (e) {
-      console.error('Erro ao salvar documento do usuário:', e);
-    }
+  const handleCreateUserDocument = async (uid: string, userEmail: string | null, userNickname: string, isAdult: boolean, updateNickname = true) => {
+    await salaRequest('profile',{nickname:userNickname});
+    await updateDoc(doc(db,'users',uid),{...(updateNickname?{nickname:userNickname||'Super Protetor'}:{}),isAdultConfirmed:isAdult,consentVersion:'2026-10-12',consentAt:new Date().toISOString()});
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || busy.current) return;
     setErrorMessage('');
 
     if (!email.trim() || !password.trim()) {
@@ -111,20 +97,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    setLoading(true);
+    busy.current=true;setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       onClose();
     } catch (err: any) {
       setErrorMessage(translateAuthError(err?.code));
     } finally {
-      setLoading(false);
+      busy.current=false;setLoading(false);
     }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || busy.current) return;
     setErrorMessage('');
 
     if (!email.trim() || !password.trim()) {
@@ -142,37 +128,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    setLoading(true);
+    busy.current=true;setLoading(true);
     try {
+      sessionStorage.setItem('vigia_pending_nickname',nickname.trim() || 'Super Protetor');
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await handleCreateUserDocument(cred.user.uid, cred.user.email, nickname.trim(), isAdultConfirmed);
+      sessionStorage.removeItem('vigia_pending_nickname');
       onClose();
     } catch (err: any) {
       setErrorMessage(translateAuthError(err?.code));
     } finally {
-      setLoading(false);
+      sessionStorage.removeItem('vigia_pending_nickname');
+      busy.current=false;setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    if (loading) return;
+    if (loading || busy.current) return;
     setErrorMessage('');
-    setLoading(true);
+    if(!window.confirm('Confirmo que sou adulto e autorizo este acesso. Li as informações de privacidade. Esta confirmação não atribui o papel de responsável verificado na Sala Segura.'))return;
+    busy.current=true;setLoading(true);
 
     try {
       const cred = await signInWithPopup(auth, googleProvider);
-      await handleCreateUserDocument(cred.user.uid, cred.user.email, cred.user.displayName || 'Super Protetor', true);
+      await handleCreateUserDocument(cred.user.uid, cred.user.email, 'Super Protetor', true, false);
       onClose();
     } catch (err: any) {
       setErrorMessage(translateAuthError(err?.code));
     } finally {
-      setLoading(false);
+      busy.current=false;setLoading(false);
     }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || busy.current) return;
     setErrorMessage('');
     setResetSentMessage('');
 
@@ -181,21 +171,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    setLoading(true);
+    busy.current=true;setLoading(true);
     try {
       await sendPasswordResetEmail(auth, email.trim());
       setResetSentMessage('Enviamos um e-mail com as instruções para redefinir sua senha!');
     } catch (err: any) {
       setErrorMessage(translateAuthError(err?.code));
     } finally {
-      setLoading(false);
+      busy.current=false;setLoading(false);
     }
   };
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Acessar sua conta"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -278,7 +268,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      type="email"
+                      type="email" aria-label="E-mail" autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="seu.email@exemplo.com"
@@ -302,7 +292,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      aria-label="Senha" autoComplete="current-password" type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
@@ -311,7 +301,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword?'Ocultar senha':'Mostrar senha'} onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

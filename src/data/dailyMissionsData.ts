@@ -168,9 +168,9 @@ export const DAILY_MISSIONS: DailyMission[] = [
   }
 ];
 
-export function getTodayMission(): DailyMission {
+export function getTodayMission(day?:string): DailyMission {
   // Use current date string YYYY-MM-DD to deterministically select a daily mission
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = day||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   let hash = 0;
   for (let i = 0; i < todayStr.length; i++) {
     hash = (hash << 5) - hash + todayStr.charCodeAt(i);
@@ -182,8 +182,9 @@ export function getTodayMission(): DailyMission {
 
 export function getTimeUntilNextMission(): { hours: number; minutes: number; seconds: number } {
   const now = new Date();
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const diffMs = tomorrow.getTime() - now.getTime();
+  const day = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+  const nextMission = Date.parse(day + 'T00:00:00-03:00') + 24 * 60 * 60 * 1000;
+  const diffMs = Math.max(0, nextMission - now.getTime());
   const totalSecs = Math.floor(diffMs / 1000);
   const hours = Math.floor(totalSecs / 3600);
   const minutes = Math.floor((totalSecs % 3600) / 60);

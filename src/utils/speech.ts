@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 // Client-side speech utilities for Vigia
 // - Attempts server-side TTS via /api/tts and plays returned base64 audio
 // - Falls back to browser `speechSynthesis` if server TTS fails
@@ -7,6 +8,8 @@ let currentAudio: HTMLAudioElement | null = null;
 let currentAudioUrl: string | null = null;
 let pendingSpeechTimeout: ReturnType<typeof globalThis.setTimeout> | null = null;
 let activeUtterances: SpeechSynthesisUtterance[] = [];
+let voiceGeneration = 0;
+const voiceCleanup = new Set<() => void>();
 
 // Toggle this to true to re-enable Gemini server TTS in the future.
 export const USE_SERVER_TTS = false;
@@ -43,9 +46,11 @@ export async function speakText(
   onStart?: () => void,
   onEnd?: () => void
 ) {
+  let generation = voiceGeneration;
   try {
     // Always cancel any prior speech/audio
     stopSpeaking();
+    generation = voiceGeneration;
 
     if (!text || !text.trim()) {
       onEnd && onEnd();
@@ -53,21 +58,23 @@ export async function speakText(
     }
     // If server TTS has been disabled due to quota/errors, use browser TTS immediately
     if (!isServerTTSEnabled()) {
-      onErrorFallback(text, onStart, onEnd);
+      onErrorFallback(text, onStart, onEnd, generation);
       return;
     }
 
     // Only attempt server-side TTS when the explicit feature flag is enabled.
     if (USE_SERVER_TTS) {
       try {
-        const resp = await fetch('/api/tts', {
+        const resp = await apiFetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text }),
         });
 
+        if(generation!==voiceGeneration)return;
         if (resp.ok) {
           const data = await resp.json();
+          if(generation!==voiceGeneration)return;
           if (data && data.audio) {
             const base64 = data.audio as string;
             try {
@@ -87,11 +94,11 @@ export async function speakText(
               currentAudio.onerror = () => {
                 cleanupAudio();
                 // fallback to browser TTS
-                onErrorFallback(text, onStart, onEnd);
+                onErrorFallback(text, onStart, onEnd, generation);
               };
               await currentAudio.play().catch(() => {
                 cleanupAudio();
-                onErrorFallback(text, onStart, onEnd);
+                onErrorFallback(text, onStart, onEnd, generation);
               });
               return;
             } catch (e) {
@@ -123,7 +130,7 @@ export async function speakText(
             if (status >= 500 || status === 429) {
               disableServerTTSFor(cooldownMs);
               // immediately use browser TTS so user doesn't wait
-              onErrorFallback(text, onStart, onEnd);
+              onErrorFallback(text, onStart, onEnd, generation);
               return;
             }
           } catch (e) {
@@ -133,17 +140,17 @@ export async function speakText(
       } catch (e) {
         // network or server error; disable server TTS briefly and fallback
         disableServerTTSFor(60000);
-        onErrorFallback(text, onStart, onEnd);
+        onErrorFallback(text, onStart, onEnd, generation);
         return;
       }
 
       // Browser speechSynthesis fallback if server path didn't return playable audio
-      onErrorFallback(text, onStart, onEnd);
+      onErrorFallback(text, onStart, onEnd, generation);
       return;
     }
 
     // Server-side TTS feature is disabled; use browser speech directly.
-    onErrorFallback(text, onStart, onEnd);
+    onErrorFallback(text, onStart, onEnd, generation);
     return;
   } catch (e) {
     console.error('speakText unexpected error:', e);
@@ -151,7 +158,8 @@ export async function speakText(
   }
 }
 
-function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void) {
+function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void, generation = voiceGeneration) {
+  if (generation !== voiceGeneration) return;
   try {
     clearPendingSpeechTimeout();
     if (!('speechSynthesis' in window)) {
@@ -172,6 +180,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
     let hasStarted = false;
 
     const speakNextChunk = () => {
+      if (generation !== voiceGeneration) return;
       if (currentChunk >= chunks.length) {
         onEnd && onEnd();
         return;
@@ -186,6 +195,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       utter.volume = 1;
 
       utter.onstart = () => {
+        if (generation !== voiceGeneration) return;
         if (!hasStarted) {
           hasStarted = true;
           onStart && onStart();
@@ -193,6 +203,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       };
 
       utter.onend = () => {
+        if (generation !== voiceGeneration) return;
         const index = activeUtterances.indexOf(utter);
         if (index > -1) activeUtterances.splice(index, 1);
         currentChunk++;
@@ -200,6 +211,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
       };
 
       utter.onerror = (e) => {
+        if (generation !== voiceGeneration) return;
         console.warn('TTS Chunk error:', e);
         const index = activeUtterances.indexOf(utter);
         if (index > -1) activeUtterances.splice(index, 1);
@@ -208,7 +220,10 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
         speakNextChunk();
       };
 
+      let queued=false;
       const pickVoiceAndSpeak = (voices: SpeechSynthesisVoice[]) => {
+        if (generation !== voiceGeneration || queued) return;
+        queued=true;
         const preferredNames = [/francisca/i, /antonio/i, /antônio/i, /francisco/i];
         let candidate = voices.find((v) => {
           const isPt = /pt[-_ ]?br|brazil/i.test(v.lang || v.name);
@@ -238,15 +253,18 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void)
           }
         };
         window.speechSynthesis.addEventListener('voiceschanged', handler as any);
+        voiceCleanup.add(() => window.speechSynthesis.removeEventListener('voiceschanged', handler as any));
         
         // Timeout to just speak anyway if voices list doesn't load quickly
-        globalThis.setTimeout(() => {
+        const voiceTimer = globalThis.setTimeout(() => {
+          if (generation !== voiceGeneration) return;
           if (!hasStarted) {
              const vs = window.speechSynthesis.getVoices();
              if (vs.length > 0) pickVoiceAndSpeak(vs);
-             else window.speechSynthesis.speak(utter);
+             else pickVoiceAndSpeak([]);
           }
         }, 300);
+        voiceCleanup.add(() => globalThis.clearTimeout(voiceTimer));
       }
     };
 
@@ -282,6 +300,9 @@ function cleanupAudio() {
 }
 
 export function stopSpeaking() {
+  ++voiceGeneration;
+  for (const cleanup of voiceCleanup) cleanup();
+  voiceCleanup.clear();
   try {
     clearPendingSpeechTimeout();
     if ('speechSynthesis' in window) {

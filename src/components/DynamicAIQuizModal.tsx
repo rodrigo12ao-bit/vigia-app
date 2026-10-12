@@ -1,3 +1,7 @@
+import type {ActivityClaim} from '../lib/adventureModel';
+import {playActivityFeedback,feedbackPreferences} from '../lib/activityFeedback';
+import { useDialog } from '../hooks/useDialog';
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -15,6 +19,7 @@ import {
 
 interface AIQuizQuestion {
   id: string;
+  rewardToken?:string;
   question: string;
   options: string[];
   correctIndex: number;
@@ -26,6 +31,7 @@ interface DynamicAIQuizModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddStars: (stars: number) => void;
+  onReward?:(claim:ActivityClaim,points:number)=>Promise<any>;
   onSpeak?: (text: string) => void;
 }
 
@@ -42,19 +48,25 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
   isOpen,
   onClose,
   onAddStars,
+  onReward,
   onSpeak,
 }) => {
   const [selectedTopic, setSelectedTopic] = useState('Enchentes');
   const [loading, setLoading] = useState(false);
+  const busy=React.useRef(false);
+  const answered=React.useRef(false);
+  const [serviceError,setServiceError]=useState('');
   const [quizData, setQuizData] = useState<AIQuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
 
+  const dialogRef=useDialog(isOpen,onClose);
   if (!isOpen) return null;
 
   const handleGenerateQuiz = async (topicToUse?: string) => {
     const topic = topicToUse || selectedTopic;
+    if(busy.current)return;busy.current=true;answered.current=false;setServiceError('');
     setLoading(true);
     setQuizData(null);
     setSelectedOption(null);
@@ -62,7 +74,7 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
     setIsCorrect(false);
 
     try {
-      const resp = await fetch('/api/generate-quiz', {
+      const resp = await apiFetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,20 +83,24 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
         }),
       });
 
-      const data: AIQuizQuestion = await resp.json();
+      const body=await resp.json();
+      if(body.status==='emergency'){setServiceError(body.summary);return;}
+      if(!resp.ok||body.status==='unavailable')throw new Error(body.error || 'Serviço indisponível.');
+      const data: AIQuizQuestion = body;
       setQuizData(data);
       if (onSpeak && data.question) {
         onSpeak(data.question);
       }
     } catch (err) {
-      console.error('Erro ao gerar quiz IA:', err);
+      setServiceError(err instanceof Error?err.message:'Quiz indisponível.');
     } finally {
-      setLoading(false);
+      busy.current=false;setLoading(false);
     }
   };
 
-  const handleSelectOption = (idx: number) => {
-    if (submitted || !quizData) return;
+  const handleSelectOption = async (idx: number) => {
+    if (submitted || answered.current || !quizData) return;
+    answered.current=true;
     setSelectedOption(idx);
     setSubmitted(true);
 
@@ -93,19 +109,22 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
 
     if (correct) {
       const stars = quizData.rewardStars || 15;
-      onAddStars(stars);
+      playActivityFeedback('correct');
+      try{if(onReward)await onReward({kind:'quiz',id:quizData.rewardToken||quizData.id,answer:idx},stars);else onAddStars(stars);}catch(e){setServiceError(e instanceof Error?e.message:'Recompensa indisponível.');}
+
       try {
-        confetti({
-          particleCount: 90,
+        if(feedbackPreferences().animations&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)confetti({
+          particleCount: 45,
           spread: 70,
           origin: { y: 0.6 },
           colors: ['#f59e0b', '#10b981', '#ec4899', '#3b82f6'],
         });
       } catch (e) {}
       if (onSpeak) {
-        onSpeak(`Resposta certa! Você ganhou ${stars} Estrelas Protetoras!`);
+        onSpeak(`Resposta certa! Você avançou na aprendizagem!`);
       }
     } else {
+      playActivityFeedback('retry');
       if (onSpeak) {
         onSpeak('Não foi dessa vez! Veja a explicação para aprender a resposta correta.');
       }
@@ -115,12 +134,13 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Quiz educativo"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           className="bg-white rounded-3xl border-2 border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]"
         >
+          {serviceError && <p role="alert" className="p-4 bg-amber-50 text-amber-950">{serviceError}</p>}
           {/* Modal Header */}
           <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 p-4 sm:p-5 text-white flex items-center justify-between shadow-md shrink-0">
             <div className="flex items-center gap-3">
@@ -214,7 +234,7 @@ export const DynamicAIQuizModal: React.FC<DynamicAIQuizModalProps> = ({
                     <Sparkles className="w-3.5 h-3.5" /> Pergunta IA Gerada
                   </span>
                   <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-slate-950" /> +{quizData.rewardStars || 15} Estrelas
+                    <Star className="w-3 h-3 fill-slate-950" /> +{quizData.rewardStars || 15} XP
                   </span>
                 </div>
 

@@ -1,16 +1,35 @@
 {
-  "name": "react-example",
+  "name": "vigia-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "npm run typecheck && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server/server.cjs",
+    "start": "node dist/server/server.cjs",
+    "build:publication": "npm run typecheck && node scripts/build-publication.cjs",
+    "start:publication": "node scripts/start-publication.cjs",
+    "test:publication": "tsx --test tests/publication.test.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:safety": "node test_safety.js"
+    "test:safety": "tsx --test tests/safety.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 tests/history.test.ts tests/safety.test.ts tests/physics.test.ts tests/badges.test.ts tests/learning.test.ts tests/alerts.test.ts tests/adventure.test.ts",
+    "dev:demo": "node scripts/demo.cjs",
+    "test:rules": "tsx --test tests/firestore.rules.test.ts",
+    "test:browser": "node tests/browser.cjs",
+    "emulators": "node scripts/emulators.cjs",
+    "demo:seed": "tsx scripts/seed-demo.ts",
+    "test:api": "tsx --test tests/api.test.ts",
+    "start:demo": "node scripts/start-demo.cjs",
+    "demo:contacts": "tsx scripts/prepare-demo-contacts.ts",
+    "test:sala": "tsx --test tests/sala.test.ts",
+    "demo:school": "tsx scripts/prepare-demo-school.ts",
+    "test:school": "tsx --test tests/school.test.ts",
+    "test:innovation": "node tests/innovation-browser.cjs",
+    "test:adventure": "tsx --test tests/adventure-api.test.ts",
+    "test:gamification": "node tests/gamification-browser.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -25,7 +44,9 @@
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.0",
     "firebase": "^12.17.0",
+    "firebase-admin": "^14.5.0",
     "lucide-react": "^0.546.0",
     "mime-db": "^1.54.0",
     "motion": "^12.23.24",
@@ -38,8 +59,11 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "puppeteer": "^25.4.0",
@@ -48,5 +72,12 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "vite-plugin-pwa": "^1.3.0"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "^1.13.6"
+    },
+    "@firebase/app": "0.16.2",
+    "@firebase/component": "0.7.5"
   }
 }

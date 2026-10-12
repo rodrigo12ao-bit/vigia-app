@@ -1,3 +1,5 @@
+import {AccountDataControls} from './AccountDataControls';
+import {useDialog} from '../hooks/useDialog';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -19,6 +21,7 @@ import { Avatar } from './Avatar';
 import { Badge } from '../types';
 
 interface ProfileModalProps {
+  userId?:string;userRole?:string;
   isOpen: boolean;
   onClose: () => void;
   userEmail: string | null;
@@ -30,9 +33,11 @@ interface ProfileModalProps {
   isGuest: boolean;
   onSignOut: () => void;
   onResetProgress: () => void;
+  onOpenBadges?:()=>void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
+  userId,userRole,
   isOpen,
   onClose,
   userEmail,
@@ -44,11 +49,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   isGuest,
   onSignOut,
   onResetProgress,
+  onOpenBadges,
 }) => {
   const [isEditingNick, setIsEditingNick] = useState(false);
   const [tempNick, setTempNick] = useState(nickname);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
 
+  const dialogRef=useDialog(isOpen,onClose);
   if (!isOpen) return null;
 
   const unlockedBadges = badges.filter((b) => b.unlocked);
@@ -63,7 +70,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-        <motion.div
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Meu perfil"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -86,7 +93,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all cursor-pointer"
-              title="Fechar"
+              title="Fechar" aria-label="Fechar perfil"
             >
               <X className="w-5 h-5" />
             </button>
@@ -96,8 +103,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="p-5 overflow-y-auto space-y-5">
             {/* Nickname & Avatar Section */}
             <div className="bg-gradient-to-br from-indigo-50 to-orange-50 border border-indigo-100 p-4 rounded-2xl flex items-center gap-4">
-              <div className="shrink-0 scale-90">
-                <Avatar size="sm" state="idle" />
+              <div className="shrink-0 relative w-16 h-16">
+                <Avatar interactive3D={false} size="sm" state="idle" />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -149,7 +156,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-center">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-400 mx-auto mb-1" />
                 <span className="block text-lg font-black text-amber-900">{starsScore}</span>
-                <span className="text-[10px] font-extrabold text-amber-700 uppercase">Estrelas</span>
+                <span className="text-[10px] font-extrabold text-amber-700 uppercase">XP</span>
               </div>
 
               <div className="bg-purple-50 border border-purple-200 p-3 rounded-2xl text-center">
@@ -163,7 +170,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl text-center">
                 <Gamepad2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
                 <span className="block text-lg font-black text-emerald-900">{completedGamesCount}</span>
-                <span className="text-[10px] font-extrabold text-emerald-700 uppercase">Jogos</span>
+                <span className="text-[10px] font-extrabold text-emerald-700 uppercase">Atividades</span>
               </div>
             </div>
 
@@ -186,15 +193,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
+            {userId&&<AccountDataControls uid={userId} role={userRole||'infantil'} onDeleted={onSignOut}/>}
+            {onOpenBadges&&<button className="vigia-link" onClick={onOpenBadges}>Ver todas as medalhas</button>}
             {/* Reset Confirmation Box */}
             {showConfirmReset ? (
               <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
                 <div className="flex items-center gap-2 text-rose-900 font-black text-xs">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Tem certeza que deseja apagar todo o progresso?</span>
+                  <span>Deseja zerar o XP e as medalhas?</span>
                 </div>
                 <p className="text-[11px] text-rose-800 font-medium">
-                  Suas estrelas e medalhas conquistadas serão zeradas.
+                  O XP e as medalhas serão zerados. As atividades concluídas permanecem registradas; repetir a mesma atividade não dá outro prêmio.
                 </p>
                 <div className="flex gap-2 pt-1">
                   <button
@@ -232,7 +241,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   className="py-2.5 px-3 rounded-2xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer touch-target-min"
                 >
                   <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Apagar Progresso</span>
+                  <span>Zerar XP e medalhas</span>
                 </button>
 
                 <button
