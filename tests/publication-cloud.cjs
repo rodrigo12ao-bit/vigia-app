@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {initializeApp,cert}=require('firebase-admin/app'),{getFirestore}=require('firebase-admin/firestore');
 const project='vigia-aplicativo-7ba1a',origin='https://vigia-app.onrender.com',root=process.env.VIGIA_TEST_URL||'http://127.0.0.1:3100';
-const temp=path.join(os.tmpdir(),'vigia-publication'),accountsFile=path.join(temp,'test-accounts.json');
+const temp=path.join(os.tmpdir(),'vigia-publication'),accountsFile=path.join(temp,root===origin?'test-accounts-public.json':'test-accounts.json');
 const output=path.resolve('artifacts',root===origin?'publication-public-cloud-tests.json':'publication-predeploy-cloud-tests.json');
 const report={url:root,project,onlySyntheticData:true,checks:[],errors:[],startedAt:new Date().toISOString()};
 const config=require('../firebase-applet-config.json');const tokens={};let db,accounts;
@@ -110,6 +110,8 @@ async function main(){
  });
  await check('exclusão online não executa operação incompleta',async()=>{assert.equal((await api('parent','/api/account/delete',{confirmation:'EXCLUIR'})).status,403);assert.ok((await db.doc('users/'+uid('parent')).get()).exists);});
  await check('código, credencial e arquivos privados não são publicados',async()=>{for(const file of ['/server.ts','/server.cjs','/firestore.rules','/.env','/firebase-service-account.json','/artifacts/publication-private/credential-state.json'])assert.equal((await fetch(root+file)).status,404,file);});
+ // Leave the random approved test contacts usable for the following UI validation.
+ await db.doc('users/'+uid('child')).update({blockedUsers:[]});
  report.syntheticAccounts=Object.fromEntries(Object.entries(accounts).map(([name,a])=>[name,a.uid]));
 }
 main().then(()=>{report.completedAt=new Date().toISOString();}).catch(e=>{report.errors.push(String(e.message).slice(0,500));console.error('Validação não concluída:',String(e.message).slice(0,500));process.exitCode=1;}).finally(async()=>{fs.writeFileSync(output,JSON.stringify(report,null,2));if(db)await db.terminate();});
