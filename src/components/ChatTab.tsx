@@ -59,6 +59,9 @@ import {
   renameSession,
 } from '../lib/chatHistoryService';
 
+const onlinePreview=import.meta.env.MODE==='publication';
+const voiceUnavailable='Voz e microfone indisponíveis nesta prévia. Você pode escrever ou enviar uma imagem.';
+
 export type ConversationState =
   | 'IDLE'
   | 'CONNECTING'
@@ -365,7 +368,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
   useEffect(() => {
-    if (chatMode !== 'live') return;
+    if (chatMode !== 'live' || onlinePreview) return;
 
     stopListening();
     stopSpeaking();
@@ -569,6 +572,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const startListeningWithPermission = async (isRestart = false) => {
+    if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     // STATE MACHINE BLOCKER
     if (interactionState === 'PROCESSING' || isLoading) {
       console.warn('Cannot start listening while processing');
@@ -848,6 +852,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleConfirmMicPermission = () => {
+    if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     localStorage.setItem('vigia_mic_explained:'+(userId||'guest'), 'true');
     setShowPermissionPrompt(false);
     startListeningWithPermission();
@@ -1079,7 +1084,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 <span className="hidden sm:inline">Texto</span>
               </button>
               <button
-                onClick={() => setChatMode('live')}
+                onClick={() => onlinePreview?setSpeechFeedbackMsg(voiceUnavailable):setChatMode('live')}
+                title={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
+                aria-label={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
                   chatMode === 'live'
                     ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-md'
@@ -1087,7 +1094,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 }`}
               >
                 <Mic className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Voz</span>
+                <span className="hidden sm:inline">{onlinePreview?'Voz indisponível':'Voz'}</span>
               </button>
             </div>
 
@@ -1632,7 +1639,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     </button>
                   ) : (
                     <button
-                      onClick={toggleMicListening}
+                      onClick={() => onlinePreview?setSpeechFeedbackMsg(voiceUnavailable):toggleMicListening()}
                       className={`p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 ${
                         isListening
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse shadow-emerald-500/30'
@@ -1885,7 +1892,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                       }`}
-                      title={isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
+                      title={onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
+                      aria-label={onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
                     >
                       {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-slate-400" />}
                     </button>
