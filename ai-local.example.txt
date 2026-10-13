@@ -1,0 +1,8 @@
+# Copie os campos necessários para .env.ai-local (ignorado pelo Git).
+# Não coloque a chave no código, na conversa ou em uma variável VITE_.
+# Ativação paga somente após a autorização do proprietário.
+OPENAI_API_KEY=
+OPENAI_TEXT_MODEL=gpt-6.1-sol
+AI_TEST_UIDS=demo-professor,demo-responsavel
+AI_COST_AUTHORIZED=false
+AI_TEST_BUDGET_USD=3

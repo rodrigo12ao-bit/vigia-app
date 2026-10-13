@@ -1,4 +1,4 @@
-import { apiFetch } from '../lib/api';
+import { apiFetch, getAiStatus } from '../lib/api';
 // Client-side speech utilities for Vigia
 // - Attempts server-side TTS via /api/tts and plays returned base64 audio
 // - Falls back to browser `speechSynthesis` if server TTS fails
@@ -12,10 +12,10 @@ let voiceGeneration = 0;
 const voiceCleanup = new Set<() => void>();
 
 // Toggle this to true to re-enable Gemini server TTS in the future.
-export const USE_SERVER_TTS = false;
+export const USE_SERVER_TTS = true;
 
 // Server TTS control: when false, client will use browser TTS immediately.
-let serverTTSEnabled = USE_SERVER_TTS;
+let serverTTSEnabled = false;
 let serverTTSDisabledUntil = 0; // epoch ms
 
 export function disableServerTTSFor(ms: number) {
@@ -35,7 +35,7 @@ export function setServerTTSEnabled(flag: boolean) {
 }
 
 export function isServerTTSEnabled() {
-  if (!serverTTSEnabled && Date.now() > serverTTSDisabledUntil) {
+  if (!serverTTSEnabled && serverTTSDisabledUntil > 0 && Date.now() > serverTTSDisabledUntil) {
     serverTTSEnabled = true;
   }
   return serverTTSEnabled;
@@ -44,7 +44,8 @@ export function isServerTTSEnabled() {
 export async function speakText(
   text: string,
   onStart?: () => void,
-  onEnd?: () => void
+  onEnd?: () => void,
+  deviceOnly = false
 ) {
   let generation = voiceGeneration;
   try {
@@ -56,7 +57,25 @@ export async function speakText(
       onEnd && onEnd();
       return;
     }
-    // If server TTS has been disabled due to quota/errors, use browser TTS immediately
+    if(deviceOnly){onErrorFallback(text,onStart,onEnd,generation);return;}
+    const aiStatus=await getAiStatus().catch(()=>null);
+    if(generation!==voiceGeneration)return;
+    if(import.meta.env.MODE==='presentation'||['adult-synthetic','local-synthetic','adult-gemini'].includes(aiStatus?.ai?.mode||'')){
+      try{
+        const response=await apiFetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+        const result=await response.json();
+        if(generation!==voiceGeneration)return;
+        if(!response.ok||!result.audio)throw Error(result.error||'Voz indisponível.');
+        const bytes=Uint8Array.from(atob(result.audio),(c:string)=>c.charCodeAt(0));
+        currentAudioUrl=URL.createObjectURL(new Blob([bytes],{type:result.mimeType||'audio/wav'}));
+        currentAudio=new Audio(currentAudioUrl);
+        currentAudio.onplay=()=>{if(generation===voiceGeneration)onStart?.();};
+        currentAudio.onended=()=>{if(generation===voiceGeneration){cleanupAudio();onEnd?.();}};
+        currentAudio.onerror=()=>{if(generation===voiceGeneration){cleanupAudio();onEnd?.();window.dispatchEvent(new CustomEvent('vigia-error',{detail:'Não foi possível reproduzir a voz da IA.'}));}};
+        await currentAudio.play();return;
+      }catch(error){if(generation===voiceGeneration){cleanupAudio();onEnd?.();window.dispatchEvent(new CustomEvent('vigia-error',{detail:error instanceof Error?error.message:'Voz indisponível.'}));}return;}
+    }
+    // Reading activities retain their separately disclosed device voice.
     if (!isServerTTSEnabled()) {
       onErrorFallback(text, onStart, onEnd, generation);
       return;

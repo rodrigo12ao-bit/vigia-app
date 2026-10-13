@@ -1,5 +1,6 @@
 import { useDialog } from '../hooks/useDialog';
 import { salaRequest } from '../lib/api';
+import {adultAudience} from '../lib/audience';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -60,6 +61,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const busy=React.useRef(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [resetSentMessage, setResetSentMessage] = useState('');
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setEmail(''); setPassword(''); setNickname('');
+    setIsAdultConfirmed(false); setShowPassword(false);
+    setErrorMessage(''); setResetSentMessage(''); setActiveTab('login');
+  }, [isOpen]);
 
   const dialogRef=useDialog(isOpen,onClose);
   if (!isOpen) return null;
@@ -124,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     if (!isAdultConfirmed) {
-      setErrorMessage('É necessário confirmar que a conta é criada por um responsável adulto.');
+      setErrorMessage('É necessário confirmar que você tem 18 anos ou mais e usa sua própria conta.');
       return;
     }
 
@@ -332,13 +340,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <ShieldCheck className="w-4 h-4 text-amber-600" /> Proteção Infantil
                   </span>
                   <p>
-                    A conta deve pertencente ao responsável adulto (pai, mãe ou educador). Não solicitamos dados pessoais como endereço, escola ou telefone da criança.
+                    A conta é exclusiva para pessoas de 18 anos ou mais. Use seu próprio e-mail e um apelido. Não cadastre menores nem envie dados de terceiros.
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">
-                    Apelido da criança (Opcional)
+                    Seu apelido (Opcional)
                   </label>
                   <input
                     type="text"
@@ -395,7 +403,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="mt-0.5 w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
                   />
                   <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                    Confirmo que sou pai, mãe, responsável ou educador criando esta conta para uso educativo.
+                    Confirmo que tenho 18 anos ou mais e estou criando minha própria conta.
                   </span>
                 </label>
 

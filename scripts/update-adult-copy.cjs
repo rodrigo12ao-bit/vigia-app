@@ -1,0 +1,17 @@
+const fs=require('node:fs');
+function update(file,pairs,addImport){let text=fs.readFileSync(file,'utf8');if(addImport&&!text.includes(addImport))text=addImport+'\n'+text;for(const [from,to] of pairs){if(text.includes(to))continue;if(!text.includes(from))throw Error('Texto não encontrado em '+file+': '+from);text=text.split(from).join(to);}fs.writeFileSync(file,text);console.log('Textos 18+ revisados: '+file);}
+update('src/components/learning/LearningCenter.tsx',[
+ ["path.includes('/join')?'Pedido enviado. Professor e responsável precisam aprovar.':'Pedido enviado ao responsável vinculado.'","adultAudience?(path.includes('/join')?'Pedido enviado ao professor. Seu progresso só será compartilhado após aprovação.':'Preparação registrada no seu próprio perfil.'):(path.includes('/join')?'Pedido enviado. Professor e responsável precisam aprovar.':'Pedido enviado ao responsável vinculado.')"],
+ ['<p>Faça esta atividade junto de um adulto.</p>',"<p>{adultAudience?'Realize esta preparação com as pessoas da casa.':'Faça esta atividade junto de um adulto.'}</p>"],
+ ["{missionId:family.id})","{missionId:family.id,...(adultAudience?{confirmed:true}:{})})"],
+ ["'Confirmada pelo responsável'","(adultAudience?'Preparação concluída':'Confirmada pelo responsável')"],
+ ["'Pedir confirmação ao responsável'","(adultAudience?'Concluí esta preparação · +15 XP':'Pedir confirmação ao responsável')"],
+ ['Você pode fazer a atividade com um adulto. A confirmação pelo aplicativo exige uma conta com responsável vinculado.',"{adultAudience?'Você pode realizar a preparação sem conta. O registro com XP exige sua própria conta adulta.':'Você pode fazer a atividade com um adulto. A confirmação pelo aplicativo exige uma conta com responsável vinculado.'}"],
+ ['A entrada exige aprovação do professor e do responsável. Conversas privadas não são compartilhadas.',"{adultAudience?'O compartilhamento de progresso e denúncias da turma exige sua solicitação e aprovação do professor. Conversas privadas não são compartilhadas.':'A entrada exige aprovação do professor e do responsável. Conversas privadas não são compartilhadas.'}"],
+ ],"import {adultAudience} from '../../lib/audience';");
+update('src/components/HelpTab.tsx',[
+ ['<p>Em perigo real, procure um adulto e peça socorro.</p>',"<p>{adultAudience?'Em perigo real, afaste-se se for seguro e peça socorro aos serviços oficiais.':'Em perigo real, procure um adulto e peça socorro.'}</p>"],
+ ["'Esta é uma ligação real para a Defesa Civil. Continue somente em caso de necessidade e com orientação de um adulto.'","(adultAudience?'Esta é uma ligação real para a Defesa Civil. Continue somente em caso de necessidade.':'Esta é uma ligação real para a Defesa Civil. Continue somente em caso de necessidade e com orientação de um adulto.')"],
+ ["'Esta é uma ligação real para os Bombeiros. Continue somente em caso de necessidade e com orientação de um adulto.'","(adultAudience?'Esta é uma ligação real para os Bombeiros. Continue somente em caso de necessidade.':'Esta é uma ligação real para os Bombeiros. Continue somente em caso de necessidade e com orientação de um adulto.')"],
+ ['Os avisos abaixo vêm do INMET. Confira com um adulto a região e o período informados.',"{adultAudience?'Os avisos vêm do INMET. Confira a região e o período informados.':'Os avisos abaixo vêm do INMET. Confira com um adulto a região e o período informados.'}"],
+ ],"import {adultAudience} from '../lib/audience';");

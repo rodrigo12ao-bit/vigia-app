@@ -1,6 +1,6 @@
 import type {Express} from 'express';
 import {randomBytes,createHash} from 'node:crypto';
-import {adminDb} from './security';
+import {adminDb,runtime,ADULT_ACCESS_VERSION} from './security';
 import {apiRoute,authority,PublicError,supervisedBy} from './learning';
 import {LEARNING_MISSIONS} from '../src/data/learningMissions';
 import {emptyLearning} from '../src/lib/learningModel';
@@ -36,13 +36,13 @@ export function installSchoolRoutes(app:Express){
   const batch=db.batch();batch.create(ref,row);batch.create(db.doc('classroom_codes/'+code),{classroomId:ref.id});await batch.commit();return {id:ref.id,...row};
  });
  apiRoute(app,'/api/school/join',async(uid,data)=>{
-  const db=adminDb(),a=await authority(uid);if(a.role!=='infantil'||!a.guardianUid)throw new PublicError('A entrada na turma precisa de um responsável vinculado.');
+  const db=adminDb(),a=await authority(uid);if(!runtime.adultAudience&&(a.role!=='infantil'||!a.guardianUid))throw new PublicError('A entrada na turma precisa de um responsável vinculado.');
   if(typeof data.code!=='string'||!/^TURMA-[A-F0-9]{32}$/.test(data.code))throw new PublicError('Código de turma inválido.');
   const directory=await db.doc('classroom_codes/'+data.code).get();const classId=directory.data()?.classroomId;if(!classId)throw new PublicError('Turma indisponível.');
   const c=await db.doc('classrooms/'+classId).get();if(!c.exists)throw new PublicError('Turma indisponível.');
   if(a.classroomId&&a.classroomId!==classId)throw new PublicError('Peça ao responsável uma revisão do vínculo atual antes de mudar de turma.');
   const id=createHash('sha256').update(JSON.stringify([uid,classId])).digest('hex');const ref=db.doc('school_enrollments/'+id);
-  await db.runTransaction(async tx=>{const old=await tx.get(ref);if(old.exists&&old.data()?.status!=='rejected')return;tx.set(ref,{childUid:uid,guardianUid:a.guardianUid,teacherUid:c.data()!.teacherUid,classroomId:classId,className:c.data()!.name,reviewerUids:[a.guardianUid,c.data()!.teacherUid],approvals:[],status:'pending',consentVersion:'school-progress-v1',createdAt:new Date().toISOString()});});return {success:true};
+  await db.runTransaction(async tx=>{const old=await tx.get(ref);if(old.exists&&old.data()?.status!=='rejected')return;tx.set(ref,{childUid:uid,...(!runtime.adultAudience?{guardianUid:a.guardianUid}:{}),teacherUid:c.data()!.teacherUid,classroomId:classId,className:c.data()!.name,reviewerUids:runtime.adultAudience?[c.data()!.teacherUid]:[a.guardianUid,c.data()!.teacherUid],approvals:[],status:'pending',consentVersion:runtime.adultAudience?'school-progress-adult-v1':'school-progress-v1',createdAt:new Date().toISOString()});});return {success:true};
  });
  apiRoute(app,'/api/school/decision',async(uid,data)=>{
   if(!/^[a-f0-9]{64}$/.test(data.id||'')||!['approve','reject'].includes(data.decision))throw new PublicError('Decisão inválida.');
@@ -50,11 +50,12 @@ export function installSchoolRoutes(app:Express){
   await db.runTransaction(async tx=>{
    const request=await tx.get(ref),r=request.data();if(!r||!r.reviewerUids.includes(uid))throw new PublicError('Você não pode decidir sobre este vínculo.',403);
    if(r.status!=='pending')return;
-   const [a,c,t,g]=await Promise.all([tx.get(db.doc('sala_authorities/'+r.childUid)),tx.get(db.doc('classrooms/'+r.classroomId)),tx.get(db.doc('sala_authorities/'+r.teacherUid)),tx.get(db.doc('sala_authorities/'+r.guardianUid))]);
-   if(a.data()?.guardianUid!==r.guardianUid||c.data()?.teacherUid!==r.teacherUid||t.data()?.role!=='educador'||!['responsavel','educador'].includes(g.data()?.role))throw new PublicError('Os vínculos mudaram. Solicite uma revisão.');
+   const adultEnrollment=runtime.adultAudience&&r.consentVersion==='school-progress-adult-v1';
+   const [a,c,t,g,access]=await Promise.all([tx.get(db.doc('sala_authorities/'+r.childUid)),tx.get(db.doc('classrooms/'+r.classroomId)),tx.get(db.doc('sala_authorities/'+r.teacherUid)),adultEnrollment?Promise.resolve(null):tx.get(db.doc('sala_authorities/'+r.guardianUid)),adultEnrollment?tx.get(db.doc('adult_access/'+r.childUid)):Promise.resolve(null)]);
+   if(c.data()?.teacherUid!==r.teacherUid||t.data()?.role!=='educador'||(adultEnrollment?access?.data()?.version!==ADULT_ACCESS_VERSION||!!a.data()?.guardianUid||r.reviewerUids.length!==1||r.reviewerUids[0]!==r.teacherUid:a.data()?.guardianUid!==r.guardianUid||!['responsavel','educador'].includes(g?.data()?.role)))throw new PublicError('Os vínculos mudaram. Solicite uma revisão.');
    if(data.decision==='reject'){tx.update(ref,{status:'rejected'});return;}
    const approvals=[...new Set([...r.approvals,uid])];const approved=r.reviewerUids.every((id:string)=>approvals.includes(id));
-   if(approved){if((c.data()?.studentUids||[]).length>=30)throw new PublicError('Esta turma atingiu o limite de alunos.');if(a.data()?.classroomId&&a.data()?.classroomId!==r.classroomId)throw new PublicError('Vínculo escolar atual precisa de revisão.');const now=new Date().toISOString();tx.update(a.ref,{educatorUid:r.teacherUid,classroomId:r.classroomId,educationConsentAt:now,educationConsentVersion:r.consentVersion});tx.update(c.ref,{studentUids:[...new Set([...(c.data()?.studentUids||[]),r.childUid])]});}
+   if(approved){if((c.data()?.studentUids||[]).length>=30)throw new PublicError('Esta turma atingiu o limite de alunos.');if(a.data()?.classroomId&&a.data()?.classroomId!==r.classroomId)throw new PublicError('Vínculo escolar atual precisa de revisão.');const now=new Date().toISOString();tx.set(a.ref,{role:a.data()?.role||'infantil',educatorUid:r.teacherUid,classroomId:r.classroomId,educationConsentAt:now,educationConsentVersion:r.consentVersion},{merge:true});tx.update(c.ref,{studentUids:[...new Set([...(c.data()?.studentUids||[]),r.childUid])]});}
    tx.update(ref,{approvals,status:approved?'approved':'pending'});
   });return {success:true};
  });

@@ -1,7 +1,8 @@
 import {AvatarGenderContext} from './lib/avatarSettings';
 import { FeatureBoundary } from './components/FeatureBoundary';
-import { apiFetch } from './lib/api';
+import { apiFetch,getAiStatus } from './lib/api';
 import { fetchOrCreateUserProfile } from './lib/salaSeguraService';
+import {adultAudience} from './lib/audience';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
@@ -56,13 +57,17 @@ export default function App() {
   const renderedConversationVersion=conversationVersion.current;
   const [notice,setNotice]=useState('');
   const [demo,setDemo]=useState(false);
+  const [aiTest,setAiTest]=useState(false);
+  const [aiLocal,setAiLocal]=useState(false);
+  const [aiGemini,setAiGemini]=useState(false);
+  const [aiBlocked,setAiBlocked]=useState<string|null>(null);
   const [localDemo,setLocalDemo]=useState(true);
-  useEffect(()=>{apiFetch('/api/status').then(r=>r.json()).then(s=>{setDemo(s.demo);setLocalDemo(s.localDemo!==false);}).catch(()=>{});const listener=(e:Event)=>setNotice((e as CustomEvent).detail);window.addEventListener('vigia-error',listener);return ()=>window.removeEventListener('vigia-error',listener);},[]);
+  useEffect(()=>{getAiStatus().then(s=>{setDemo(s.demo);setLocalDemo(s.localDemo!==false);setAiTest(s.ai?.mode==='adult-synthetic');setAiLocal(s.ai?.provider==='local');setAiGemini(s.ai?.provider==='gemini');setAiBlocked(s.ai?.blocked||null);}).catch(()=>{});const listener=(e:Event)=>setNotice((e as CustomEvent).detail);window.addEventListener('vigia-error',listener);return ()=>window.removeEventListener('vigia-error',listener);},[]);
   const [activeTab,setActiveTab]=useState<AppTab>('home');
   const [userRole,setUserRole]=useState('infantil');
   const [initialMission,setInitialMission]=useState<string|null>(null);
   const openLearning=(id?:string)=>{setInitialMission(id||null);setActiveTab('learn');};
-  const readAloud=(text:string)=>{if(renderedAccountVersion!==accountVersion.current)return;const consentKey='vigia_reading_voice_consent:'+(auth.currentUser?.uid||'guest');if(!localStorage.getItem(consentKey)){if(!window.confirm('A leitura usa a voz disponível no aparelho. Alguns dispositivos podem processar o texto em serviços do fabricante. Deseja ouvir?'))return;localStorage.setItem(consentKey,'true');}if(!window.speechSynthesis){setNotice('Leitura de voz indisponível neste aparelho.');return;}setIsAudioMuted(false);speakText(text,()=>setIsSpeaking(true),()=>setIsSpeaking(false));};
+  const readAloud=(text:string)=>{if(renderedAccountVersion!==accountVersion.current)return;const consentKey='vigia_reading_voice_consent:'+(auth.currentUser?.uid||'guest');if(!localStorage.getItem(consentKey)){if(!window.confirm('A leitura usa a voz disponível no aparelho. Alguns dispositivos podem processar o texto em serviços do fabricante. Deseja ouvir?'))return;localStorage.setItem(consentKey,'true');}if(!window.speechSynthesis){setNotice('Leitura de voz indisponível neste aparelho.');return;}setIsAudioMuted(false);speakText(text,()=>setIsSpeaking(true),()=>setIsSpeaking(false),true);};
 
   const [isDailyMissionOpen, setIsDailyMissionOpen] = useState(false);
   const [isScenarioAnalyzerOpen, setIsScenarioAnalyzerOpen] = useState(false);
@@ -328,10 +333,6 @@ export default function App() {
       duration_voiceStart_to_avatarRender: null,
     }));
 
-    // Unlock chat badge
-    handleUnlockBadge('b_chat');
-    handleAddStars(5);
-
     // Create assistant message placeholder immediately for streaming
     const assistantMsgId = (Date.now() + 1).toString();
     const initialAssistantMsg: ChatMessage = {
@@ -369,11 +370,13 @@ export default function App() {
       }));
 
       if (!response.ok) {
-        throw new Error('Falha na resposta do servidor');
+        const failure=await response.json().catch(()=>null);
+        throw new Error(failure?.error||'Serviço de IA indisponível.');
       }
 
       const data = await response.json();
       if(controller.signal.aborted || version!==accountVersion.current)return;
+      if(data.status!=='emergency'){handleUnlockBadge('b_chat');handleAddStars(5);}
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsgId
@@ -405,11 +408,12 @@ export default function App() {
       setDebugInfo((prev) => ({
         ...prev,
         lastSentPrompt: text,
-        apiStatus: 'Sucesso (Streaming Ultra-Rápido)',
-        modelName: 'gemini-2.5-flash',
+        apiStatus: 'Resposta recebida',
+        modelName: data.model||data.provider||'Serviço de IA',
         lastError: 'Nenhum erro registrado',
       }));
     } catch (error: any) {
+      if(version!==accountVersion.current)return;
       if (error && error.name === 'AbortError') {
         setDebugInfo((prev) => ({ ...prev, apiStatus: 'Requisição abortada' }));
         setMessages((prev) =>
@@ -424,7 +428,7 @@ export default function App() {
               ? {
                   ...m,
                   content:
-                    'Tive um pequeno imprevisto na conexão. Se for uma emergência real, fale com um adulto e ligue 199 (Defesa Civil) ou 193 (Bombeiros)!',
+                    `IA indisponível: ${errorMsg} Em perigo real, procure um adulto e ligue 199 (Defesa Civil) ou 193 (Bombeiros).`,
                   emotion: 'serious',
                 }
               : m
@@ -495,6 +499,9 @@ export default function App() {
       activeTab === 'chat' ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh'
     }`}>
       {demo && <div role="status" className="bg-amber-100 text-amber-950 px-3 py-2 text-xs text-center font-bold">{localDemo?'DEMONSTRAÇÃO LOCAL • contas fictícias':'PRÉVIA ONLINE • use apenas dados fictícios'} • respostas da IA simuladas • voz ao vivo indisponível</div>}
+      {aiTest&&<div role="status" className="bg-indigo-100 text-indigo-950 px-3 py-2 text-xs text-center font-bold">TESTE LOCAL DE IA REAL • exclusivo para adultos • somente dados fictícios • voz gerada por IA{aiBlocked?' • '+aiBlocked:''}</div>}
+      {aiLocal&&<div role="status" className="bg-emerald-100 text-emerald-950 px-3 py-2 text-xs text-center font-bold">IA GRATUITA LOCAL • respostas reais • dados fictícios • supervisão de um adulto{aiBlocked?' • '+aiBlocked:''}</div>}
+      {aiGemini&&<div role="status" className="bg-indigo-100 text-indigo-950 px-3 py-2 text-xs text-center font-bold">VIGIA 18+ • Gemini real • cota gratuita • não envie dados pessoais{aiBlocked?' • '+aiBlocked:''}</div>}
       {notice && <div role="alert" className="bg-rose-100 text-rose-900 p-3 text-sm">{notice} <button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
       {/* Header Navigation */}
       <Navbar
@@ -556,6 +563,7 @@ export default function App() {
                 currentUser={currentUser}
                 isGuest={isGuest}
                 onChatModeChange={setChatMode}
+                onVoiceTurn={(input,reply)=>{if(renderedAccountVersion!==accountVersion.current||renderedConversationVersion!==conversationVersion.current)return;const now=new Date();setMessages(previous=>[...previous,{id:crypto.randomUUID(),role:'user',content:input,timestamp:now},{id:crypto.randomUUID(),role:'assistant',content:reply,timestamp:now,emotion:'explaining'}]);}}
                 onSpeechRecognized={(speechText) => {
                   setDebugInfo((prev) => ({
                     ...prev,

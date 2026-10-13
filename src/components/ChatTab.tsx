@@ -51,6 +51,8 @@ import {
   stopSpeaking,
 } from '../utils/speech';
 import { GeminiLiveSession } from '../utils/geminiLive';
+import {getAiAccess,getAiStatus} from '../lib/api';
+import {recordingToWave} from '../utils/audioWave';
 import {
   loadSessions,
   saveSession,
@@ -59,7 +61,7 @@ import {
   renameSession,
 } from '../lib/chatHistoryService';
 
-const onlinePreview=import.meta.env.MODE==='publication';
+const publishedBuild=import.meta.env.MODE==='publication';
 const voiceUnavailable='Voz e microfone indisponíveis nesta prévia. Você pode escrever ou enviar uma imagem.';
 
 export type ConversationState =
@@ -85,6 +87,7 @@ interface ChatTabProps {
   onResetChat?: () => void;
   onLoadSession?: (messages: ChatMessage[]) => void;
   onChatModeChange?: (mode: 'text' | 'live') => void;
+  onVoiceTurn?: (input:string,reply:string)=>void;
   isAudioMuted?: boolean;
   onToggleAudioMute?: () => void;
   debugInfo?: DebugInfo;
@@ -220,6 +223,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onResetChat,
   onLoadSession,
   onChatModeChange,
+  onVoiceTurn,
   isAudioMuted = false,
   onToggleAudioMute,
   debugInfo,
@@ -227,7 +231,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   currentUser,
   isGuest = true,
 }) => {
+  const [onlinePreview,setOnlinePreview]=useState(publishedBuild);
+  useEffect(()=>{let active=true;getAiStatus().then(s=>{if(active)setOnlinePreview(publishedBuild&&s.demo);}).catch(()=>{});return ()=>{active=false;};},[]);
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
+  const voiceInput=useRef(''),voiceOutput=useRef('');
+  const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
+  const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
+  const switchToVoice=async()=>{if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(await voiceAllowed())setChatMode('live');};
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
   const [historyReady,setHistoryReady]=useState(false);
   const sessionMetadata=useRef<{id:string;title:string;createdAt:string}|null>(null);
@@ -422,14 +432,19 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
         setInterimSpeech(text);
+        setLiveSubtitle('');
+        voiceInput.current=text;voiceOutput.current='';
       },
       onOutputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
         setLiveSubtitle((prev) => prev + text);
+        voiceOutput.current+=text;
       },
+      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current)voiceTurnHandler.current?.(voiceInput.current,voiceOutput.current);voiceInput.current='';voiceOutput.current='';},
       onError: (errMsg) => {
         if (disposed || liveSessionRef.current !== session) return;
         setSpeechFeedbackMsg(errMsg);
+        setMicPermissionError(/permissão|microfone/i.test(errMsg));
       },
       onClose: () => {
         if (disposed || liveSessionRef.current !== session) return;
@@ -449,7 +464,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if (liveSessionRef.current === session) liveSessionRef.current = null;
       setMicVolume(0);
     };
-  }, [chatMode]);
+  }, [chatMode,userId]);
 
   // Clean interim speech when response arrives
   useEffect(() => {
@@ -573,6 +588,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const startListeningWithPermission = async (isRestart = false) => {
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
+    if(!await voiceAllowed())return;
+    const useProviderTranscription=['adult-synthetic','local-synthetic','adult-gemini'].includes((await getAiStatus()).ai?.mode||'');
     // STATE MACHINE BLOCKER
     if (interactionState === 'PROCESSING' || isLoading) {
       console.warn('Cannot start listening while processing');
@@ -660,7 +677,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       const currentRecorder = audioRecorderRef.current;
       if (!currentRecorder) return;
 
-      const audioBlob = await currentRecorder.stopAndGetBlob();
+      let audioBlob = await currentRecorder.stopAndGetBlob();
+      if(audioBlob&&useProviderTranscription){try{audioBlob=await recordingToWave(audioBlob);}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível preparar o áudio.');stopListening();return;}}
       const audioSize = audioBlob ? audioBlob.size : 0;
 
       if (audioBlob && audioSize > 100) {
@@ -713,7 +731,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     vad.start(stream);
     vadRef.current = vad;
 
-    if (!recognizerRef.current && isSpeechRecognitionSupported()) {
+    if (!useProviderTranscription && !recognizerRef.current && isSpeechRecognitionSupported()) {
       try {
         recognizerRef.current = new SpeechRecognizer();
       } catch (e) {
@@ -721,7 +739,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
 
-    if (isSpeechRecognitionSupported() && recognizerRef.current) {
+    if (!useProviderTranscription && isSpeechRecognitionSupported() && recognizerRef.current) {
       audioTimeoutRef.current = window.setTimeout(() => {
         if (!hasAudioStartedRef.current) {
           console.warn('O navegador não entregou áudio ao reconhecimento de voz dentro de 3 segundos.');
@@ -833,8 +851,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     stopSpeaking();
   };
 
-  const toggleMicListening = () => {
+  const toggleMicListening = async () => {
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
+    if(!isListening&&!await voiceAllowed())return;
     if (isSpeaking) {
       handleInterruptSpeech();
     }
@@ -1085,7 +1104,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 <span className="hidden sm:inline">Texto</span>
               </button>
               <button
-                onClick={() => onlinePreview?setSpeechFeedbackMsg(voiceUnavailable):setChatMode('live')}
+                onClick={() => void switchToVoice()}
                 title={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
                 aria-label={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
@@ -1237,7 +1256,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
                 <h3 className="font-black text-base text-slate-900">Acesso ao Microfone</h3>
                 <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                  O microfone é usado durante a conversa. A fala pode ser processada pelo serviço de voz do navegador ou pelo Gemini, conforme o modo. Use apenas dados fictícios na demonstração. Não envie informações pessoais.
+                  A transcrição e a voz seguem a modalidade informada no aviso de consentimento da IA. Com Gemini, a gravação é enviada ao Google e a resposta é gerada por IA. Use somente sua própria fala, sem informações pessoais nem conteúdo de menores. Gravações de mensagem têm até 15 segundos. Na simulação, a voz ao vivo está indisponível.
                 </p>
 
                 <div className="flex gap-2 pt-2">
@@ -1551,6 +1570,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           )}
           </AnimatePresence>
 
+          {chatMode==='live'&&speechFeedbackMsg&&<div role="alert" className="px-4 py-3 text-sm text-amber-100 bg-amber-900/40 border-b border-amber-500/30">{speechFeedbackMsg}</div>}
           {chatMode === 'live' ? (
             <div className="flex-1 min-h-0 min-w-0 bg-slate-950 flex flex-col relative overflow-hidden">
               
@@ -1568,7 +1588,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         <Subtitles className="w-3 h-3" /> Transcrição
                       </p>
                       <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
-                        {interimSpeech || liveSubtitle || lastAssistantMsg?.content || "Aguardando..."}
+                        {interimSpeech || liveSubtitle || "Aguardando sua fala. A voz deste teste é gerada por IA."}
                       </p>
                     </div>
                   </motion.div>

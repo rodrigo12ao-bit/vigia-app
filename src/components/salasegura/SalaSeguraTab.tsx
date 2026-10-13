@@ -45,6 +45,7 @@ import {
 } from '../../lib/salaSeguraService';
 import { User as FirebaseUser } from '../../lib/firebase';
 import { Avatar } from '../Avatar';
+import {adultAudience} from '../../lib/audience';
 
 interface SalaSeguraTabProps {
   currentUser: FirebaseUser | null;
@@ -253,7 +254,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
           </div>
           <h2 className="text-2xl sm:text-3xl font-black">Sala Segura Vigia</h2>
           <p className="text-sm text-orange-100 max-w-md mx-auto leading-relaxed font-medium">
-            O ambiente de mensagens privadas com supervisão dos responsáveis e acesso restrito às pessoas autorizadas.
+            {adultAudience?'Mensagens privadas entre adultos, com convite e acesso restrito aos participantes.':'O ambiente de mensagens privadas com supervisão dos responsáveis e acesso restrito às pessoas autorizadas.'}
           </p>
 
           <div className="p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-left space-y-2 max-w-md mx-auto text-xs text-slate-100">
@@ -261,7 +262,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
               <ShieldCheck className="w-4 h-4" /> Recurso Protegido por Conta
             </div>
             <p>
-              Para acessar o chat privado da Sala Segura, entre com sua conta ou crie uma gratuitamente sob aprovação do responsável.
+              {adultAudience?'Entre na sua própria conta 18+ para conversar com contatos que aceitaram seu convite.':'Para acessar o chat privado da Sala Segura, entre com sua conta ou crie uma gratuitamente sob aprovação do responsável.'}
             </p>
           </div>
 
@@ -306,7 +307,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
                 ? 'Perfil Responsável'
                 : profile?.role === 'educador'
                 ? 'Perfil Educador'
-                : 'Perfil Infantil'}
+                : adultAudience?'Participante 18+':'Perfil Infantil'}
             </span>
           </div>
 
@@ -490,7 +491,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
               </div>
 
               <p className="text-[11px] text-indigo-200 leading-tight">
-                Compartilhe este código apenas com amigos conhecidos para solicitarem autorização ao seu responsável.
+                {adultAudience?'Compartilhe este código somente com adultos conhecidos. O contato precisa aceitar o convite.':'Compartilhe este código apenas com amigos conhecidos para solicitarem autorização ao seu responsável.'}
               </p>
             </div>
 
@@ -568,7 +569,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
                         </span>
                         <span className="text-[10px] text-slate-500 font-semibold block">
                           {inv.fromUid === profile?.uid
-                            ? 'Aguardando aprovação do responsável...'
+                            ? adultAudience?'Aguardando aceite do contato...':'Aguardando aprovação do responsável...'
                             : 'Solicitou contato na Sala Segura'}
                         </span>
                       </div>
@@ -610,7 +611,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
                   <Users className="w-10 h-10 mx-auto text-slate-300" />
                   <p className="font-extrabold text-xs text-slate-600">Nenhum contato adicionado ainda.</p>
                   <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                    Use seu código de convite no painel ao lado para adicionar amigos conhecidos com aprovação do responsável.
+                    {adultAudience?'Use seu código para convidar adultos conhecidos. A conversa começa após o aceite do contato.':'Use seu código de convite no painel ao lado para adicionar amigos conhecidos com aprovação do responsável.'}
                   </p>
                 </div>
               ) : (

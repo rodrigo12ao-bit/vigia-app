@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 
 interface ScenarioResult {
+  status?:string;
   demo?: boolean;
   rewardToken?:string;
-  riskLevel: string;
-  riskScore: number;
+  riskLevel?: string;
+  riskScore?: number;
   summary: string;
   actionSteps: string[];
   essentialKitItems: string[];
@@ -276,18 +277,18 @@ export const ScenarioAnalyzerModal: React.FC<ScenarioAnalyzerModalProps> = ({
                 {/* Risk Level Header */}
                 <div className="flex items-center justify-between p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg">
                   <div className="flex items-center gap-3">
-                    <div className={`px-3 py-1 rounded-xl text-xs font-black uppercase border shadow-md ${getRiskBadgeColor(result.riskLevel)}`}>
+                    {result.riskLevel&&<div className={`px-3 py-1 rounded-xl text-xs font-black uppercase border shadow-md ${getRiskBadgeColor(result.riskLevel)}`}>
                       {result.demo?'Risco fictício':'Estimativa educativa'} {result.riskLevel}
-                    </div>
+                    </div>}
                     <div>
-                      <p className="text-xs font-black text-slate-300">Nível de Atenção Calculado</p>
+                      <p className="text-xs font-black text-slate-300">{result.status==='educational'?'Orientação educativa — sem classificação de risco':'Nível de Atenção Calculado'}</p>
                       <p className="text-sm font-extrabold text-white">{result.summary}</p>
                     </div>
                   </div>
-                  <div className="text-right hidden sm:block">
+                  {typeof result.riskScore==='number'&&<div className="text-right hidden sm:block">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase">Pontuação de Risco</span>
                     <span className="text-xl font-black text-amber-400">{result.riskScore}/100</span>
-                  </div>
+                  </div>}
                 </div>
 
                 {/* Steps & Kit Grid */}

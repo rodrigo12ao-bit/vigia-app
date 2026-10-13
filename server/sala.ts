@@ -1,7 +1,8 @@
 import type { Express } from 'express';
 import { randomBytes, createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from './security';
+import { adminDb,runtime,ADULT_ACCESS_VERSION } from './security';
+async function eligibleAdult(tx:FirebaseFirestore.Transaction,uid:string,authority:any){const record=await tx.get(adminDb().doc('adult_access/'+uid));return record.data()?.version===ADULT_ACCESS_VERSION&&!authority?.guardianUid;}
 
 export function installSalaRoutes(app: Express) {
   app.use('/api/sala', (_req, res, next) => {
@@ -45,7 +46,8 @@ export function installSalaRoutes(app: Express) {
       if (chat.exists) return { success: true, message: 'Este contato já está aprovado.' };
       if (previous.exists && previous.data()?.status !== 'rejected') return {success:true,message:'O convite já está aguardando aprovação.'};
       const reviewers = [target];
-      for (const authority of [a.data(), b.data()]) {
+      if(runtime.adultAudience){if(!await eligibleAdult(tx,uid,a.data())||!await eligibleAdult(tx,target,b.data()))throw new Error('O contato precisa acessar sua própria conta e confirmar que tem 18 anos ou mais.');}
+      else for (const authority of [a.data(), b.data()]) {
         if (!authority || authority.role === 'infantil') {
           if (!authority?.guardianUid) throw new Error('Um responsável verificado precisa vincular as contas infantis antes do convite.');
           reviewers.push(authority.guardianUid);
@@ -53,7 +55,7 @@ export function installSalaRoutes(app: Express) {
       }
       const reviewerUids=[...new Set(reviewers)];
       tx.set(db.doc(`invites/${id}`), { fromUid:uid,targetUid:target,fromNickname:p1.nickname,fromAvatarId:p1.avatarId,targetNickname:p2.nickname,status:'pending_guardian_approval',reviewerUids,approvals:[],visibleTo:[...new Set([uid,target,...reviewerUids])],createdAt:new Date().toISOString() });
-      return {success:true,message:'Convite enviado. O contato e todos os responsáveis indicados precisam aprovar.'};
+      return {success:true,message:runtime.adultAudience?'Convite enviado. O contato precisa aceitar para iniciar a conversa.':'Convite enviado. O contato e todos os responsáveis indicados precisam aprovar.'};
     });
   });
   route('decision', async (uid, data) => {
@@ -69,7 +71,8 @@ export function installSalaRoutes(app: Express) {
       const p1=from.data(),p2=to.data();
       if (!p1 || !p2 || p1.blockedUsers?.includes(invite.targetUid) || p2.blockedUsers?.includes(invite.fromUid)) throw new Error('Contato indisponível.');
       const required=[invite.targetUid];
-      for (const authority of [a.data(),b.data()]) { if (!authority || authority.role==='infantil') { if(!authority?.guardianUid) throw new Error('Vínculo de responsável indisponível.'); required.push(authority.guardianUid); } }
+      if(runtime.adultAudience){if(!await eligibleAdult(tx,invite.fromUid,a.data())||!await eligibleAdult(tx,invite.targetUid,b.data()))throw new Error('Ambos os participantes precisam ter acesso adulto confirmado.');}
+      else for (const authority of [a.data(),b.data()]) { if (!authority || authority.role==='infantil') { if(!authority?.guardianUid) throw new Error('Vínculo de responsável indisponível.'); required.push(authority.guardianUid); } }
       if (required.some(id=>!invite.reviewerUids.includes(id))) throw new Error('O vínculo mudou. Envie um novo convite.');
       const approvals=[...new Set([...invite.approvals,uid])], approved=required.every(id=>approvals.includes(id));
       tx.update(ref,{approvals,status:approved?'approved':'pending_guardian_approval'});

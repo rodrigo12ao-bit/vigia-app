@@ -79,6 +79,7 @@ export interface GeminiLiveCallbacks {
   onStateChange?: (state: LiveState) => void;
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
+  onTurnComplete?: () => void;
   onInputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onClose?: () => void;
@@ -239,6 +240,11 @@ export class GeminiLiveSession {
         }
         return;
 
+      case 'processing':
+        this.setState('processing');
+        this.callbacks.onAvatarStateChange?.('thinking');
+        return;
+
       case 'output_transcription':
         if (payload.text) this.callbacks.onOutputTranscription?.(payload.text);
         return;
@@ -252,6 +258,7 @@ export class GeminiLiveSession {
         return;
 
       case 'turn_complete':
+        this.callbacks.onTurnComplete?.();
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
         this.finishTurnWhenPlaybackEnds();
@@ -359,12 +366,14 @@ export class GeminiLiveSession {
       this.setState('error');
       this.callbacks.onAvatarStateChange?.('serious');
       this.callbacks.onError?.('Permissão de microfone negada ou microfone indisponível.');
+      this.stop();
+      this.callbacks.onClose?.();
     }
   }
 
   private processInputPCM(float32Array: Float32Array): void {
     const socket = this.ws;
-    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped || this.state==='processing' || this.state==='assistantSpeaking') return;
 
     Telemetry.record('T1', 'Primeiro frame processado localmente');
 

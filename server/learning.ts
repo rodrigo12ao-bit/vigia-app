@@ -1,6 +1,6 @@
 import type {Express} from 'express';
 import {applyAdventureAward} from './adventure';
-import {adminDb} from './security';
+import {adminDb,runtime} from './security';
 import {emptyLearning,evaluateMission,missionById,normalizeLearning} from '../src/lib/learningModel';
 import {FAMILY_MISSIONS} from '../src/data/learningMissions';
 export class PublicError extends Error {constructor(message:string,public status=400){super(message);}}
@@ -46,6 +46,17 @@ export function installLearningRoutes(app:Express){
  });
  apiRoute(app,'/api/family/request',async(uid,data)=>{
   const mission=FAMILY_MISSIONS.find(m=>m.id===data.missionId);if(!mission)throw new PublicError('Missão indisponível.');
+  if(runtime.adultAudience){
+    if(data.confirmed!==true||data.childUid&&data.childUid!==uid)throw new PublicError('Confirme a conclusão da sua própria preparação.');
+    const db=adminDb(),ref=db.doc(`users/${uid}/family_requests/${mission.id}`);
+    return db.runTransaction(async tx=>{
+      const [request,user,state,award,learning]=await Promise.all([tx.get(ref),tx.get(db.doc('users/'+uid)),tx.get(db.doc(`users/${uid}/adventure/main`)),tx.get(db.doc(`users/${uid}/activity_awards/family_${mission.id}`)),tx.get(db.doc(`users/${uid}/learning/main`))]);
+      if(!user.exists)throw new PublicError('Perfil indisponível.');
+      if(request.data()?.guardianUid)throw new PublicError('Este registro anterior depende do vínculo original e foi preservado.');
+      const reward=applyAdventureAward(tx,uid,{kind:'family',id:mission.id},15,user,state,award,learning.data());
+      tx.set(ref,{ownerUid:uid,missionId:mission.id,status:'confirmed',selfDeclared:true,confirmedBy:uid,confirmedAt:request.data()?.confirmedAt||new Date().toISOString()},{merge:true});return {success:true,...reward};
+    });
+  }
   const a=await authority(uid);if(!a.guardianUid)throw new PublicError('Esta confirmação precisa de um responsável vinculado.');
   const ref=adminDb().doc(`users/${uid}/family_requests/${mission.id}`);
   await adminDb().runTransaction(async tx=>{const snap=await tx.get(ref);if(snap.exists)return;tx.create(ref,{ownerUid:uid,guardianUid:a.guardianUid,missionId:mission.id,status:'pending',createdAt:new Date().toISOString()});});return {success:true};

@@ -1,5 +1,35 @@
 # Vigia — Aprender com a Vigia
 
+## Versão atual: Gemini real gratuito, acesso 18+
+
+O público aprovado pelo proprietário é **18 anos ou mais**. A identidade visual, as atividades e a gamificação foram preservadas; somente acesso, consentimento, linguagem de público e permissões próprias foram ajustados. Chat, imagens e voz usam Gemini real. Serviços pagos continuam bloqueados e não há respostas prontas como substituição de uma falha do fornecedor.
+
+A versão local testada abre em **http://localhost:3001/**. Mantenha os emuladores iniciados com `npm run emulators`, compile com `npm run build:presentation` e execute `npm run start:gemini`. Nesta máquina a chave existente fica em `.env` e sua verificação de projeto gratuito fica em `.tools/gemini/free-tier.json`; ambos são privados e ignorados pelo Git. A voz é por turnos. Se aparecer “Nova versão!”, use “Atualizar Agora” para atualizar a instalação preservando os dados.
+
+Consulte [vigia-gemini-validacao.html](vigia-gemini-validacao.html) para roteiro, resultados positivos, falhas anteriores e limites. Passaram **85 verificações automatizadas**, **18 verificações de interface** em desktop/celular emulado e **2 de voz real pelo navegador** com áudio sintético de adulto. Compilação de apresentação, publicação e checagem final de tipos passaram. A auditoria das dependências de produção informou zero vulnerabilidades. Celular físico, Safari e microfone físico não foram testados.
+
+Para reproduzir a avaliação: `npm test`, `npm run test:real-ai`, `npm run test:rules`, `npm run test:publication` e `node tests/adult-api.cjs` não fazem chamadas ao fornecedor real. `node --use-system-ca tests/gemini-real-api.cjs` usa a cota gratuita e gera as ilustrações/gravações fictícias para `tests/gemini-browser.cjs` e `tests/gemini-voice-browser.cjs`. Os testes de navegador exigem as contas adultas fictícias do emulador e o Chrome instalado; os acessos de demonstração não são contas de produção.
+
+O serviço online anterior em **https://vigia-app.onrender.com/** ainda usa IA simulada enquanto a configuração privada e a publicação desta etapa aguardam conclusão. `build:publication` gera `dist/publication/`. O modo `adult-live` exige Firebase cloud, origem HTTPS explícita, audiência `18plus`, fornecedor `gemini`, chave privada correspondente ao projeto gratuito verificado e `AI_COST_AUTHORIZED=false`. Veja `render.yaml`; chaves nunca entram em variáveis `VITE_`, Git ou relatórios. A chave privada do Firebase permanece no Secret Files existente, somente com acesso ao novo banco.
+
+A modalidade gratuita do Google pode usar o conteúdo para melhoria e revisão humana: não envie dados pessoais, confidenciais ou conteúdo de menores. As cotas podem interromper chamadas e o TTS é Preview. O sistema informa indisponibilidade, sem ativar faturamento ou fornecedor pago. A declaração de idade não verifica identidade nem concede papel escolar; docentes dependem de verificação externa. A exclusão integral de conta online ainda exige processo de retenção. Consulte os [termos](https://ai.google.dev/gemini-api/terms) e [preços/modalidades](https://ai.google.dev/gemini-api/docs/pricing) oficiais.
+
+As seções abaixo descrevem etapas anteriores e estão preservadas como histórico. OpenAI pago e o protótipo de IA local estão inativos; suas restrições não devem ser confundidas com o modo Gemini atual.
+
+## Integrações reais — avaliação local, ainda não liberada
+
+A edição mais recente de avaliação abre em **http://localhost:3001**. Chat, análise de imagens, transcrição e voz têm um caminho real pela API OpenAI, sem respostas prontas nesse modo. As chamadas estão **bloqueadas até autorização de custo e configuração privada da chave**. Não considerar pronto para apresentação antes dos testes com o fornecedor real.
+
+Os termos atuais do Gemini e do Google Cloud impedem reativar a integração anterior para o público de 6 a 14 anos. A alternativa desta etapa restringe a IA a contas adultas fictícias autorizadas, nos emuladores locais. O uso com crianças continua bloqueado; para dados pessoais de menores de 13 anos, a orientação da OpenAI exige retenção zero previamente aprovada, além dos cuidados para menores. `store:false` não equivale a retenção zero. Produção não foi alterada nem republicada.
+
+Consulte **[integracoes-reais-vigia.html](integracoes-reais-vigia.html)** para resultados, custos e bloqueios. Para iniciar esta edição: mantenha `npm run emulators` aberto, prepare as contas com `npm run demo:seed`, compile com `npm run build:presentation` e execute `npm run start:presentation` em outro terminal. O endereço padrão é localhost:3001. A pasta de compilação é `dist/presentation`, separada da publicação. A chave deve ficar exclusivamente no ambiente privado do servidor; nunca use uma variável `VITE_` nem cole a chave na conversa. O exemplo sem segredos está em `ai-local.example.txt`; `.env.ai-local` é ignorado pelo Git. Não mude `AI_COST_AUTHORIZED` antes da autorização do proprietário.
+
+As integrações são testadas por `npm run test:real-ai`, `node tests/real-ai-api.cjs` e `node tests/real-ai-browser.cjs`. Os dois últimos usam um fornecedor de teste isolado, explicitamente fictício, sem chamadas pagas. A interface deste modo não troca um erro por simulação. O controle conservador de orçamento real persiste em `.tools/ai-spend/adult-synthetic.json`; não apague esse registro para renovar limite sem autorização. O modo real é rejeitado no Render, com Firebase online, para visitantes ou contas infantis. A voz funciona por turnos: transcrição, resposta verificada e síntese. O modelo TTS atual tem migração necessária antes de 6 de janeiro de 2027, conforme o aviso oficial; não oferece estabilidade indefinida sem manutenção.
+
+O navegador pode guardar uma edição anterior em localhost:3000. O endereço 3001 abre esta avaliação separadamente; o armazenamento anterior não foi apagado. A demonstração antiga descrita abaixo continua preservada.
+
+## Demonstração anterior
+
 A versão local abre em **http://localhost:3000**. A demonstração usa contas fictícias, Firebase em emuladores e respostas de IA identificadas como simulações. Os avisos do INMET são consultados na fonte pública real. Voz ao vivo e transcrição real estão indisponíveis. O Escape permanece pausado; os arquivos e as trilhas anteriores foram preservados.
 
 O visual usa azul, roxo, laranja e cartões coloridos. A navegação tem quatro áreas: **Início, Conversar, Aprender e Ajuda**. Em Aprender, oito cartões dão acesso direto a quatro missões, desafios, situações educativas, missão diária e trilhas anteriores. Todas essas atividades somam ao mesmo progresso, XP, níveis e conquistas. Atividades em família também dão XP após confirmação do responsável. Explicações têm níveis de leitura e opção de texto maior. Configurações e fontes ficam recolhidas até serem abertas.
