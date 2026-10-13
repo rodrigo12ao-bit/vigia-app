@@ -337,7 +337,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* Child Safety Box */}
                 <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-[11px] text-amber-950 font-medium space-y-1">
                   <span className="font-extrabold flex items-center gap-1 text-amber-900">
-                    <ShieldCheck className="w-4 h-4 text-amber-600" /> Proteção Infantil
+                    <ShieldCheck className="w-4 h-4 text-amber-600" /> {adultAudience?'Acesso adulto':'Proteção Infantil'}
                   </span>
                   <p>
                     A conta é exclusiva para pessoas de 18 anos ou mais. Use seu próprio e-mail e um apelido. Não cadastre menores nem envie dados de terceiros.
@@ -358,14 +358,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">E-mail do Responsável</label>
+                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">{adultAudience?'Seu e-mail':'E-mail do Responsável'}</label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="responsavel@exemplo.com"
+                      placeholder={adultAudience?'seu.email@exemplo.com':'responsavel@exemplo.com'}
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />

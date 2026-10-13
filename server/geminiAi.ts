@@ -10,7 +10,7 @@ export class GeminiAi implements AiEngine {
  constructor(private env:NodeJS.ProcessEnv=process.env,private transport:typeof fetch=fetch){}
  private async generate(parts:any[],config:any={},model='gemini-3.5-flash-lite',signal?:AbortSignal){
   const c=realAiConfig(this.env);if(!c.enabled||c.provider!=='gemini')throw new AiUnavailable('configuration_blocked',c.blocked||'Gemini não habilitado.');
-  if(!['gemini-3.5-flash-lite','gemini-2.5-flash-preview-tts'].includes(model))throw new AiUnavailable('configuration_blocked','Modelo sem validação da modalidade gratuita.');
+  if(!['gemini-3.5-flash-lite','gemini-3.8-flash-lite-tts'].includes(model))throw new AiUnavailable('configuration_blocked','Modelo sem validação da modalidade gratuita.');
   if(this.inFlight>=2)throw new AiUnavailable('busy','A Vigia está ocupada. Aguarde a resposta atual.');
   this.inFlight++;
   try{
@@ -45,17 +45,18 @@ export class GeminiAi implements AiEngine {
  }
  async speech(text:string,signal?:AbortSignal){
   if(!text?.trim()||text.length>1500)throw new AiUnavailable('invalid_input','Texto de voz inválido ou grande demais.',400);
-  // Explicit synthesis instructions avoid the preview model's vague-prompt rejection.
+  // Stable 3.8 TTS reads the transcript verbatim; delivery instructions use metadata.
   // Retry one incomplete generation; never accept truncated audio or retry safety/quota failures.
   let parts:any[]=[];
   for(let attempt=0;attempt<2;attempt++){
-   try{parts=await this.generate([{text:'Leia em voz alta, em português brasileiro, com voz clara e natural:\n'+text}],{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Kore'}}},maxOutputTokens:2000},'gemini-2.5-flash-preview-tts',signal);break;}
+   try{parts=await this.generate([{text,speechMetadata:{style:'Português brasileiro, voz clara, natural e acolhedora.'}}],{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice:'Kore'}},maxOutputTokens:2000},'gemini-3.8-flash-lite-tts',signal);break;}
    catch(error){if(!(error instanceof AiUnavailable)||error.code!=='incomplete_response'||attempt===1||signal?.aborted)throw error;}
   }
   const data=parts.find(p=>p.inlineData)?.inlineData;
-  if(!data?.mimeType?.startsWith('audio/L16')&&!data?.mimeType?.startsWith('audio/pcm'))throw new AiUnavailable('invalid_response','O Gemini não retornou voz PCM válida.');
-  const pcm=Buffer.from(data.data,'base64');
-  if(!pcm.length||pcm.length%2||pcm.length>2400000||!/rate=24000/.test(data.mimeType))throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
+  if(!data?.data||!['audio/wav','audio/x-wav','audio/L16','audio/pcm'].some(m=>data.mimeType?.startsWith(m)))throw new AiUnavailable('invalid_response','O Gemini não retornou voz válida.');
+  const bytes=Buffer.from(data.data,'base64');let pcm:Buffer,rate:number;
+  try{if(data.mimeType.startsWith('audio/wav')||data.mimeType.startsWith('audio/x-wav'))({pcm,rate}=readPcmWave(bytes));else{pcm=bytes;rate=/rate=24000/.test(data.mimeType)?24000:0;}}catch{throw new AiUnavailable('invalid_response','Áudio gerado inválido.');}
+  if(!pcm.length||pcm.length%2||pcm.length>2400000||rate!==24000)throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
   return {pcm,sampleRate:24000};
  }
 }
