@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {setTimeout as providerDelay} from 'node:timers/promises';
 import {AiUnavailable,decodeAudio,realAiConfig,type AiEngine} from './realAi';
 import {readPcmWave} from './localAi';
 import {geminiLiteralSpeech} from './geminiLiteralSpeech';
@@ -33,11 +34,23 @@ export class GeminiAi implements AiEngine {
   if(this.inFlight>=2)throw new AiUnavailable('busy','A Vigia está ocupada. Aguarde a resposta atual.');
   this.inFlight++;
   try{
-   let response:Response;
-   try{response=await this.transport(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],...(config.systemInstruction?{systemInstruction:{parts:[{text:config.systemInstruction}]}}:{}),generationConfig:{temperature:0.3,maxOutputTokens:1200,...Object.fromEntries(Object.entries(config).filter(([k])=>['responseMimeType','responseSchema','responseModalities','speechConfig','maxOutputTokens'].includes(k)))},safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH','HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT'].map(category=>({category,threshold:'BLOCK_MEDIUM_AND_ABOVE'}))}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000)});}catch{throw new AiUnavailable('network_unavailable','Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.');}
+   let response!:Response;
+   const requestSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000);
+   const requestOptions={method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],...(config.systemInstruction?{systemInstruction:{parts:[{text:config.systemInstruction}]}}:{}),generationConfig:{temperature:0.3,maxOutputTokens:1200,...Object.fromEntries(Object.entries(config).filter(([k])=>['responseMimeType','responseSchema','responseModalities','speechConfig','maxOutputTokens'].includes(k)))},safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH','HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT'].map(category=>({category,threshold:'BLOCK_MEDIUM_AND_ABOVE'}))}),signal:requestSignal};
+   try{
+    for(let attempt=0;attempt<2;attempt++){
+     response=await this.transport(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,requestOptions);
+     if(attempt===0&&[500,502,503,504].includes(response.status)&&!requestSignal.aborted){
+      await response.body?.cancel().catch(()=>{});
+      await providerDelay(700,undefined,{signal:requestSignal});
+      continue;
+     }
+     break;
+    }
+   }catch{throw new AiUnavailable('network_unavailable','Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.');}
    const body=await response.json().catch(()=>({}));
    if(response.status===429)throw this.quotaError(model,response,body);
-   if(!response.ok)throw new AiUnavailable('provider_unavailable','O Gemini está indisponível no momento.');
+   if(!response.ok){console.warn('Gemini indisponível',model,response.status);throw new AiUnavailable('provider_unavailable','O Gemini está indisponível no momento.');}
    const candidate=body.candidates?.[0];
    if(body.promptFeedback?.blockReason||candidate?.finishReason==='SAFETY')throw new AiUnavailable('content_blocked','O conteúdo não passou na verificação de segurança do Gemini.',422);
    if(!candidate?.content?.parts?.length||candidate.finishReason!=='STOP'){console.warn('Gemini: resposta incompleta',model,candidate?.finishReason||'sem resultado');throw new AiUnavailable('incomplete_response','O Gemini não concluiu uma resposta válida.');}
