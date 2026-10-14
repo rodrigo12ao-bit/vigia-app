@@ -13,7 +13,7 @@
     "start:presentation": "node scripts/start-presentation.cjs",
     "start:local": "node scripts/start-local-ai.cjs",
     "start:gemini": "node scripts/start-gemini.cjs",
-    "test:real-ai": "tsx --test --test-concurrency=1 tests/real-ai.test.ts tests/real-voice.test.ts tests/voice-text.test.ts tests/gemini-ai.test.ts tests/educational-plan.test.ts",
+    "test:real-ai": "tsx --test --test-concurrency=1 tests/real-ai.test.ts tests/real-voice.test.ts tests/gemini-voice.test.ts tests/voice-text.test.ts tests/gemini-ai.test.ts tests/educational-plan.test.ts",
     "test:publication": "tsx --test tests/publication.test.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

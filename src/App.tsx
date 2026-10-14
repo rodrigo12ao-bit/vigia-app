@@ -4,7 +4,7 @@ import { apiFetch,getAiStatus } from './lib/api';
 import { fetchOrCreateUserProfile } from './lib/salaSeguraService';
 import {adultAudience} from './lib/audience';
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence,MotionConfig } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
 import {defaultBadges as INITIAL_BADGES,hydrateBadges} from './lib/badges';
 import { speakText, stopSpeaking } from './utils/speech';
@@ -495,6 +495,7 @@ export default function App() {
   const unlockedBadgesCount = badges.filter((b) => b.unlocked).length;
 
   return (
+    <MotionConfig reducedMotion="user">
     <AvatarGenderContext.Provider value={avatarGender}><div className={`vigia-app bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
       activeTab === 'chat' ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh'
     }`}>
@@ -737,6 +738,6 @@ export default function App() {
       <RewardCelebration key={'reward:'+(currentUser?.uid||'guest')} uid={currentUser?.uid}/>
       <PWAPrompt visible={activeTab==='phones'}/>
       <OfflineWarning />
-    </div></AvatarGenderContext.Provider>
+    </div></AvatarGenderContext.Provider></MotionConfig>
   );
 }

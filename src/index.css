@@ -267,3 +267,6 @@
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
 :focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.vigia-avatar-speaking>img { animation: vigia-voice-float 1.8s ease-in-out infinite; filter: drop-shadow(0 0 20px rgba(56,189,248,.3)); }
+.vigia-avatar-listening>img { animation: vigia-voice-float 3s ease-in-out infinite; filter: drop-shadow(0 0 18px rgba(52,211,153,.2)); }
+@keyframes vigia-voice-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }

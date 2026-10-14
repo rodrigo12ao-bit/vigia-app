@@ -38,7 +38,8 @@ telemetryRoot.VigiaTelemetry ??= {
   log(event, meta = {}) {
     const t = performance.now();
     this.logs.push({ t, event, meta });
-    console.log(`[TELEMETRIA] ${Math.round(t)}ms - ${event}`, meta);
+    if(this.logs.length>200)this.logs.shift();
+    if(import.meta.env.DEV)console.log(`[TELEMETRIA] ${Math.round(t)}ms - ${event}`, meta);
   },
   resetInteraction() {
     this.currentInteraction = { start: performance.now() };
@@ -80,6 +81,7 @@ export interface GeminiLiveCallbacks {
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
   onTurnComplete?: () => void;
+  onInterrupted?: () => void;
   onInputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onClose?: () => void;
@@ -115,6 +117,10 @@ export class GeminiLiveSession {
   private hasReceivedFirstAudioChunk = false;
   private serverTurnComplete = false;
   private pcmBuffer: number[] = [];
+  private nativeAudio=false;
+  private microphonePaused=false;
+  private muted=false;
+  private outputGain:GainNode|null=null;
   private lastInputLevelEmit = 0;
 
   constructor(callbacks: GeminiLiveCallbacks) {
@@ -148,6 +154,9 @@ export class GeminiLiveSession {
         return;
       }
       this.outputAudioCtx = outputCtx;
+      this.outputGain=outputCtx.createGain();
+      this.outputGain.gain.value=this.muted?0:1;
+      this.outputGain.connect(outputCtx.destination);
       this.outputContextTracked = true;
       Telemetry.trackResource('outputContexts', 1);
       this.nextPlayTime = outputCtx.currentTime;
@@ -157,10 +166,11 @@ export class GeminiLiveSession {
         ? `?context=${encodeURIComponent(this.callbacks.context)}`
         : '';
       const response=await apiFetch('/api/live-ticket',{method:'POST'});
-      if(!response.ok)throw new Error('Voz indisponível.');
-      const {ticket}=await response.json();
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||'Voz indisponível.');
+      const {ticket}=body;
       if(!this.isCurrent(token))return;
-      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}${contextParam.replace('?', '&')}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}&voiceProtocol=native-v1${contextParam.replace('?', '&')}`;
       const socket = new WebSocket(wsUrl);
 
       if (!this.isCurrent(token)) {
@@ -191,6 +201,8 @@ export class GeminiLiveSession {
         this.setState('error');
         this.callbacks.onAvatarStateChange?.('serious');
         this.callbacks.onError?.('Ocorreu um erro na conexão ao vivo.');
+        this.stop();
+        this.callbacks.onClose?.();
       };
 
       socket.onclose = () => {
@@ -206,8 +218,9 @@ export class GeminiLiveSession {
       console.error('[GeminiLive] Erro ao iniciar sessão:', error);
       this.setState('error');
       this.callbacks.onAvatarStateChange?.('serious');
-      this.callbacks.onError?.('Não foi possível conectar ao modo ao vivo.');
+      this.callbacks.onError?.(error instanceof Error?error.message:'Não foi possível conectar ao modo ao vivo.');
       await this.cleanupResources();
+      this.stop();this.callbacks.onClose?.();
     }
   }
 
@@ -224,9 +237,8 @@ export class GeminiLiveSession {
   private handleServerPayload(payload: any): void {
     switch (payload.type) {
       case 'open':
+        this.nativeAudio=payload.mode==='native-audio';
         console.log('[GeminiLive] Sessão Gemini Live confirmada pelo backend');
-        this.setState('listening');
-        this.callbacks.onAvatarStateChange?.('listening');
         void this.startMicrophoneCapture(this.sessionToken);
         return;
 
@@ -251,6 +263,7 @@ export class GeminiLiveSession {
 
       case 'interrupted':
         this.handleServerInterruption();
+        this.callbacks.onInterrupted?.();
         return;
 
       case 'audio_chunk':
@@ -305,6 +318,8 @@ export class GeminiLiveSession {
       }
 
       this.mediaStream = stream;
+      this.microphonePaused=false;
+      stream.getAudioTracks().forEach(track=>{track.onended=()=>{if(!this.isCurrent(token))return;this.callbacks.onError?.('O microfone foi desconectado. Verifique o aparelho e tente novamente.');this.stop();this.callbacks.onClose?.();};});
       this.streamTracked = true;
       Telemetry.trackResource('streams', 1);
 
@@ -360,6 +375,9 @@ export class GeminiLiveSession {
       }
 
       console.log('[GeminiLive] Captura de áudio iniciada');
+      await inputCtx.resume();
+      await this.outputAudioCtx?.resume();
+      if(this.isCurrent(token)){this.setState('listening');this.callbacks.onAvatarStateChange?.('listening');}
     } catch (error) {
       if (!this.isCurrent(token)) return;
       console.error('[GeminiLive] Falha ao acessar microfone:', error);
@@ -373,7 +391,8 @@ export class GeminiLiveSession {
 
   private processInputPCM(float32Array: Float32Array): void {
     const socket = this.ws;
-    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped || this.state==='processing' || this.state==='assistantSpeaking') return;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped || this.microphonePaused || (!this.nativeAudio&&(this.state==='processing' || this.state==='assistantSpeaking'))) return;
+    if(socket.bufferedAmount>128000){this.callbacks.onError?.('A conexão ficou lenta. Tente iniciar a voz novamente.');this.stop();this.callbacks.onClose?.();return;}
 
     Telemetry.record('T1', 'Primeiro frame processado localmente');
 
@@ -484,7 +503,7 @@ export class GeminiLiveSession {
       audioBuffer.getChannelData(0).set(float32);
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(context.destination);
+      source.connect(this.outputGain||context.destination);
 
       const startAt = Math.max(context.currentTime, this.nextPlayTime);
       source.start(startAt);
@@ -522,7 +541,7 @@ export class GeminiLiveSession {
     this.serverTurnComplete = false;
     Telemetry.currentInteraction = {};
     if (!this.stopped) {
-      this.setState('listening');
+      this.setState(this.microphonePaused?'idle':'listening');
       this.callbacks.onAvatarStateChange?.('listening');
     }
   }
@@ -547,6 +566,24 @@ export class GeminiLiveSession {
     const socket = this.ws;
     if (!socket || socket.readyState !== WebSocket.OPEN || !text.trim()) return;
     socket.send(JSON.stringify({ type: 'realtime_text', text: text.trim() }));
+  }
+
+  public setMuted(muted:boolean):void{
+    this.muted=muted;
+    if(this.outputGain&&this.outputAudioCtx)this.outputGain.gain.setValueAtTime(muted?0:1,this.outputAudioCtx.currentTime);
+  }
+
+  public pauseMicrophone(paused:boolean):void{
+    if(!this.mediaStream||this.stopped)return;
+    this.microphonePaused=paused;this.pcmBuffer=[];
+    for(const track of this.mediaStream.getAudioTracks())track.enabled=!paused;
+    if(paused&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));
+    if(this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
+  }
+
+  public interruptPlayback():void{
+    this.handleServerInterruption();
+    this.setState(this.microphonePaused?'idle':'listening');
   }
 
   public sendContextUpdate(contextText: string): void {
@@ -634,6 +671,7 @@ export class GeminiLiveSession {
     }
 
     const outputCtx = this.outputAudioCtx;
+    this.outputGain?.disconnect();this.outputGain=null;
     this.outputAudioCtx = null;
     if (outputCtx && outputCtx.state !== 'closed') await outputCtx.close().catch(() => undefined);
     if (this.outputContextTracked) {

@@ -1,13 +1,12 @@
-import {StrictMode} from 'react';
+import {StrictMode,lazy,Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
+const App=lazy(()=>import('./App.tsx'));
 import {AdultGate} from './components/AdultGate';
-import { MotionConfig } from 'motion/react';
 import './index.css';
 import './learning.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MotionConfig reducedMotion="user"><AdultGate><App /></AdultGate></MotionConfig>
+    <AdultGate><Suspense fallback={<main className="welcome-shell"><section className="welcome-card" role="status"><h1>Preparando a Vigia…</h1><p>Só um instante. Já vamos começar!</p></section></main>}><App /></Suspense></AdultGate>
   </StrictMode>,
 );

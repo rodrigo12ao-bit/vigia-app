@@ -237,7 +237,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const voiceInput=useRef(''),voiceOutput=useRef('');
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
-  const switchToVoice=async()=>{if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(await voiceAllowed())setChatMode('live');};
+  const voiceStartLock=useRef(false);
+  const switchToVoice=async()=>{if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
+  useEffect(()=>{voiceStartLock.current=false;},[chatMode]);
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
   const [historyReady,setHistoryReady]=useState(false);
   const sessionMetadata=useRef<{id:string;title:string;createdAt:string}|null>(null);
@@ -325,6 +327,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [liveSubtitle, setLiveSubtitle] = useState('');
   const [liveAvatarState, setLiveAvatarState] = useState<AvatarState | null>(null);
   const [liveIsSpeaking, setLiveIsSpeaking] = useState(false);
+  const [livePaused,setLivePaused]=useState(false);
+  const [liveSessionVersion,setLiveSessionVersion]=useState(0);
+  useEffect(()=>liveSessionRef.current?.setMuted(!!isAudioMuted),[isAudioMuted,chatMode]);
 
   const userId = currentUser?.uid;
 
@@ -386,6 +391,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setInterimSpeech('');
     setSpeechFeedbackMsg(null);
     setInteractionState('CONNECTING');
+    setLivePaused(false);
 
     let disposed = false;
     const session = new GeminiLiveSession({
@@ -441,6 +447,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         voiceOutput.current+=text;
       },
       onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current)voiceTurnHandler.current?.(voiceInput.current,voiceOutput.current);voiceInput.current='';voiceOutput.current='';},
+      onInterrupted:()=>{if(disposed||liveSessionRef.current!==session)return;voiceInput.current='';voiceOutput.current='';setInterimSpeech('');setLiveSubtitle('');},
       onError: (errMsg) => {
         if (disposed || liveSessionRef.current !== session) return;
         setSpeechFeedbackMsg(errMsg);
@@ -456,6 +463,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     });
 
     liveSessionRef.current = session;
+    session.setMuted(!!isAudioMuted);
     void session.start();
 
     return () => {
@@ -464,7 +472,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if (liveSessionRef.current === session) liveSessionRef.current = null;
       setMicVolume(0);
     };
-  }, [chatMode,userId]);
+  }, [chatMode,userId,liveSessionVersion]);
 
   // Clean interim speech when response arrives
   useEffect(() => {
@@ -848,10 +856,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleInterruptSpeech = () => {
+    if(chatMode==='live'){liveSessionRef.current?.interruptPlayback();return;}
     stopSpeaking();
   };
 
   const toggleMicListening = async () => {
+    if(chatMode==='live'){if(!liveSessionRef.current){setLiveSessionVersion(v=>v+1);return;}const next=!livePaused;liveSessionRef.current.pauseMicrophone(next);setLivePaused(next);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!isListening&&!await voiceAllowed())return;
     if (isSpeaking) {
@@ -975,16 +985,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />,
       };
     }
-    if (isLoading) {
+    if (interactionState==='CONNECTING')return {text:'Conectando a voz…',color:'bg-violet-500/20 text-violet-200 border-violet-400/40',icon:<Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0"/>};
+    if (isLoading||interactionState==='PROCESSING') {
       return {
-        text: 'Preparando a resposta...',
+        text: 'Preparando a resposta…',
         color: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
         icon: <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />,
       };
     }
     if (currentIsSpeaking) {
       return {
-        text: 'A Vigia está falando...',
+        text: chatMode==='live'&&!livePaused?'Pode me interromper falando':'A Vigia está falando…',
         color: 'bg-sky-500/20 text-sky-300 border-sky-400/40',
         icon: <Volume2 className="w-3.5 h-3.5 text-sky-400 animate-pulse shrink-0" />,
       };
@@ -1588,7 +1599,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         <Subtitles className="w-3 h-3" /> Transcrição
                       </p>
                       <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
-                        {interimSpeech || liveSubtitle || "Aguardando sua fala. A voz deste teste é gerada por IA."}
+                        {liveSubtitle || interimSpeech || (interactionState==='CONNECTING'?'Preparando nossa conversa…':'Oi! Pode falar. Estou na escuta.')}
                       </p>
                     </div>
                   </motion.div>
@@ -1666,7 +1677,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse shadow-emerald-500/30'
                           : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
                       }`}
-                      title={isListening ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      disabled={interactionState==='CONNECTING'}
+                      title={isListening||(chatMode==='live'&&!!liveSessionRef.current&&!livePaused&&interactionState!=='CONNECTING') ? 'Pausar Conversa' : 'Ativar Conversa'}
                     >
                       {isListening ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </button>

@@ -15,7 +15,7 @@ export default defineConfig(() => {
         manifest: {
           name: 'Vigia',
           short_name: 'Vigia',
-          description: 'Assistente Inteligente Educativo para crianças.',
+          description: 'Aprendizado e prevenção com a Vigia. Acesso exclusivo para adultos de 18 anos ou mais.',
           theme_color: '#0f172a',
           background_color: '#0f172a',
           display: 'standalone',

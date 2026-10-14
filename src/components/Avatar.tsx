@@ -8,7 +8,7 @@ export const Avatar=React.memo((props:Props)=>{
   const [active,setActive]=useState(false);
   const contextGender=React.useContext(AvatarGenderContext);
   const gender=props.gender || contextGender;
-  return <div className="absolute inset-0 flex items-center justify-center">
+  return <div className={`absolute inset-0 flex items-center justify-center ${props.isSpeaking?'vigia-avatar-speaking':props.isListening?'vigia-avatar-listening':''}`}>
     {active?<AvatarBoundary><Suspense fallback={<span role="status">Carregando avatar…</span>}><Avatar3D {...props} gender={gender}/></Suspense></AvatarBoundary>:<img src={'/model/avatar-preview-'+gender+'.png'} onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/icons/icon.svg';}} alt="Vigia, assistente de prevenção" className="w-3/4 h-3/4 object-contain"/>}
     {!active&&props.interactive3D!==false&&<button type="button" onClick={()=>setActive(true)} aria-label="Ativar avatar 3D" className="absolute bottom-0 right-0 rounded bg-slate-700 text-white text-xs px-2 py-1">3D</button>}
   </div>;

@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type, Modality, StartSensitivity, EndSensitivity, ThinkingLevel } from '@google/genai';
 import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
@@ -9,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { installSecurity, allowedOrigin, consumeTicket, demoMode, identity, runtime, realAiAccess } from './server/security';
 import { realAi, realAiConfig, aiErrorResponse } from './server/realAi';
 import { connectRealVoice } from './server/realVoice';
+import {connectGeminiVoice} from './server/geminiVoice';
 import { installSalaRoutes } from './server/sala';
 import {installLearningRoutes} from './server/learning';
 import {installAdventureRoutes,issuePracticeReceipt} from './server/adventure';
@@ -127,7 +127,7 @@ function enqueueRequest<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // System prompt for Vigia
-const VIGIA_SYSTEM_INSTRUCTION = (runtime.adultAudience?VIGIA_ADULT_TEXT_PROMPT:VIGIA_TEXT_BASE_PROMPT) + INJECTED_KNOWLEDGE_PROMPT;
+const VIGIA_SYSTEM_INSTRUCTION = (runtime.adultAudience?VIGIA_ADULT_TEXT_PROMPT:VIGIA_TEXT_BASE_PROMPT) + INJECTED_KNOWLEDGE_PROMPT + (runtime.adultAudience?'\nUse um tom simpático, próximo e interessado, com energia leve. Seja breve e útil. Quando fizer sentido, ofereça um próximo passo concreto ou uma pergunta curta para continuar, sem insistir. Em emergência, priorize orientações calmas e sérias.':'');
 function responseSignal(res: express.Response) {const controller=new AbortController();res.once('close',()=>{if(!res.writableEnded)controller.abort();});return controller.signal;}
 
 // API Chat Endpoint
@@ -580,6 +580,7 @@ Gere uma resposta em JSON com:
 async function startServer() {
   app.use((error:any,_req:any,res:any,_next:any)=>res.status(error.status && error.status<500?error.status:503).json({status:'unavailable',error:error.type==='entity.too.large'?'Conteúdo grande demais.':'Não foi possível processar a solicitação.'}));
   if (process.env.NODE_ENV !== 'production') {
+    const {createServer:createViteServer}=await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -588,7 +589,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist', ...(process.env.VIGIA_PRESENTATION_BUILD==='true'?['presentation']:process.env.VIGIA_PUBLICATION_BUILD==='true'?['publication']:[]), 'public');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath,{setHeaders:(res,file)=>{res.setHeader('Cache-Control',file.includes(path.sep+'assets'+path.sep)?'public, max-age=31536000, immutable':'public, max-age=0, must-revalidate');}}));
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api') || req.path.split('/').some(segment=>segment.startsWith('.')) || /\.[a-z0-9_-]+$/i.test(req.path)) return res.status(404).end();
       res.sendFile(path.join(distPath, 'index.html'));
@@ -621,7 +622,9 @@ async function startServer() {
         const allowed=await realAiAccess(uid,true);
         if(ws.readyState!==ws.OPEN)return;
         if(!allowed){ws.send(JSON.stringify({type:'error',message:'Acesso à voz real não autorizado.'}));ws.close(1008);return;}
-        connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION);
+        const nativeVoice=new URL(req.url||'/','http://localhost').searchParams.get('voiceProtocol')==='native-v1';
+        if(realAiConfig().provider==='gemini'&&nativeVoice)connectGeminiVoice(ws,VIGIA_LIVE_SYSTEM_INSTRUCTION);
+        else connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION);
       } catch {if(ws.readyState===ws.OPEN){ws.send(JSON.stringify({type:'error',message:'Não foi possível iniciar a voz real.'}));ws.close(1011);}}
       return;
     }
