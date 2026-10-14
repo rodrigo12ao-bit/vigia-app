@@ -84,6 +84,7 @@ export interface GeminiLiveCallbacks {
   onInterrupted?: () => void;
   onInputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
+  onSpeechUnavailable?: (message: string, retryAfterMs?: number) => void;
   onClose?: () => void;
 }
 
@@ -282,8 +283,23 @@ export class GeminiLiveSession {
         this.callbacks.onTurnComplete?.();
         return;
 
+      case 'speech_unavailable': {
+        this.generation += 1;
+        this.stopAudioPlayback();
+        this.hasReceivedFirstAudioChunk = false;
+        this.serverTurnComplete = false;
+        this.pauseMicrophone(true);
+        this.setState('idle');
+        this.callbacks.onAvatarStateChange?.('serious');
+        const retryAfterMs=typeof payload.retryAfterMs==='number'&&Number.isFinite(payload.retryAfterMs)
+          ? Math.max(0,Math.min(payload.retryAfterMs,24*60*60*1000)):undefined;
+        this.callbacks.onSpeechUnavailable?.(payload.message||'A resposta está disponível por texto, mas a voz está indisponível.',retryAfterMs);
+        return;
+      }
+
       case 'emergency':
         this.callbacks.onOutputTranscription?.(payload.text);
+        this.callbacks.onTurnComplete?.();
         this.callbacks.onAvatarStateChange?.('alert');
         this.stop();
         this.callbacks.onClose?.();
@@ -518,6 +534,7 @@ export class GeminiLiveSession {
       const entry: ActiveSource = { source, generation };
       this.activeSources.push(entry);
       source.onended = () => {
+        source.disconnect();
         this.activeSources = this.activeSources.filter((item) => item !== entry);
         this.finishTurnWhenPlaybackEnds();
       };
@@ -533,8 +550,8 @@ export class GeminiLiveSession {
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
     this.serverTurnComplete = false;
-    this.setState('userSpeaking');
-    this.callbacks.onAvatarStateChange?.('listening');
+    this.setState(this.microphonePaused?'idle':'userSpeaking');
+    this.callbacks.onAvatarStateChange?.(this.microphonePaused?'idle':'listening');
   }
 
   private finishTurnWhenPlaybackEnds(): void {
@@ -548,7 +565,7 @@ export class GeminiLiveSession {
     Telemetry.currentInteraction = {};
     if (!this.stopped) {
       this.setState(this.microphonePaused?'idle':'listening');
-      this.callbacks.onAvatarStateChange?.('listening');
+      this.callbacks.onAvatarStateChange?.(this.microphonePaused?'idle':'listening');
     }
   }
 
@@ -581,6 +598,7 @@ export class GeminiLiveSession {
 
   public pauseMicrophone(paused:boolean):void{
     if(!this.mediaStream||this.stopped)return;
+    if(!paused&&this.microphonePaused&&this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'resume_input'}));
     this.microphonePaused=paused;this.pcmBuffer=[];
     for(const track of this.mediaStream.getAudioTracks())track.enabled=!paused;
     if(paused&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));

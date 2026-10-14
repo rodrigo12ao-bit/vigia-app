@@ -1,23 +1,43 @@
 import {createHash} from 'node:crypto';
 import {AiUnavailable,decodeAudio,realAiConfig,type AiEngine} from './realAi';
 import {readPcmWave} from './localAi';
+import {geminiLiteralSpeech} from './geminiLiteralSpeech';
 
 export const GEMINI_ADULT_CONSENT='2026-10-13-gemini-adults-free-v1';
 export function verifiedFreeGemini(env:NodeJS.ProcessEnv){return !!env.GEMINI_API_KEY&&env.GEMINI_FREE_KEY_SHA256===createHash('sha256').update(env.GEMINI_API_KEY).digest('hex');}
 export class GeminiAi implements AiEngine {
  readonly provider='gemini';
  private inFlight=0;
- constructor(private env:NodeJS.ProcessEnv=process.env,private transport:typeof fetch=fetch){}
+ private quotaUntil=new Map<string,number>();
+ // Mock HTTP transports never open a real fallback connection unless explicitly injected.
+ constructor(private env:NodeJS.ProcessEnv=process.env,private transport:typeof fetch=fetch,private literalSpeech:typeof geminiLiteralSpeech|null=transport===fetch?geminiLiteralSpeech:null){}
+ private checkQuota(model:string){
+  const retryAfterMs=(this.quotaUntil.get(model)||0)-Date.now();
+  if(retryAfterMs>0)throw new AiUnavailable('quota_unavailable','A cota gratuita está temporariamente indisponível. Aguarde antes de tentar novamente.',503,retryAfterMs);
+ }
+ private quotaError(model:string,response:Response,body:any){
+  // Keep only retry timing; never expose the provider body, key or project metadata.
+  const header=response.headers.get('retry-after');
+  const headerMs=header?(Number.isFinite(Number(header))?Number(header)*1000:Date.parse(header)-Date.now()):0;
+  const details=Array.isArray(body?.error?.details)?body.error.details:[];
+  const detail=details.find((d:any)=>d?.['@type']==='type.googleapis.com/google.rpc.RetryInfo')?.retryDelay;
+  const detailMs=typeof detail==='string'&&/^\d+(\.\d+)?s$/.test(detail)?Number(detail.slice(0,-1))*1000:0;
+  const retryAfterMs=Math.min(86400000,Math.max(1000,headerMs>0?headerMs:detailMs>0?detailMs:60000));
+  this.quotaUntil.set(model,Date.now()+retryAfterMs);
+  return new AiUnavailable('quota_unavailable',model.endsWith('-tts')?'A cota gratuita de voz foi atingida. Você pode continuar por texto.':'A cota gratuita do Gemini foi atingida. Aguarde antes de tentar novamente. Nenhum serviço pago foi ativado.',503,retryAfterMs);
+ }
  private async generate(parts:any[],config:any={},model='gemini-3.5-flash-lite',signal?:AbortSignal){
   const c=realAiConfig(this.env);if(!c.enabled||c.provider!=='gemini')throw new AiUnavailable('configuration_blocked',c.blocked||'Gemini não habilitado.');
   if(!['gemini-3.5-flash-lite','gemini-3.8-flash-lite-tts'].includes(model))throw new AiUnavailable('configuration_blocked','Modelo sem validação da modalidade gratuita.');
+  this.checkQuota(model);
   if(this.inFlight>=2)throw new AiUnavailable('busy','A Vigia está ocupada. Aguarde a resposta atual.');
   this.inFlight++;
   try{
    let response:Response;
    try{response=await this.transport(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],...(config.systemInstruction?{systemInstruction:{parts:[{text:config.systemInstruction}]}}:{}),generationConfig:{temperature:0.3,maxOutputTokens:1200,...Object.fromEntries(Object.entries(config).filter(([k])=>['responseMimeType','responseSchema','responseModalities','speechConfig','maxOutputTokens'].includes(k)))},safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH','HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT'].map(category=>({category,threshold:'BLOCK_MEDIUM_AND_ABOVE'}))}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000)});}catch{throw new AiUnavailable('network_unavailable','Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.');}
-   const body=await response.json();
-   if(!response.ok)throw new AiUnavailable(response.status===429?'quota_unavailable':'provider_unavailable',response.status===429?'A cota gratuita do Gemini foi atingida. Aguarde e tente novamente. Nenhum serviço pago foi ativado.':'O Gemini está indisponível no momento.');
+   const body=await response.json().catch(()=>({}));
+   if(response.status===429)throw this.quotaError(model,response,body);
+   if(!response.ok)throw new AiUnavailable('provider_unavailable','O Gemini está indisponível no momento.');
    const candidate=body.candidates?.[0];
    if(body.promptFeedback?.blockReason||candidate?.finishReason==='SAFETY')throw new AiUnavailable('content_blocked','O conteúdo não passou na verificação de segurança do Gemini.',422);
    if(!candidate?.content?.parts?.length||candidate.finishReason!=='STOP'){console.warn('Gemini: resposta incompleta',model,candidate?.finishReason||'sem resultado');throw new AiUnavailable('incomplete_response','O Gemini não concluiu uma resposta válida.');}
@@ -64,10 +84,12 @@ export class GeminiAi implements AiEngine {
   if(!config.enabled||config.provider!=='gemini')throw new AiUnavailable('configuration_blocked',config.blocked||'Gemini gratuito indisponível.');
   if(!text?.trim()||text.length>1500)throw new AiUnavailable('invalid_input','Texto de voz inválido.',400);
   if(this.inFlight>=2)throw new AiUnavailable('busy','A Vigia está ocupada. Aguarde a resposta atual.');
-  this.inFlight++;let reader:ReadableStreamDefaultReader<Uint8Array>|undefined;
+  this.inFlight++;let reader:ReadableStreamDefaultReader<Uint8Array>|undefined,emittedAudio=0;
   try{
+   this.checkQuota('gemini-3.8-flash-lite-tts');
    const response=await this.transport('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({model:'gemini-3.8-flash-lite-tts',store:false,input:[{type:'user_input',content:[{type:'text',text,annotations:[{type:'speech_metadata',style:'Português brasileiro, voz natural, simpática e animada, com ritmo fluido e acolhedor. Em avisos de segurança, voz calma e séria.'}]}]}],response_format:{type:'audio',mime_type:'audio/l16',sample_rate:24000},generation_config:{speech_config:[{voice:'Aoede'}]},stream:true}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
-   if(!response.ok||!response.body)throw new AiUnavailable(response.status===429?'quota_unavailable':'provider_unavailable',response.status===429?'A cota gratuita de voz foi atingida. Tente mais tarde.':'A síntese de voz está indisponível.');
+   if(response.status===429)throw this.quotaError('gemini-3.8-flash-lite-tts',response,await response.json().catch(()=>({})));
+   if(!response.ok||!response.body)throw new AiUnavailable('provider_unavailable','A síntese de voz está indisponível.');
    reader=response.body.getReader();const decoder=new TextDecoder();let buffer='',bytes=0,complete=false;
    while(true){
     const {done,value}=await reader.read();if(done)break;
@@ -78,17 +100,38 @@ export class GeminiAi implements AiEngine {
      const data=packet.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('\n');
      if(!data||data==='[DONE]')continue;
      let e:any;try{e=JSON.parse(data);}catch{throw new AiUnavailable('invalid_response','A voz retornou dados inválidos.');}
-     if(['error','interaction.failed'].includes(e.event_type))throw new AiUnavailable('provider_unavailable','A voz foi interrompida pelo serviço. Tente novamente.');
+     if(['error','interaction.failed'].includes(e.event_type)){
+      if(e.error?.code===429||e.error?.status==='RESOURCE_EXHAUSTED')throw this.quotaError('gemini-3.8-flash-lite-tts',response,{error:e.error});
+      throw new AiUnavailable('provider_unavailable','A voz foi interrompida pelo serviço. Tente novamente.');
+     }
      if(e.event_type==='interaction.completed')complete=true;
      if(e.event_type==='step.delta'&&e.delta?.type==='audio'){
       const a=e.delta;if(typeof a.data!=='string'||a.data.length>3000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(a.data)||(a.mime_type&&!/^audio\/(?:l16|pcm)(?:;|$)/i.test(a.mime_type))||(a.sample_rate&&a.sample_rate!==24000))throw new AiUnavailable('invalid_response','Formato de voz inválido.');
       const pcm=Buffer.from(a.data,'base64');if(!pcm.length||pcm.length%2||pcm.toString('ascii',0,4)==='RIFF'||(bytes+=pcm.length)>2400000)throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
-      yield pcm;
+      emittedAudio+=pcm.length;yield pcm;
      }
     }
    }
    if(!complete||!bytes)throw new AiUnavailable('incomplete_response','A voz não foi concluída. Tente novamente.');
-  }catch(error){if(error instanceof AiUnavailable)throw error;throw new AiUnavailable('network_unavailable','A conexão de voz foi interrompida. Tente novamente.');}
+  }catch(error){
+   if(error instanceof AiUnavailable&&error.code==='quota_unavailable'&&!emittedAudio&&!signal?.aborted&&this.literalSpeech){
+    // One free reading of the same checked answer. No new answer, partial audio or paid retry.
+    await reader?.cancel().catch(()=>{});reader=undefined;
+    this.checkQuota('gemini-3.8-live-literal');
+    let audio:{pcm:Buffer;sampleRate:number};
+    try{audio=await this.literalSpeech(text,signal,this.env);}
+    catch(failure){
+     if(failure instanceof AiUnavailable&&failure.code==='quota_unavailable'){
+      const retryAfterMs=failure.retryAfterMs||60000;this.quotaUntil.set('gemini-3.8-live-literal',Date.now()+retryAfterMs);failure.retryAfterMs=retryAfterMs;
+     }
+     throw failure;
+    }
+    if(signal?.aborted)throw new AiUnavailable('cancelled','A reprodução de voz foi cancelada.');
+    if(audio.sampleRate!==24000||!audio.pcm.length||audio.pcm.length%2||audio.pcm.length>2400000)throw new AiUnavailable('invalid_response','A leitura de voz retornou áudio inválido.');
+    yield audio.pcm;return;
+   }
+   if(error instanceof AiUnavailable)throw error;throw new AiUnavailable('network_unavailable','A conexão de voz foi interrompida. Tente novamente.');
+  }
   finally{await reader?.cancel().catch(()=>{});this.inFlight--;}
  }
 }

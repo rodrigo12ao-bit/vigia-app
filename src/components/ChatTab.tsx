@@ -83,6 +83,7 @@ interface ChatTabProps {
   avatarState: AvatarState;
   isSpeaking: boolean;
   onReplayAudio: (text: string) => void;
+  onReadDevice?: (text: string) => void;
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
   onLoadSession?: (messages: ChatMessage[]) => void;
@@ -219,6 +220,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   avatarState,
   isSpeaking,
   onReplayAudio,
+  onReadDevice,
   onSelectPrompt,
   onResetChat,
   onLoadSession,
@@ -325,11 +327,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const liveSessionRef = useRef<GeminiLiveSession | null>(null);
   const [liveSubtitle, setLiveSubtitle] = useState('');
+  const [liveCheckedReply,setLiveCheckedReply]=useState('');
   const [liveAvatarState, setLiveAvatarState] = useState<AvatarState | null>(null);
   const [liveIsSpeaking, setLiveIsSpeaking] = useState(false);
   const [livePaused,setLivePaused]=useState(false);
+  const [liveUnavailable,setLiveUnavailable]=useState(false);
+  const [liveRetryAt,setLiveRetryAt]=useState(0);
+  const [liveRetrySeconds,setLiveRetrySeconds]=useState(0);
   const [liveSessionVersion,setLiveSessionVersion]=useState(0);
   useEffect(()=>liveSessionRef.current?.setMuted(!!isAudioMuted),[isAudioMuted,chatMode]);
+  useEffect(()=>{
+    const seconds=()=>Math.max(0,Math.ceil((liveRetryAt-Date.now())/1000));
+    setLiveRetrySeconds(seconds());
+    if(!liveRetryAt)return;
+    const timer=window.setInterval(()=>{const remaining=seconds();setLiveRetrySeconds(remaining);if(remaining===0)window.clearInterval(timer);},1000);
+    return ()=>window.clearInterval(timer);
+  },[liveRetryAt]);
 
   const userId = currentUser?.uid;
 
@@ -388,12 +401,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     stopListening();
     stopSpeaking();
     setLiveSubtitle('');
+    setLiveCheckedReply('');
     setInterimSpeech('');
     setSpeechFeedbackMsg(null);
     setInteractionState('CONNECTING');
     setLivePaused(false);
+    setLiveUnavailable(false);
+    setLiveRetryAt(0);
+    setMicPermissionError(false);
 
     let disposed = false;
+    // A sessão guarda a versão da conta/conversa que a iniciou.
+    const saveVoiceTurn=voiceTurnHandler.current;
     const session = new GeminiLiveSession({
       onStateChange: (state) => {
         if (disposed || liveSessionRef.current !== session) return;
@@ -439,6 +458,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         if (disposed || liveSessionRef.current !== session) return;
         setInterimSpeech(text);
         setLiveSubtitle('');
+        setLiveCheckedReply('');
         voiceInput.current=text;voiceOutput.current='';
       },
       onOutputTranscription: (text) => {
@@ -446,11 +466,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         setLiveSubtitle((prev) => prev + text);
         voiceOutput.current+=text;
       },
-      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current)voiceTurnHandler.current?.(voiceInput.current,voiceOutput.current);voiceInput.current='';voiceOutput.current='';},
+      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current){setLiveCheckedReply(voiceOutput.current);saveVoiceTurn?.(voiceInput.current,voiceOutput.current);}voiceInput.current='';voiceOutput.current='';},
       onInterrupted:()=>{if(disposed||liveSessionRef.current!==session)return;voiceInput.current='';voiceOutput.current='';setInterimSpeech('');setLiveSubtitle('');},
+      onSpeechUnavailable:(message,retryAfterMs)=>{
+        if(disposed||liveSessionRef.current!==session)return;
+        setSpeechFeedbackMsg(message);
+        setLiveUnavailable(true);
+        setLivePaused(true);
+        setMicPermissionError(false);
+        setMicVolume(0);
+        setLiveRetryAt(retryAfterMs?Date.now()+retryAfterMs:0);
+      },
       onError: (errMsg) => {
         if (disposed || liveSessionRef.current !== session) return;
         setSpeechFeedbackMsg(errMsg);
+        setLiveUnavailable(true);
         setMicPermissionError(/permissão|microfone/i.test(errMsg));
       },
       onClose: () => {
@@ -458,6 +488,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         liveSessionRef.current = null;
         setLiveAvatarState(null);
         setLiveIsSpeaking(false);
+        setMicVolume(0);
         setInteractionState('IDLE');
       },
     });
@@ -861,7 +892,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const toggleMicListening = async () => {
-    if(chatMode==='live'){if(!liveSessionRef.current){setLiveSessionVersion(v=>v+1);return;}const next=!livePaused;liveSessionRef.current.pauseMicrophone(next);setLivePaused(next);return;}
+    if(chatMode==='live'){
+      if(liveRetryAt>Date.now())return;
+      if(!liveSessionRef.current){setLiveSessionVersion(v=>v+1);return;}
+      const next=!livePaused;
+      liveSessionRef.current.pauseMicrophone(next);
+      setLivePaused(next);
+      if(!next&&liveUnavailable){setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);}
+      return;
+    }
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!isListening&&!await voiceAllowed())return;
     if (isSpeaking) {
@@ -895,6 +934,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   // Create new chat
+  const endLiveConversation=()=>{
+    const session=liveSessionRef.current;
+    liveSessionRef.current=null;
+    session?.stop();
+    voiceInput.current='';voiceOutput.current='';
+    setLiveIsSpeaking(false);setLivePaused(false);setMicVolume(0);
+    setLiveRetryAt(0);setLiveUnavailable(false);setLiveSubtitle('');setLiveCheckedReply('');setInterimSpeech('');
+    if(chatMode==='live')setChatMode('text');
+  };
+
   const handleNewChat = async () => {
     if(switchLock.current)return;
     if (inputText.trim()) {
@@ -903,6 +952,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
     if(isLoading)return;
+    endLiveConversation();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=null; sessionMetadata.current=null;
     onResetChat?.();
@@ -915,6 +965,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   // Switch to a chat session
   const handleSelectSession = async (session: ChatSession) => {
     if(isLoading || switchLock.current)return;
+    endLiveConversation();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=session.messages;
     sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
@@ -985,10 +1036,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />,
       };
     }
+    if(chatMode==='live'&&liveUnavailable)return {text:'Voz indisponível',color:'bg-amber-500/20 text-amber-200 border-amber-400/40',icon:<VolumeX className="w-3.5 h-3.5 shrink-0"/>};
     if (interactionState==='CONNECTING')return {text:'Conectando a voz…',color:'bg-violet-500/20 text-violet-200 border-violet-400/40',icon:<Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0"/>};
     if (isLoading||interactionState==='PROCESSING') {
       return {
-        text: 'Preparando a resposta…',
+        text: chatMode==='live'&&liveSubtitle?'Preparando a voz…':'Preparando a resposta…',
         color: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
         icon: <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />,
       };
@@ -1022,6 +1074,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const statusBadge = getAvatarStatusBadge();
+  const liveMicrophoneActive=chatMode==='live'&&!!liveSessionRef.current&&!livePaused&&interactionState!=='CONNECTING';
+  const liveRetryWaiting=liveRetryAt>Date.now();
 
   // Filter sessions by search query
   const filteredSessions = sessions.filter(
@@ -1105,6 +1159,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-0.5 shadow-inner">
               <button
                 onClick={() => setChatMode('text')}
+                aria-label="Conversa por texto"
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
                   chatMode === 'text'
                     ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
@@ -1399,11 +1454,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     onClick={() => {
                       stopListening();
                       stopSpeaking();
-                      if (liveSessionRef.current) {
-                        try { liveSessionRef.current.stop(); } catch (e) {}
-                        liveSessionRef.current = null;
-                      }
-                      setChatMode('text');
+                      endLiveConversation();
                       setIsConfirmEndCallOpen(false);
                     }}
                     className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-md cursor-pointer"
@@ -1581,7 +1632,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           )}
           </AnimatePresence>
 
-          {chatMode==='live'&&speechFeedbackMsg&&<div role="alert" className="px-4 py-3 text-sm text-amber-100 bg-amber-900/40 border-b border-amber-500/30">{speechFeedbackMsg}</div>}
+          {chatMode==='live'&&speechFeedbackMsg&&<div className="shrink-0 px-4 py-3 text-sm text-amber-100 bg-amber-900/40 border-b border-amber-500/30">
+            <p role="alert">{speechFeedbackMsg}</p>
+            {liveUnavailable&&<div className="mt-2 flex flex-wrap items-center gap-2">
+              <button onClick={()=>setChatMode('text')} className="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 cursor-pointer">Continuar por texto</button>
+              {onReadDevice&&liveCheckedReply&&liveSubtitle===liveCheckedReply&&<button onClick={()=>{const reply=liveCheckedReply;endLiveConversation();onReadDevice(reply);}} className="px-3 py-2 rounded-xl border border-sky-400/50 text-sky-100 font-semibold hover:bg-sky-500/10 cursor-pointer">Ouvir no aparelho</button>}
+              <button onClick={()=>void toggleMicListening()} disabled={liveRetryWaiting} className="px-3 py-2 rounded-xl border border-amber-500/50 font-semibold enabled:hover:bg-amber-500/10 enabled:cursor-pointer disabled:opacity-60">{liveRetryWaiting?`Tentar voz em ${liveRetrySeconds||Math.ceil((liveRetryAt-Date.now())/1000)} s`:'Tentar voz novamente'}</button>
+              <span className="text-xs text-amber-100/80">{liveSubtitle?'A resposta continua disponível na conversa.':'Você pode continuar escrevendo.'}</span>
+            </div>}
+          </div>}
           {chatMode === 'live' ? (
             <div className="flex-1 min-h-0 min-w-0 bg-slate-950 flex flex-col relative overflow-hidden">
               
@@ -1598,8 +1657,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                         <Subtitles className="w-3 h-3" /> Transcrição
                       </p>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] line-clamp-3">
-                        {liveSubtitle || interimSpeech || (interactionState==='CONNECTING'?'Preparando nossa conversa…':'Oi! Pode falar. Estou na escuta.')}
+                      <p className={`text-xs sm:text-sm font-semibold text-slate-200 italic break-words [overflow-wrap:anywhere] ${liveUnavailable?'max-h-40 overflow-y-auto':'line-clamp-3'}`} aria-live="polite">
+                        {liveSubtitle || interimSpeech || (interactionState==='CONNECTING'?'Preparando nossa conversa…':liveUnavailable?'A voz está pausada. Você pode continuar por texto.':livePaused?'Microfone pausado. Toque no microfone para continuar.':'Oi! Pode falar. Estou na escuta.')}
                       </p>
                     </div>
                   </motion.div>
@@ -1643,6 +1702,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       showSubtitles ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                     }`}
                     title="Ativar/Desativar Legendas"
+                    aria-label={showSubtitles?'Ocultar legendas':'Mostrar legendas'}
+                    aria-pressed={showSubtitles}
                   >
                     <Subtitles className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
@@ -1655,34 +1716,38 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         isAudioMuted ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                       }`}
                       title={isAudioMuted ? 'Áudio Mutado' : 'Silenciar'}
+                      aria-label={isAudioMuted?'Ativar som da Vigia':'Silenciar som da Vigia'}
+                      aria-pressed={!!isAudioMuted}
                     >
                       {isAudioMuted ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                   )}
 
-                  {/* Botão Principal: MICROFONE / INTERROMPER */}
-                  {currentIsSpeaking||(chatMode==='live'&&interactionState==='PROCESSING') ? (
+                  {/* A captura pode ser pausada mesmo durante a resposta. */}
+                  {(currentIsSpeaking||(chatMode==='live'&&interactionState==='PROCESSING')) && (
                     <button
                       onClick={handleInterruptSpeech}
                       className="p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 bg-sky-600 hover:bg-sky-700 text-white animate-pulse shadow-sky-500/30"
                       title="Interromper fala"
+                      aria-label="Interromper resposta da Vigia"
                     >
                       <VolumeX className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
-                  ) : (
+                  )}
                     <button
                       onClick={() => onlinePreview?setSpeechFeedbackMsg(voiceUnavailable):toggleMicListening()}
                       className={`p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 ${
-                        isListening
-                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse shadow-emerald-500/30'
+                        liveMicrophoneActive
+                          ? `bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30 ${isListening?'animate-pulse':''}`
                           : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
                       }`}
-                      disabled={interactionState==='CONNECTING'}
-                      title={isListening||(chatMode==='live'&&!!liveSessionRef.current&&!livePaused&&interactionState!=='CONNECTING') ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      disabled={interactionState==='CONNECTING'||liveRetryWaiting}
+                      title={liveMicrophoneActive ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      aria-label={interactionState==='CONNECTING'?'Conectando microfone':liveMicrophoneActive?'Pausar microfone':liveUnavailable?'Tentar voz novamente':'Ativar microfone'}
+                      aria-pressed={liveMicrophoneActive}
                     >
-                      {isListening ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}
+                      {liveMicrophoneActive ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </button>
-                  )}
 
                   {/* Painel de Debug */}
                   {import.meta.env.DEV && (<button
@@ -1700,6 +1765,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     onClick={() => setIsConfirmEndCallOpen(true)}
                     className="p-3 rounded-full bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 transition-all cursor-pointer flex-shrink-0"
                     title="Encerrar"
+                    aria-label="Encerrar conversa por voz"
                   >
                     <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>

@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {EventEmitter} from 'node:events';
-import {GeminiAi} from '../server/geminiAi';import {connectRealVoice} from '../server/realVoice';
+import {GeminiAi} from '../server/geminiAi';import {connectRealVoice} from '../server/realVoice';import {AiUnavailable} from '../server/realAi';
 const key='FAKE_CONTRACT_KEY',env={AI_PROVIDER:'gemini',AI_AUDIENCE:'18plus',VIGIA_MODE:'local-real',ENABLE_REAL_AI:'true',GEMINI_API_KEY:key,GEMINI_FREE_KEY_SHA256:createHash('sha256').update(key).digest('hex')};
 const packet=(e:any)=>'data: '+JSON.stringify(e)+'\r\n\r\n',audio=(data=Buffer.alloc(200).toString('base64'))=>({event_type:'step.delta',delta:{type:'audio',data,mime_type:'audio/l16',sample_rate:24000}}),done={event_type:'interaction.completed'};
 function sse(events:any[]){const b=new TextEncoder().encode(events.map(packet).join(''));return new Response(new ReadableStream({start(c){for(let i=0;i<b.length;i+=7)c.enqueue(b.slice(i,i+7));c.close();}}),{headers:{'Content-Type':'text/event-stream'}});}
@@ -9,9 +9,54 @@ test('streaming rejeita projeto não verificado, taxa inválida, WAV, bytes ímp
 test('cota e cancelamento não disparam repetição nem serviço pago',async()=>{let calls=0;await assert.rejects(collect(new GeminiAi(env,async()=>{calls++;return new Response('{}',{status:429});})));assert.equal(calls,1);const c=new AbortController();const ai=new GeminiAi(env,async(_u,o)=>{assert.ok(o?.signal);c.abort();throw Error('abort');});await assert.rejects(collect(ai,c.signal));});
 class Socket extends EventEmitter{OPEN=1;readyState=1;sent:any[]=[];send(s:string){this.sent.push(JSON.parse(s));}close(){this.readyState=3;this.emit('close');}message(p:any){this.emit('message',Buffer.from(JSON.stringify(p)));}}
 const wait=()=>new Promise(r=>setTimeout(r,20));
-function fixture(change:any={}){const socket=new Socket(),calls:string[]=[];const ai={provider:'gemini',models:{generateContent:async()=>{calls.push('checked-text');return{text:'Guarde a lanterna na mochila.'};}},transcribe:async()=>({text:'Onde guardo a lanterna?',status:'ok',provider:'gemini'}),speech:async()=>{throw Error('No unary fallback');},speechStream:async function*(){calls.push('speech-stream');yield Buffer.alloc(200);},...change};connectRealVoice(socket as any,ai,'Instrução educativa.',{streamSpeech:true});return {socket,calls};}
+function fixture(change:any={},options:any={}){const socket=new Socket(),calls:string[]=[];const ai={provider:'gemini',models:{generateContent:async()=>{calls.push('checked-text');return{text:'Guarde a lanterna na mochila.'};}},transcribe:async()=>({text:'Onde guardo a lanterna?',status:'ok',provider:'gemini'}),speech:async()=>{throw Error('No unary fallback');},speechStream:async function*(){calls.push('speech-stream');yield Buffer.alloc(200);},...change};connectRealVoice(socket as any,ai,'Instrução educativa.',{streamSpeech:true,...options});return {socket,calls};}
 test('voz envia áudio por partes apenas depois da resposta textual completa verificada',async()=>{const f=fixture();f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.deepEqual(f.calls,['checked-text','speech-stream']);assert.deepEqual(f.socket.sent.map(p=>p.type),['open','processing','input_transcription','output_transcription','reply_ready','audio_chunk','turn_complete']);f.socket.close();});
 test('moderação, resposta inválida e emergência impedem síntese e resposta pronta',async()=>{for(const text of ['{JSON incompleto','']){const f=fixture({models:{generateContent:async()=>({text})}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'||p.type==='reply_ready'),false);assert.equal(f.calls.includes('speech-stream'),false);}const e=fixture();e.socket.message({type:'realtime_text',text:'tem fogo na minha casa'});assert.ok(e.socket.sent.some(p=>p.type==='emergency'));assert.equal(e.calls.length,0);});
 test('interromper aborta áudio pendente, conserva texto verificado e ignora fragmentos tardios',async()=>{let finish!:()=>void,signal:AbortSignal|undefined;const f=fixture({speechStream:async function*(_text:string,s:AbortSignal){signal=s;yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);yield Buffer.alloc(200);}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();f.socket.message({type:'interrupt'});assert.equal(signal?.aborted,true);const n=f.socket.sent.filter(p=>p.type==='audio_chunk').length;finish();await wait();assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,n);assert.ok(f.socket.sent.some(p=>p.type==='reply_ready'));assert.equal(f.socket.sent.some(p=>p.type==='turn_complete'),false);f.socket.close();});
 test('fala sustentada interrompe a síntese e conserva o início da nova gravação',async()=>{let finish!:()=>void;const f=fixture({speechStream:async function*(){yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();const pcm=Buffer.alloc(2048);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);for(let i=0;i<5;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});assert.ok(f.socket.sent.some(p=>p.type==='interrupted'));finish();f.socket.close();});
 test('nova fala interrompe também áudio ainda em reprodução depois da síntese terminar',async()=>{const f=fixture();f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.ok(f.socket.sent.some(p=>p.type==='turn_complete'));const pcm=Buffer.alloc(2048);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);for(let i=0;i<5;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});assert.equal(f.socket.sent.filter(p=>p.type==='interrupted').length,1);f.socket.close();});
+
+test('429 respeita Retry-After e pausa somente TTS sem repetir chamadas nem expor metadados',async()=>{
+ let calls=0;const ai=new GeminiAi(env,async url=>{calls++;return String(url).endsWith('/interactions')?new Response(JSON.stringify({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'7s'}],message:'PRIVATE_PROJECT_INFO'}}),{status:429,headers:{'Retry-After':'2'}}):Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'Confira as pilhas.'}]}}]});});
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs===2000&&!e.message.includes('PRIVATE'));
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs!>0);assert.equal(calls,1);
+ assert.equal((await ai.models.generateContent({contents:'Pilhas'})).text,'Confira as pilhas.');assert.equal(calls,2);
+});
+test('RetryInfo e falha429 dentro do fluxo mantêm cooldown sem repetição automática',async()=>{
+ const ai=new GeminiAi(env,async()=>sse([{event_type:'interaction.failed',error:{status:'RESOURCE_EXHAUSTED',details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'3s'}]}}]));
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs===3000);
+});
+test('falha apenas da voz conserva resposta e contexto; microfone aguarda retomada explícita',async()=>{
+ let seen:any,turns=0,speeches=0;
+ const f=fixture({models:{generateContent:async(r:any)=>{seen=r;turns++;return{text:turns===1?'Guarde a lanterna na mochila.':'Confira também as pilhas.'};}},speechStream:async function*(){if(++speeches===1)throw new AiUnavailable('quota_unavailable','Voz indisponível',503,2000);yield Buffer.alloc(200);}});
+ f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await wait();
+ const warning=f.socket.sent.find(p=>p.type==='speech_unavailable');assert.equal(warning.code,'quota_unavailable');assert.equal(warning.retryAfterMs,2000);assert.equal(f.socket.readyState,1);assert.ok(f.socket.sent.some(p=>p.type==='reply_ready'));assert.ok(f.socket.sent.some(p=>p.type==='turn_complete'));
+ const pcm=Buffer.alloc(6000);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);for(let i=0;i<2;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});f.socket.message({type:'audio_stream_end'});await wait();assert.equal(turns,1);
+ f.socket.message({type:'resume_input'});f.socket.message({type:'realtime_text',text:'E as pilhas dela?'});await wait();assert.equal(turns,2);assert.match(seen.contents,/Onde guardo a lanterna/);assert.match(seen.contents,/Guarde a lanterna na mochila/);assert.ok(f.socket.sent.some(p=>p.type==='audio_chunk'));f.socket.close();
+});
+test('prazo total interrompe geração lenta sem inventar texto; síntese lenta preserva texto já verificado',async()=>{
+ const blocked=(_request:any,signal:AbortSignal)=>new Promise<any>((_,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));
+ const f=fixture({models:{generateContent:blocked}},{turnTimeoutMs:5});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.find(p=>p.type==='error')?.code,'timeout');assert.equal(f.socket.sent.some(p=>p.type==='reply_ready'),false);assert.equal(f.socket.readyState,3);
+ const s=fixture({speechStream:async function*(_text:string,signal:AbortSignal){await blocked(null,signal);yield Buffer.alloc(200);}},{turnTimeoutMs:5});s.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(s.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.ok(s.socket.sent.some(p=>p.type==='reply_ready'));assert.equal(s.socket.readyState,1);s.socket.close();
+});
+test('emergência digitada fornece entrada e orientação para salvar uma vez, sem geração de IA',()=>{
+ const f=fixture();f.socket.message({type:'realtime_text',text:'tem fogo na minha casa'});assert.equal(f.socket.sent.find(p=>p.type==='input_transcription')?.text,'tem fogo na minha casa');assert.ok(f.socket.sent.find(p=>p.type==='emergency')?.text);assert.equal(f.calls.length,0);assert.equal(f.socket.readyState,3);
+});
+test('cota antes de áudio usa uma leitura gratuita do mesmo texto; cooldown evita repetir TTS',async()=>{
+ let requests=0;const reads:string[]=[];
+ const ai=new GeminiAi(env,async()=>{requests++;return new Response('{}',{status:429});},async(text,signal,config)=>{assert.equal(config?.GEMINI_API_KEY,key);assert.ok(!signal?.aborted);reads.push(text);return{pcm:Buffer.alloc(200),sampleRate:24000};});
+ assert.equal((await collect(ai)).length,1);assert.equal((await collect(ai)).length,1);assert.equal(requests,1);assert.deepEqual(reads,['Guarde a lanterna na mochila.','Guarde a lanterna na mochila.']);
+});
+test('cota depois de áudio parcial e cancelamento não disparam outra voz nem repetem a fala',async()=>{
+ let reads=0;const literal=async()=>{reads++;return{pcm:Buffer.alloc(200),sampleRate:24000};};
+ const ai=new GeminiAi(env,async()=>sse([audio(),{event_type:'interaction.failed',error:{code:429}}]),literal);await assert.rejects(collect(ai));assert.equal(reads,0);
+ const c=new AbortController(),cancelled=new GeminiAi(env,async()=>{c.abort();return new Response('{}',{status:429});},literal);await assert.rejects(collect(cancelled,c.signal));assert.equal(reads,0);
+});
+test('falha de correspondência na alternativa gratuita mantém indisponibilidade sem resposta pronta',async()=>{
+ let reads=0;const ai=new GeminiAi(env,async()=>new Response('{}',{status:429}),async()=>{reads++;throw new AiUnavailable('literal_mismatch','A voz divergiu.');});
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='literal_mismatch');assert.equal(reads,1);
+});
+test('cota também na leitura gratuita bloqueia repetição de conexões e informa espera',async()=>{
+ let reads=0;const ai=new GeminiAi(env,async()=>new Response('{}',{status:429}),async()=>{reads++;throw new AiUnavailable('quota_unavailable','Voz indisponível.');});
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs===60000);await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs!>0);assert.equal(reads,1);
+});

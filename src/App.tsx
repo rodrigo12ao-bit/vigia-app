@@ -556,6 +556,7 @@ export default function App() {
                 avatarState={avatarState}
                 isSpeaking={isSpeaking}
                 onReplayAudio={speakMessage}
+                onReadDevice={readAloud}
                 onSelectPrompt={handleSelectPrompt}
                 onResetChat={handleResetChat}
                 onLoadSession={handleLoadSession}

@@ -13,7 +13,7 @@ export interface AiEngine {
   speechStream?:(text:string,signal?:AbortSignal)=>AsyncGenerator<Buffer>;
 }
 export class AiUnavailable extends Error {
-  constructor(public code: string, message: string, public status = 503) { super(message); }
+  constructor(public code: string, message: string, public status = 503, public retryAfterMs?:number) { super(message); }
 }
 
 // This release enables local evaluation by adults with fictional data only.
@@ -25,7 +25,7 @@ export function realAiConfig(env: NodeJS.ProcessEnv = process.env) {
     else if(!['local-real','adult-live'].includes(env.VIGIA_MODE||'')||env.ENABLE_REAL_AI!=='true')blocked='A integração Gemini real está desativada.';
     else if(!env.GEMINI_API_KEY)blocked='A chave Gemini não está configurada.';
     else if(!verifiedFreeGemini(env))blocked='O plano gratuito desta chave ainda não foi verificado. Chamadas bloqueadas para evitar cobrança.';
-    return {enabled:!blocked,provider:'gemini' as const,scope:'adult-gemini' as const,blocked,models:{text:'gemini-3.5-flash-lite',transcription:'gemini-3.5-flash-lite',speech:'gemini-3.8-flash-lite-tts'},budget:0,consentVersion:GEMINI_ADULT_CONSENT};
+    return {enabled:!blocked,provider:'gemini' as const,scope:'adult-gemini' as const,blocked,models:{text:'gemini-3.5-flash-lite',transcription:'gemini-3.5-flash-lite',speech:'gemini-3.8-flash-lite-tts',speechFallback:'gemini-3.8-live-literal'},budget:0,consentVersion:GEMINI_ADULT_CONSENT};
   }
   if(env.AI_PROVIDER==='local'){
     const safe=env.VIGIA_MODE==='local-real'&&env.ENABLE_REAL_AI==='true'&&env.RENDER!=='true'&&['127.0.0.1','localhost'].includes(env.HOST||'127.0.0.1')&&env.FIREBASE_AUTH_EMULATOR_HOST==='127.0.0.1:9099'&&env.FIRESTORE_EMULATOR_HOST==='127.0.0.1:8080'&&env.AI_TEST_SCOPE==='local-synthetic';
