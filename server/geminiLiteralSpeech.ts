@@ -44,7 +44,7 @@ export async function geminiLiteralSpeech(
   if(inFlight>=2)throw new AiUnavailable('busy','A voz está ocupada. Aguarde a resposta atual.');
   inFlight++;
   return new Promise((resolve,reject)=>{
-    let upstream:WebSocket|undefined,settled=false,ready=false,requested=false;
+    let upstream:WebSocket|undefined,settled=false,ready=false,requested=false,generated=false,awaitingTurnComplete=false;
     let transcript='',bytes=0,wireBytes=0,events=0;
     const audio:Buffer[]=[];
     const timer=setTimeout(()=>fail(new AiUnavailable('voice_timeout','A voz demorou demais. A resposta em texto foi preservada.')),timeoutMs);
@@ -55,6 +55,16 @@ export async function geminiLiteralSpeech(
     };
     const fail=(error:AiUnavailable)=>{if(settled)return;settled=true;dispose();reject(error);};
     const abort=()=>fail(new AiUnavailable('cancelled','A reprodução de voz foi cancelada.'));
+    const finishAudio=(final:boolean)=>{
+      if(normalizeLiteralTranscript(transcript)!==expected)throw new AiUnavailable('literal_mismatch','A voz não correspondeu à resposta verificada. A resposta em texto foi preservada.');
+      const pcm=Buffer.concat(audio,bytes);
+      let energy=0;for(let index=0;index<pcm.length;index+=2)energy+=(pcm.readInt16LE(index)/32768)**2;
+      if(pcm.length<minAudioBytes||Math.sqrt(energy/(pcm.length/2))<minAudioRms){
+        if(!final){awaitingTurnComplete=true;return;}
+        throw new AiUnavailable('invalid_response','A voz retornou silêncio ou áudio insuficiente. A resposta em texto foi preservada.');
+      }
+      settled=true;dispose();resolve({pcm,sampleRate:24000});
+    };
     signal?.addEventListener('abort',abort,{once:true});
     try{
       upstream=connect(endpoint,{headers:{'x-goog-api-key':env.GEMINI_API_KEY!},handshakeTimeout:Math.min(timeoutMs,12000),maxPayload:maxMessageBytes});
@@ -111,12 +121,16 @@ export async function geminiLiteralSpeech(
             }
           }
           if(content.generationComplete===true){
-            if(!bytes||normalizeLiteralTranscript(transcript)!==expected)throw new AiUnavailable('literal_mismatch','A voz não correspondeu à resposta verificada. A resposta em texto foi preservada.');
-            const pcm=Buffer.concat(audio,bytes);
-            let energy=0;for(let index=0;index<pcm.length;index+=2)energy+=(pcm.readInt16LE(index)/32768)**2;
-            if(pcm.length<minAudioBytes||Math.sqrt(energy/(pcm.length/2))<minAudioRms)throw new AiUnavailable('invalid_response','A voz retornou silêncio ou áudio insuficiente. A resposta em texto foi preservada.');
-            settled=true;dispose();resolve({pcm,sampleRate:24000});
-          }else if(content.turnComplete===true)throw new AiUnavailable('incomplete_response','A voz não concluiu a leitura verificada.');
+            if(generated&&!content.turnComplete)throw new AiUnavailable('invalid_response','A voz apresentou uma conclusão inconsistente.');
+            generated=true;
+            // Transcription must already be exact. If only dummy/silent PCM has
+            // arrived, keep it private until the stronger turn boundary, then
+            // validate the whole buffer again. Deadlines and limits stay active.
+            finishAudio(content.turnComplete===true);
+          }else if(content.turnComplete===true){
+            if(!generated||!awaitingTurnComplete)throw new AiUnavailable('incomplete_response','A voz não concluiu a leitura verificada.');
+            finishAudio(true);
+          }
         }catch(error){fail(error instanceof AiUnavailable?error:new AiUnavailable('invalid_response','A conexão de voz retornou dados inválidos.'));}
       });
       upstream.on('error',()=>fail(new AiUnavailable('network_unavailable','Não foi possível conectar à voz. A resposta em texto foi preservada.')));

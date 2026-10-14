@@ -19,6 +19,8 @@ async function button(label){await page.waitForFunction(v=>Array.from(document.q
  await page.evaluateOnNewDocument(()=>{window.testVoiceEvents=[];const NativeWS=window.WebSocket;window.WebSocket=class extends NativeWS{constructor(...args){super(...args);this.addEventListener('message',e=>{try{const b=JSON.parse(e.data);window.testVoiceEvents.push({type:b.type,...(b.text?{text:b.text}:{}),...(b.message?{message:b.message}:{})});}catch{}});}};});
  await page.goto(root,{waitUntil:'domcontentloaded'});await page.waitForSelector('[aria-label="Acesso para adultos"]');await page.click('input[type="checkbox"]');await button('Continuar');
  await page.waitForSelector('[aria-label="Boas-vindas à Vigia"]');await page.evaluate(()=>Array.from(document.querySelectorAll('[aria-label="Boas-vindas à Vigia"] button')).find(b=>b.textContent.includes('Explorar')).click());
+ // Guest initialization resets the initial view; navigate only after the home is ready.
+ await page.waitForSelector('[aria-label="Progresso da aventura"]',{timeout:60000});
  await page.click('[title="Conversa & Voz"]');await page.waitForSelector('textarea');await page.waitForSelector('[aria-label="Conversa por voz"]',{timeout:60000});await page.click('[aria-label="Conversa por voz"]');
  await page.waitForFunction(()=>window.testVoiceEvents.some(e=>['turn_complete','error','speech_unavailable'].includes(e.type)),{timeout:120000});
  const received=await page.evaluate(()=>window.testVoiceEvents);events.push(...received);const error=events.find(e=>['error','speech_unavailable'].includes(e.type));assert.equal(error,undefined,error?.message);

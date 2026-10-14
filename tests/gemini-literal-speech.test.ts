@@ -92,9 +92,29 @@ test('transcrição literal com áudio curtíssimo ou somente silêncio não lib
   const tiny=Buffer.alloc(2);tiny.writeInt16LE(500,0);
   for(const bytes of [tiny,Buffer.alloc(12000)]){
     const f=fixture(),check=assert.rejects(f.result,(e:any)=>e.code==='invalid_response');
-    f.provider.message({serverContent:{outputTranscription:{text:expected},modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm;rate=24000',data:bytes.toString('base64')}}]},generationComplete:true}});
+    f.provider.message({serverContent:{outputTranscription:{text:expected},modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm;rate=24000',data:bytes.toString('base64')}}]},generationComplete:true,turnComplete:true}});
     await check;assert.equal(f.provider.closed,1);
   }
+});
+test('PCM insuficiente em generationComplete aguarda o turno completo e revalida áudio tardio',async()=>{
+  const f=fixture(),dummy=Buffer.alloc(2);let released=false;f.result.then(()=>released=true);
+  f.provider.message({serverContent:{outputTranscription:{text:expected},modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm;rate=24000',data:dummy.toString('base64')}}]},generationComplete:true}});
+  await Promise.resolve();assert.equal(released,false);assert.equal(f.provider.closed,0);
+  f.provider.message({serverContent:{modelTurn:{parts:[part]}}});
+  await Promise.resolve();assert.equal(released,false);
+  f.provider.message({serverContent:{turnComplete:true}});
+  assert.deepEqual((await f.result).pcm,Buffer.concat([dummy,pcm]));assert.equal(f.provider.closed,1);
+});
+test('esperar turnComplete não libera silêncio, transcrição alterada, áudio parcial ou timeout',async()=>{
+  for(const extra of [{}, {outputTranscription:{text:' Mais uma instrução.'},modelTurn:{parts:[part]}}]){
+    const f=fixture(),check=assert.rejects(f.result);
+    f.provider.message({serverContent:{outputTranscription:{text:expected},modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm;rate=24000',data:Buffer.alloc(2).toString('base64')}}]},generationComplete:true}});
+    f.provider.message({serverContent:{...extra,turnComplete:true}});await check;assert.equal(f.provider.closed,1);
+  }
+  const waiting=fixture(expected,undefined,10);
+  waiting.provider.message({serverContent:{outputTranscription:{text:expected},modelTurn:{parts:[{inlineData:{mimeType:'audio/pcm;rate=24000',data:Buffer.alloc(2).toString('base64')}}]},generationComplete:true}});
+  waiting.provider.message({serverContent:{modelTurn:{parts:[part]}}});
+  await assert.rejects(waiting.result,(e:any)=>e.code==='voice_timeout');assert.equal(waiting.provider.closed,1);
 });
 test('geração ausente, transcrição ausente, interrupção e desconexão não liberam voz',async()=>{
   for(const content of [{outputTranscription:{text:expected},modelTurn:{parts:[part]},turnComplete:true},{modelTurn:{parts:[part]},generationComplete:true},{outputTranscription:{text:expected},modelTurn:{parts:[part]},interrupted:true}]){

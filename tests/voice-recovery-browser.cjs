@@ -84,6 +84,15 @@ async function expectNoLateReply(marker) {
 }
 
 async function startVoice(expectedSocketCount) {
+  const startedWaitingAt = Date.now();
+  const labelsBeforeWait = await page.evaluate(() => Array.from(document.querySelectorAll('button'))
+    .filter(button => ['Conversa por voz', 'Voz indisponível nesta prévia'].includes(button.title))
+    .map(button => button.getAttribute('aria-label')));
+  // Publication starts conservatively unavailable until its status request resolves.
+  // Wait for the real voice control rather than racing that asynchronous UI update.
+  await page.waitForSelector('[aria-label="Conversa por voz"]', { visible: true, timeout: 30000 });
+  report.voiceReadiness ??= [];
+  report.voiceReadiness.push({ expectedSocketCount, labelsBeforeWait, waitedMs: Date.now() - startedWaitingAt });
   await page.click('[aria-label="Conversa por voz"]');
   await page.waitForFunction(count => window.recoverySockets.length === count &&
     window.recoveryTracks.some(track => track.readyState === 'live' && track.enabled) &&
