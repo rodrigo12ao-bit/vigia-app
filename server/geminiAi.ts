@@ -59,4 +59,36 @@ export class GeminiAi implements AiEngine {
   if(!pcm.length||pcm.length%2||pcm.length>2400000||rate!==24000)throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
   return {pcm,sampleRate:24000};
  }
+ async *speechStream(text:string,signal?:AbortSignal):AsyncGenerator<Buffer>{
+  const config=realAiConfig(this.env);
+  if(!config.enabled||config.provider!=='gemini')throw new AiUnavailable('configuration_blocked',config.blocked||'Gemini gratuito indisponível.');
+  if(!text?.trim()||text.length>1500)throw new AiUnavailable('invalid_input','Texto de voz inválido.',400);
+  if(this.inFlight>=2)throw new AiUnavailable('busy','A Vigia está ocupada. Aguarde a resposta atual.');
+  this.inFlight++;let reader:ReadableStreamDefaultReader<Uint8Array>|undefined;
+  try{
+   const response=await this.transport('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({model:'gemini-3.8-flash-lite-tts',store:false,input:[{type:'user_input',content:[{type:'text',text,annotations:[{type:'speech_metadata',style:'Português brasileiro, voz natural, simpática e animada, com ritmo fluido e acolhedor. Em avisos de segurança, voz calma e séria.'}]}]}],response_format:{type:'audio',mime_type:'audio/l16',sample_rate:24000},generation_config:{speech_config:[{voice:'Aoede'}]},stream:true}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
+   if(!response.ok||!response.body)throw new AiUnavailable(response.status===429?'quota_unavailable':'provider_unavailable',response.status===429?'A cota gratuita de voz foi atingida. Tente mais tarde.':'A síntese de voz está indisponível.');
+   reader=response.body.getReader();const decoder=new TextDecoder();let buffer='',bytes=0,complete=false;
+   while(true){
+    const {done,value}=await reader.read();if(done)break;
+    buffer=(buffer+decoder.decode(value,{stream:true})).replace(/\r\n/g,'\n');
+    if(buffer.length>3000000)throw new AiUnavailable('invalid_response','Áudio de resposta grande demais.');
+    let end:number;while((end=buffer.indexOf('\n\n'))>=0){
+     const packet=buffer.slice(0,end);buffer=buffer.slice(end+2);
+     const data=packet.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('\n');
+     if(!data||data==='[DONE]')continue;
+     let e:any;try{e=JSON.parse(data);}catch{throw new AiUnavailable('invalid_response','A voz retornou dados inválidos.');}
+     if(['error','interaction.failed'].includes(e.event_type))throw new AiUnavailable('provider_unavailable','A voz foi interrompida pelo serviço. Tente novamente.');
+     if(e.event_type==='interaction.completed')complete=true;
+     if(e.event_type==='step.delta'&&e.delta?.type==='audio'){
+      const a=e.delta;if(typeof a.data!=='string'||a.data.length>3000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(a.data)||(a.mime_type&&!/^audio\/(?:l16|pcm)(?:;|$)/i.test(a.mime_type))||(a.sample_rate&&a.sample_rate!==24000))throw new AiUnavailable('invalid_response','Formato de voz inválido.');
+      const pcm=Buffer.from(a.data,'base64');if(!pcm.length||pcm.length%2||pcm.toString('ascii',0,4)==='RIFF'||(bytes+=pcm.length)>2400000)throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
+      yield pcm;
+     }
+    }
+   }
+   if(!complete||!bytes)throw new AiUnavailable('incomplete_response','A voz não foi concluída. Tente novamente.');
+  }catch(error){if(error instanceof AiUnavailable)throw error;throw new AiUnavailable('network_unavailable','A conexão de voz foi interrompida. Tente novamente.');}
+  finally{await reader?.cancel().catch(()=>{});this.inFlight--;}
+ }
 }

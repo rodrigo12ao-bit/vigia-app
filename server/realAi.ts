@@ -10,6 +10,7 @@ export interface AiEngine {
   models:{generateContent:(request:any,signal?:AbortSignal)=>Promise<{text:string}>};
   transcribe:(audio:string,mime:string,signal?:AbortSignal)=>Promise<{text:string;status:string;provider:string}>;
   speech:(text:string,signal?:AbortSignal)=>Promise<{pcm:Buffer;sampleRate:number}>;
+  speechStream?:(text:string,signal?:AbortSignal)=>AsyncGenerator<Buffer>;
 }
 export class AiUnavailable extends Error {
   constructor(public code: string, message: string, public status = 503) { super(message); }

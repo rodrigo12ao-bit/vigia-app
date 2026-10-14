@@ -1417,7 +1417,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         </AnimatePresence>
 
         {/* MAIN BODY LAYOUT: SIDEBAR (CONVERSAS) + CHAT FEED */}
-        <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative">
 
           {/* HISTÓRICO DE CONVERSAS DRAWER / SIDEBAR (ROLO LATERAL) */}
           <AnimatePresence>
@@ -1661,7 +1661,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   )}
 
                   {/* Botão Principal: MICROFONE / INTERROMPER */}
-                  {currentIsSpeaking ? (
+                  {currentIsSpeaking||(chatMode==='live'&&interactionState==='PROCESSING') ? (
                     <button
                       onClick={handleInterruptSpeech}
                       className="p-4 sm:p-5 rounded-full shadow-xl transition-all cursor-pointer flex-shrink-0 bg-sky-600 hover:bg-sky-700 text-white animate-pulse shadow-sky-500/30"

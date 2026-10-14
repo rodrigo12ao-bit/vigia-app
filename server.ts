@@ -624,7 +624,7 @@ async function startServer() {
         if(!allowed){ws.send(JSON.stringify({type:'error',message:'Acesso à voz real não autorizado.'}));ws.close(1008);return;}
         const nativeVoice=new URL(req.url||'/','http://localhost').searchParams.get('voiceProtocol')==='native-v1';
         if(realAiConfig().provider==='gemini'&&nativeVoice)connectGeminiVoice(ws,VIGIA_LIVE_SYSTEM_INSTRUCTION);
-        else connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION);
+        else connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION,{streamSpeech:new URL(req.url||'/','http://localhost').searchParams.get('voiceProtocol')==='stream-v1'});
       } catch {if(ws.readyState===ws.OPEN){ws.send(JSON.stringify({type:'error',message:'Não foi possível iniciar a voz real.'}));ws.close(1011);}}
       return;
     }

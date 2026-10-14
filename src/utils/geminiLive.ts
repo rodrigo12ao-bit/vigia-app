@@ -118,6 +118,7 @@ export class GeminiLiveSession {
   private serverTurnComplete = false;
   private pcmBuffer: number[] = [];
   private nativeAudio=false;
+  private streamedSpeech=false;
   private microphonePaused=false;
   private muted=false;
   private outputGain:GainNode|null=null;
@@ -170,7 +171,7 @@ export class GeminiLiveSession {
       if(!response.ok)throw new Error(body.error||'Voz indisponível.');
       const {ticket}=body;
       if(!this.isCurrent(token))return;
-      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}&voiceProtocol=native-v1${contextParam.replace('?', '&')}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}&voiceProtocol=stream-v1${contextParam.replace('?', '&')}`;
       const socket = new WebSocket(wsUrl);
 
       if (!this.isCurrent(token)) {
@@ -237,7 +238,8 @@ export class GeminiLiveSession {
   private handleServerPayload(payload: any): void {
     switch (payload.type) {
       case 'open':
-        this.nativeAudio=payload.mode==='native-audio';
+        this.streamedSpeech=payload.mode==='streamed-speech';
+        this.nativeAudio=payload.mode==='native-audio'||this.streamedSpeech;
         console.log('[GeminiLive] Sessão Gemini Live confirmada pelo backend');
         void this.startMicrophoneCapture(this.sessionToken);
         return;
@@ -275,6 +277,9 @@ export class GeminiLiveSession {
         Telemetry.record('TTURN', 'Gemini informou turnComplete');
         this.serverTurnComplete = true;
         this.finishTurnWhenPlaybackEnds();
+        return;
+      case 'reply_ready':
+        this.callbacks.onTurnComplete?.();
         return;
 
       case 'emergency':
@@ -536,6 +541,7 @@ export class GeminiLiveSession {
     if (!this.serverTurnComplete || this.activeSources.length > 0) return;
 
     console.log('[GeminiLive] Geração e reprodução concluídas');
+    if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'playback_ended'}));
     Telemetry.record('T6', 'Resposta completamente reproduzida');
     this.hasReceivedFirstAudioChunk = false;
     this.serverTurnComplete = false;
@@ -582,6 +588,7 @@ export class GeminiLiveSession {
   }
 
   public interruptPlayback():void{
+    if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'interrupt'}));
     this.handleServerInterruption();
     this.setState(this.microphonePaused?'idle':'listening');
   }

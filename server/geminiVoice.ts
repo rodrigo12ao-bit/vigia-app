@@ -36,7 +36,8 @@ export function connectGeminiVoice(client:WebSocket,instruction:string,env:NodeJ
   if(!bytes){fail('O Gemini não retornou áudio válido.');return;}
   released=true;clearTimeout(turnTimer);turnTimer=undefined;
   send({type:'output_transcription',text:reply});
-  for(const pcm of audio)send({type:'audio_chunk',pcmBase64:pcm.toString('base64')});
+  const pcm=Buffer.concat(audio);
+  for(let offset=0;offset<pcm.length;offset+=24000)send({type:'audio_chunk',pcmBase64:pcm.subarray(offset,offset+24000).toString('base64')});
   audio=[];bytes=0;
   // generationComplete precedes Google's playback delay. The browser waits for
   // its actual audio queue to finish, and saves this checked turn exactly once.
