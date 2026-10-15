@@ -10,6 +10,92 @@ let pendingSpeechTimeout: ReturnType<typeof globalThis.setTimeout> | null = null
 let activeUtterances: SpeechSynthesisUtterance[] = [];
 let voiceGeneration = 0;
 const voiceCleanup = new Set<() => void>();
+let cancelDeviceSpeech: (() => void) | null = null;
+
+export interface DeviceSpeechCallbacks {
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (message: string) => void;
+  onCancel?: () => void;
+}
+
+export interface DeviceSpeechHandle {
+  cancel: () => void;
+}
+
+// Explicit device reading: complete text, real lifecycle, no provider requests.
+export function speakDeviceText(text: string, callbacks: DeviceSpeechCallbacks = {}): DeviceSpeechHandle {
+  stopSpeaking();
+  const generation=voiceGeneration;
+  let finished=false,started=false,index=0;
+  const utterances=new Set<SpeechSynthesisUtterance>();
+  const timers=new Set<ReturnType<typeof globalThis.setTimeout>>();
+  const cleanup=new Set<()=>void>();
+  const chunks=text.trim().split(/(?<=[.!?])\s+/u).filter(Boolean);
+  const clear=()=>{
+    for(const timer of timers)globalThis.clearTimeout(timer);
+    timers.clear();for(const fn of cleanup)fn();cleanup.clear();
+    for(const utterance of utterances){utterance.onstart=null;utterance.onend=null;utterance.onerror=null;}
+    activeUtterances=activeUtterances.filter(utterance=>!utterances.has(utterance));
+    utterances.clear();
+    if(cancelDeviceSpeech===cancel)cancelDeviceSpeech=null;
+  };
+  const finish=(result:'end'|'error'|'cancel',message?:string)=>{
+    if(finished)return;
+    finished=true;clear();
+    if(result!=='end'){try{window.speechSynthesis?.cancel();}catch{/* Browser already closed. */}}
+    if(result==='end')callbacks.onEnd?.();
+    else if(result==='cancel')callbacks.onCancel?.();
+    else callbacks.onError?.(message||'A voz do aparelho não conseguiu ler a resposta. Você pode continuar por texto.');
+  };
+  const cancel=()=>finish('cancel');
+  const handle={cancel:()=>{if(finished)return;if(cancelDeviceSpeech===cancel)stopSpeaking();else cancel();}};
+  cancelDeviceSpeech=cancel;
+  const fail=()=>finish('error');
+  if(!window.speechSynthesis||!window.SpeechSynthesisUtterance||!chunks.length){fail();return handle;}
+  const next=()=>{
+    if(finished||generation!==voiceGeneration)return;
+    if(index>=chunks.length){finish('end');return;}
+    const utterance=new SpeechSynthesisUtterance(chunks[index]);
+    utterances.add(utterance);activeUtterances.push(utterance);
+    utterance.lang='pt-BR';utterance.rate=1.05;utterance.pitch=1.1;utterance.volume=1;
+    let queued=false,startTimer:ReturnType<typeof globalThis.setTimeout>|undefined;
+    const stopTimer=()=>{if(startTimer){globalThis.clearTimeout(startTimer);timers.delete(startTimer);startTimer=undefined;}};
+    utterance.onstart=()=>{
+      if(finished||generation!==voiceGeneration)return;
+      stopTimer();
+      // A stalled browser must not leave the microphone permanently blocked.
+      const timer=globalThis.setTimeout(fail,90000);timers.add(timer);
+      if(!started){started=true;callbacks.onStart?.();}
+    };
+    utterance.onend=()=>{
+      if(finished||generation!==voiceGeneration)return;
+      for(const timer of timers)globalThis.clearTimeout(timer);timers.clear();
+      activeUtterances=activeUtterances.filter(active=>active!==utterance);
+      utterances.delete(utterance);utterance.onstart=null;utterance.onend=null;utterance.onerror=null;
+      index++;next();
+    };
+    utterance.onerror=()=>{if(!finished&&generation===voiceGeneration)fail();};
+    const queue=(voices:SpeechSynthesisVoice[])=>{
+      if(finished||generation!==voiceGeneration||queued)return;queued=true;
+      const preferred=voices.find(voice=>voice.localService&&/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name))
+        ||voices.find(voice=>/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name)&&/francisca|ant[oô]nio|francisco|neural|premium/i.test(voice.name))
+        ||voices.find(voice=>/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name))||voices[0];
+      if(preferred)utterance.voice=preferred;
+      startTimer=globalThis.setTimeout(fail,10000);timers.add(startTimer);
+      try{window.speechSynthesis.speak(utterance);}catch{fail();}
+    };
+    try{
+      const voices=window.speechSynthesis.getVoices();
+      if(voices.length){queue(voices);return;}
+      const changed=()=>queue(window.speechSynthesis.getVoices());
+      window.speechSynthesis.addEventListener('voiceschanged',changed);
+      cleanup.add(()=>window.speechSynthesis.removeEventListener('voiceschanged',changed));
+      const timer=globalThis.setTimeout(()=>queue(window.speechSynthesis.getVoices()),300);timers.add(timer);
+    }catch{fail();}
+  };
+  next();return handle;
+}
 
 // Toggle this to true to re-enable Gemini server TTS in the future.
 export const USE_SERVER_TTS = true;
@@ -320,6 +406,7 @@ function cleanupAudio() {
 
 export function stopSpeaking() {
   ++voiceGeneration;
+  const cancel=cancelDeviceSpeech;cancelDeviceSpeech=null;cancel?.();
   for (const cleanup of voiceCleanup) cleanup();
   voiceCleanup.clear();
   try {

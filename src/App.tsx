@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence,MotionConfig } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
 import {defaultBadges as INITIAL_BADGES,hydrateBadges} from './lib/badges';
-import { speakText, stopSpeaking } from './utils/speech';
+import { speakText, speakDeviceText, stopSpeaking, type DeviceSpeechCallbacks, type DeviceSpeechHandle } from './utils/speech';
 import {useAdventure} from './hooks/useAdventure';
 import type {ActivityClaim} from './lib/adventureModel';
 import {RewardCelebration} from './components/learning/RewardCelebration';
@@ -67,7 +67,26 @@ export default function App() {
   const [userRole,setUserRole]=useState('infantil');
   const [initialMission,setInitialMission]=useState<string|null>(null);
   const openLearning=(id?:string)=>{setInitialMission(id||null);setActiveTab('learn');};
-  const readAloud=(text:string)=>{if(renderedAccountVersion!==accountVersion.current)return;const consentKey='vigia_reading_voice_consent:'+(auth.currentUser?.uid||'guest');if(!localStorage.getItem(consentKey)){if(!window.confirm('A leitura usa a voz disponível no aparelho. Alguns dispositivos podem processar o texto em serviços do fabricante. Deseja ouvir?'))return;localStorage.setItem(consentKey,'true');}if(!window.speechSynthesis){setNotice('Leitura de voz indisponível neste aparelho.');return;}setIsAudioMuted(false);speakText(text,()=>setIsSpeaking(true),()=>setIsSpeaking(false),true);};
+  const allowDeviceSpeech=()=>{
+    if(renderedAccountVersion!==accountVersion.current)return false;
+    const consentKey='vigia_reading_voice_consent:'+(auth.currentUser?.uid||'guest');
+    if(!localStorage.getItem(consentKey)){
+      if(!window.confirm('A leitura usa a voz disponível no aparelho. Alguns dispositivos podem processar o texto em serviços do fabricante. Deseja ouvir?'))return false;
+      localStorage.setItem(consentKey,'true');
+    }
+    if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){setNotice('Leitura de voz indisponível neste aparelho.');return false;}
+    return true;
+  };
+  const readAloud=(text:string,callbacks:DeviceSpeechCallbacks={}):DeviceSpeechHandle|null=>{
+    if(!allowDeviceSpeech())return null;
+    setIsAudioMuted(false);
+    return speakDeviceText(text,{
+      onStart:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(true);callbacks.onStart?.();}else callbacks.onCancel?.();},
+      onEnd:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);callbacks.onEnd?.();}else callbacks.onCancel?.();},
+      onCancel:()=>{if(renderedAccountVersion===accountVersion.current)setIsSpeaking(false);callbacks.onCancel?.();},
+      onError:message=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);setNotice(message);}callbacks.onError?.(message);},
+    });
+  };
 
   const [isDailyMissionOpen, setIsDailyMissionOpen] = useState(false);
   const [isScenarioAnalyzerOpen, setIsScenarioAnalyzerOpen] = useState(false);
@@ -557,6 +576,7 @@ export default function App() {
                 isSpeaking={isSpeaking}
                 onReplayAudio={speakMessage}
                 onReadDevice={readAloud}
+                onDeviceSpeechConsent={allowDeviceSpeech}
                 onSelectPrompt={handleSelectPrompt}
                 onResetChat={handleResetChat}
                 onLoadSession={handleLoadSession}

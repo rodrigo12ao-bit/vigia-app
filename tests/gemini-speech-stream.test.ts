@@ -60,3 +60,53 @@ test('cota também na leitura gratuita bloqueia repetição de conexões e infor
  let reads=0;const ai=new GeminiAi(env,async()=>new Response('{}',{status:429}),async()=>{reads++;throw new AiUnavailable('quota_unavailable','Voz indisponível.');});
  await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs===60000);await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs!>0);assert.equal(reads,1);
 });
+
+test('voz do aparelho recebe só resposta completa verificada, sem solicitar síntese cloud',async()=>{
+ const f=fixture();f.socket.message({type:'speech_output',mode:'device'});
+ f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await wait();
+ assert.deepEqual(f.calls,['checked-text']);
+ assert.deepEqual(f.socket.sent.find(p=>p.type==='speech_output'),{type:'speech_output',mode:'device'});
+ assert.deepEqual(f.socket.sent.find(p=>p.type==='speech_on_device'),{type:'speech_on_device',text:'Guarde a lanterna na mochila.'});
+ assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'),false);
+ const names=f.socket.sent.map(p=>p.type);assert.ok(names.indexOf('reply_ready')<names.indexOf('speech_on_device'));assert.equal(names.at(-1),'turn_complete');f.socket.close();
+});
+
+test('leitura no aparelho mantém contexto e bloqueia captura até retomada explícita',async()=>{
+ let seen:any,turns=0;
+ const f=fixture({models:{generateContent:async(r:any)=>{seen=r;return{text:++turns===1?'Guarde a lanterna na mochila.':'Confira também as pilhas.'};}}});
+ f.socket.message({type:'speech_output',mode:'device'});f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await wait();
+ const pcm=Buffer.alloc(6000);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);
+ for(let i=0;i<2;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});
+ f.socket.message({type:'audio_stream_end'});f.socket.message({type:'realtime_text',text:'Resposta do alto-falante'});await wait();assert.equal(turns,1);
+ f.socket.message({type:'resume_input'});f.socket.message({type:'realtime_text',text:'E as pilhas dela?'});await wait();assert.equal(turns,2);
+ assert.match(seen.contents,/Onde guardo a lanterna/);assert.match(seen.contents,/Guarde a lanterna na mochila/);
+ assert.equal(f.socket.sent.filter(p=>p.type==='speech_on_device').length,2);assert.equal(f.calls.includes('speech-stream'),false);f.socket.close();
+});
+
+test('saída device não contorna erro de geração, texto inválido, emergência ou limite do protocolo',async()=>{
+ for(const change of [{models:{generateContent:async()=>{throw new AiUnavailable('content_blocked','Conteúdo bloqueado.',422);}}},{models:{generateContent:async()=>({text:''})}}]){
+  const f=fixture(change);f.socket.message({type:'speech_output',mode:'device'});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();
+  assert.equal(f.socket.sent.some(p=>p.type==='reply_ready'||p.type==='speech_on_device'||p.type==='audio_chunk'),false);assert.equal(f.socket.readyState,3);
+ }
+ const emergency=fixture();emergency.socket.message({type:'speech_output',mode:'device'});emergency.socket.message({type:'realtime_text',text:'tem fogo na minha casa'});assert.ok(emergency.socket.sent.some(p=>p.type==='emergency'));assert.equal(emergency.socket.sent.some(p=>p.type==='speech_on_device'),false);
+ for(const mode of [null,'paid','DEVICE',{}]){const f=fixture();f.socket.message({type:'speech_output',mode});assert.equal(f.socket.readyState,3);assert.deepEqual(f.calls,[]);}
+});
+
+test('modo de saída não muda síntese já iniciada; fechamento cancela geração device pendente',async()=>{
+ let finish!:()=>void;const f=fixture({speechStream:async function*(){yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);yield Buffer.alloc(200);}});
+ f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();f.socket.message({type:'speech_output',mode:'device'});finish();await wait();
+ assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,2);assert.equal(f.socket.sent.some(p=>p.type==='speech_on_device'),false);f.socket.close();
+ let resolve!:(v:any)=>void;const closed=fixture({models:{generateContent:()=>new Promise(r=>resolve=r)}});
+ closed.socket.message({type:'speech_output',mode:'device'});closed.socket.message({type:'realtime_text',text:'Lanterna'});await wait();closed.socket.close();resolve({text:'Resposta tardia.'});await wait();
+ assert.equal(closed.socket.sent.some(p=>p.type==='reply_ready'||p.type==='speech_on_device'||p.type==='output_transcription'),false);
+});
+
+test('provedor que ignora abort não libera resposta nem voz após o prazo total',async()=>{
+ for(const mode of ['cloud','device']){
+  const f=fixture({models:{generateContent:async()=>{await new Promise(r=>setTimeout(r,12));return{text:'Resposta tardia.'};}}},{turnTimeoutMs:3});
+  f.socket.message({type:'speech_output',mode});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();
+  assert.equal(f.socket.sent.find(p=>p.type==='error')?.code,'timeout');assert.equal(f.socket.sent.some(p=>['output_transcription','reply_ready','speech_on_device','audio_chunk'].includes(p.type)),false);assert.equal(f.socket.readyState,3);
+ }
+ const f=fixture({speechStream:async function*(){await new Promise(r=>setTimeout(r,12));yield Buffer.alloc(200);}},{turnTimeoutMs:3});
+ f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'),false);assert.equal(f.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.equal(f.socket.readyState,1);f.socket.close();
+});

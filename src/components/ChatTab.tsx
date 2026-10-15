@@ -49,6 +49,8 @@ import {
   AudioRecorder,
   isSpeechRecognitionSupported,
   stopSpeaking,
+  type DeviceSpeechCallbacks,
+  type DeviceSpeechHandle,
 } from '../utils/speech';
 import { GeminiLiveSession } from '../utils/geminiLive';
 import {getAiAccess,getAiStatus} from '../lib/api';
@@ -83,7 +85,8 @@ interface ChatTabProps {
   avatarState: AvatarState;
   isSpeaking: boolean;
   onReplayAudio: (text: string) => void;
-  onReadDevice?: (text: string) => void;
+  onReadDevice?: (text: string, callbacks?: DeviceSpeechCallbacks) => DeviceSpeechHandle | null;
+  onDeviceSpeechConsent?: () => boolean;
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
   onLoadSession?: (messages: ChatMessage[]) => void;
@@ -221,6 +224,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   isSpeaking,
   onReplayAudio,
   onReadDevice,
+  onDeviceSpeechConsent,
   onSelectPrompt,
   onResetChat,
   onLoadSession,
@@ -236,6 +240,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [onlinePreview,setOnlinePreview]=useState(publishedBuild);
   useEffect(()=>{let active=true;getAiStatus().then(s=>{if(active)setOnlinePreview(publishedBuild&&s.demo);}).catch(()=>{});return ()=>{active=false;};},[]);
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
+  const chatModeRef=useRef(chatMode);chatModeRef.current=chatMode;
   const voiceInput=useRef(''),voiceOutput=useRef('');
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
@@ -303,9 +308,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const vadRef = useRef<VoiceActivityDetector | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
-  const prevSpeakingRef = useRef(isSpeaking);
   const prevLoadingRef = useRef(isLoading);
-  const autoResumeTimerRef = useRef<number | null>(null);
+  const legacyCaptureVersion=useRef(0);
 
   const accumulatedTranscriptRef = useRef('');
   const latestFinalRef = useRef('');
@@ -328,6 +332,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const liveSessionRef = useRef<GeminiLiveSession | null>(null);
   const [liveSubtitle, setLiveSubtitle] = useState('');
   const [liveCheckedReply,setLiveCheckedReply]=useState('');
+  const liveCheckedReplyRef=useRef('');
+  const [deviceMode,setDeviceMode]=useState(false);
+  const deviceModeRef=useRef(false);
+  const [deviceReading,setDeviceReading]=useState(false);
+  const liveManualPauseRef=useRef(false);
+  const deviceReadVersion=useRef(0);
+  const deviceReadingRef=useRef<{id:number;session:GeminiLiveSession;handle:DeviceSpeechHandle|null}|null>(null);
+  const deviceReadHandler=useRef(onReadDevice);deviceReadHandler.current=onReadDevice;
+  const deviceConsentHandler=useRef(onDeviceSpeechConsent);deviceConsentHandler.current=onDeviceSpeechConsent;
+  const audioMutedRef=useRef(!!isAudioMuted);audioMutedRef.current=!!isAudioMuted;
   const [liveAvatarState, setLiveAvatarState] = useState<AvatarState | null>(null);
   const [liveIsSpeaking, setLiveIsSpeaking] = useState(false);
   const [livePaused,setLivePaused]=useState(false);
@@ -354,6 +368,85 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return 'idle';
   }, [interactionState, chatMode, liveAvatarState, avatarState]);
   const currentIsSpeaking = chatMode === 'live' ? liveIsSpeaking : isSpeaking;
+
+  const cancelDeviceReading=(resumeInput=false)=>{
+    const active=deviceReadingRef.current;
+    if(!active)return false;
+    deviceReadingRef.current=null;++deviceReadVersion.current;
+    active.handle?.cancel();
+    setDeviceReading(false);setLiveIsSpeaking(false);
+    if(liveSessionRef.current===active.session){
+      liveManualPauseRef.current=!resumeInput;
+      active.session.finishDevicePlayback(resumeInput);
+      setLivePaused(!resumeInput);
+      setInteractionState(resumeInput?'LISTENING':'IDLE');
+      setLiveAvatarState(resumeInput?'listening':'idle');
+    }
+    return true;
+  };
+
+  const readWithDevice=(text:string,chooseMode=false)=>{
+    const session=liveSessionRef.current,read=deviceReadHandler.current;
+    if(!session||!read||!text||text.length>1500||text!==liveCheckedReplyRef.current)return false;
+    const resumeOnEnd=chooseMode||!liveManualPauseRef.current;
+    cancelDeviceReading(false);
+    if(chooseMode)liveManualPauseRef.current=false;
+    session.beginDevicePlayback();setLivePaused(true);setMicVolume(0);
+    if(!chooseMode&&audioMutedRef.current){
+      session.finishDevicePlayback(false);setLiveUnavailable(true);
+      setSpeechFeedbackMsg('O som está silenciado. Ative o som para ouvir a resposta no aparelho.');
+      return false;
+    }
+    const active={id:++deviceReadVersion.current,session,handle:null as DeviceSpeechHandle|null};
+    deviceReadingRef.current=active;setDeviceReading(true);setInteractionState('PROCESSING');
+    let accepted=false;
+    let pending:{result:'end'|'error'|'cancel';message?:string}|null=null;
+    const current=()=>deviceReadingRef.current===active&&deviceReadVersion.current===active.id&&liveSessionRef.current===session;
+    const finish=(result:'end'|'error'|'cancel',message?:string)=>{
+      if(!accepted){pending={result,message};return;}
+      if(!current())return;
+      deviceReadingRef.current=null;
+      setDeviceReading(false);setLiveIsSpeaking(false);
+      const resume=result==='end'&&resumeOnEnd&&!liveManualPauseRef.current;
+      if(result!=='end')liveManualPauseRef.current=true;
+      session.finishDevicePlayback(resume);setLivePaused(!resume);
+      setInteractionState(resume?'LISTENING':'IDLE');
+      setLiveAvatarState(resume?'listening':'idle');
+      if(result==='error'){setLiveUnavailable(true);setSpeechFeedbackMsg(message||'A voz do aparelho está indisponível. Sua resposta continua por texto.');}
+      else if(result==='cancel')setSpeechFeedbackMsg('Leitura interrompida. O microfone está pausado.');
+    };
+    const handle=read(text,{
+      onStart:()=>{if(current()){setInteractionState('SPEAKING');setLiveIsSpeaking(true);setLiveAvatarState('speaking');}},
+      onEnd:()=>finish('end'),onError:message=>finish('error',message),onCancel:()=>finish('cancel'),
+    });
+    if(!handle){
+      if(current()){deviceReadingRef.current=null;++deviceReadVersion.current;setDeviceReading(false);session.finishDevicePlayback(false);setInteractionState('IDLE');setLiveIsSpeaking(false);setLiveAvatarState('idle');}
+      return false;
+    }
+    active.handle=handle;
+    if(chooseMode&&!session.setSpeechOutput('device')){cancelDeviceReading(false);setSpeechFeedbackMsg('A sessão de voz foi encerrada. Você pode continuar por texto.');return false;}
+    accepted=true;
+    deviceModeRef.current=true;setDeviceMode(true);
+    setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);
+    if(pending){const result=pending as {result:'end'|'error'|'cancel';message?:string};finish(result.result,result.message);}
+    return true;
+  };
+
+  const chooseDeviceVoice=()=>{
+    const session=liveSessionRef.current;
+    if(!session)return;
+    session.pauseMicrophone(true);setLivePaused(true);
+    // Changing output mode discards any unfinished utterance from the old mode.
+    session.interruptPlayback();
+    if(!deviceConsentHandler.current?.()){liveManualPauseRef.current=true;return;}
+    if(!session.setSpeechOutput('device')){setSpeechFeedbackMsg('A sessão de voz foi encerrada. Você pode continuar por texto.');return;}
+    deviceModeRef.current=true;setDeviceMode(true);
+    liveManualPauseRef.current=false;
+    setLiveRetryAt(0);setLiveUnavailable(false);setSpeechFeedbackMsg(null);
+    session.finishDevicePlayback(true);setLivePaused(false);
+  };
+
+  useEffect(()=>{if(isAudioMuted)cancelDeviceReading(false);},[isAudioMuted]);
 
   // Track online network status
   useEffect(() => {
@@ -402,6 +495,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     stopSpeaking();
     setLiveSubtitle('');
     setLiveCheckedReply('');
+    liveCheckedReplyRef.current='';
+    deviceModeRef.current=false;setDeviceMode(false);setDeviceReading(false);
+    liveManualPauseRef.current=false;
     setInterimSpeech('');
     setSpeechFeedbackMsg(null);
     setInteractionState('CONNECTING');
@@ -416,6 +512,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const session = new GeminiLiveSession({
       onStateChange: (state) => {
         if (disposed || liveSessionRef.current !== session) return;
+        if(deviceReadingRef.current?.session===session&&(state==='idle'||state==='listening'))return;
         switch (state) {
           case 'connecting':
             setInteractionState('CONNECTING');
@@ -456,9 +553,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       },
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
+        cancelDeviceReading(false);
         setInterimSpeech(text);
         setLiveSubtitle('');
         setLiveCheckedReply('');
+        liveCheckedReplyRef.current='';
         voiceInput.current=text;voiceOutput.current='';
       },
       onOutputTranscription: (text) => {
@@ -466,7 +565,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         setLiveSubtitle((prev) => prev + text);
         voiceOutput.current+=text;
       },
-      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current){setLiveCheckedReply(voiceOutput.current);saveVoiceTurn?.(voiceInput.current,voiceOutput.current);}voiceInput.current='';voiceOutput.current='';},
+      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current){liveCheckedReplyRef.current=voiceOutput.current;setLiveCheckedReply(voiceOutput.current);saveVoiceTurn?.(voiceInput.current,voiceOutput.current);}voiceInput.current='';voiceOutput.current='';},
+      onDeviceSpeech:text=>{
+        if(disposed||liveSessionRef.current!==session||!deviceModeRef.current)return;
+        if(!text||text.length>1500||text!==liveCheckedReplyRef.current||!deviceReadHandler.current){
+          session.finishDevicePlayback(false);setLivePaused(true);setLiveUnavailable(true);
+          setSpeechFeedbackMsg('A resposta não está pronta para leitura. Você pode continuar por texto.');
+          return;
+        }
+        if(!readWithDevice(text)){session.finishDevicePlayback(false);setLivePaused(true);}
+      },
       onInterrupted:()=>{if(disposed||liveSessionRef.current!==session)return;voiceInput.current='';voiceOutput.current='';setInterimSpeech('');setLiveSubtitle('');},
       onSpeechUnavailable:(message,retryAfterMs)=>{
         if(disposed||liveSessionRef.current!==session)return;
@@ -479,12 +587,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       },
       onError: (errMsg) => {
         if (disposed || liveSessionRef.current !== session) return;
+        cancelDeviceReading(false);
         setSpeechFeedbackMsg(errMsg);
         setLiveUnavailable(true);
         setMicPermissionError(/permissão|microfone/i.test(errMsg));
       },
       onClose: () => {
         if (disposed || liveSessionRef.current !== session) return;
+        cancelDeviceReading(false);
         liveSessionRef.current = null;
         setLiveAvatarState(null);
         setLiveIsSpeaking(false);
@@ -499,6 +609,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
     return () => {
       disposed = true;
+      if(deviceReadingRef.current?.session===session)cancelDeviceReading(false);
       session.stop();
       if (liveSessionRef.current === session) liveSessionRef.current = null;
       setMicVolume(0);
@@ -537,6 +648,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const stopListening = () => {
+    ++legacyCaptureVersion.current;
     if (silenceBufferTimerRef.current) {
       window.clearTimeout(silenceBufferTimerRef.current);
       silenceBufferTimerRef.current = null;
@@ -566,9 +678,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       }
     }
     return () => {
-      if (autoResumeTimerRef.current) {
-        window.clearTimeout(autoResumeTimerRef.current);
-      }
       if (silenceBufferTimerRef.current) {
         window.clearTimeout(silenceBufferTimerRef.current);
       }
@@ -626,9 +735,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const startListeningWithPermission = async (isRestart = false) => {
+    // Live capture belongs exclusively to GeminiLiveSession.
+    const legacyMode=()=>chatModeRef.current==='text'&&!liveSessionRef.current;
+    if(!legacyMode())return;
+    const captureVersion=++legacyCaptureVersion.current;
+    const captureCurrent=()=>captureVersion===legacyCaptureVersion.current&&legacyMode();
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!await voiceAllowed())return;
     const useProviderTranscription=['adult-synthetic','local-synthetic','adult-gemini'].includes((await getAiStatus()).ai?.mode||'');
+    if(!captureCurrent())return;
     // STATE MACHINE BLOCKER
     if (interactionState === 'PROCESSING' || isLoading) {
       console.warn('Cannot start listening while processing');
@@ -667,9 +782,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             autoGainControl: true,
           },
         });
+        if(!captureCurrent()){stream.getTracks().forEach(track=>track.stop());return;}
         mediaStreamRef.current = stream;
       }
     } catch (err: any) {
+      if(!captureCurrent())return;
       console.error('Erro de permissão no microfone (getUserMedia):', err);
       setMicPermissionError(true);
       setInteractionState('IDLE');
@@ -699,15 +816,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     });
 
     vad.onVolumeChange = (vol) => {
+      if(!captureCurrent())return;
       setMicVolume(vol);
     };
 
     vad.onVoiceStart = () => {
+      if(!captureCurrent())return;
       hasSpeechStartedRef.current = true;
       setInteractionState('USER_SPEAKING');
     };
 
     vad.onSilenceDetected = async () => {
+      if(!captureCurrent())return;
       setInteractionState('LISTENING');
 
       if (!hasSpeechStartedRef.current) return;
@@ -717,12 +837,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if (!currentRecorder) return;
 
       let audioBlob = await currentRecorder.stopAndGetBlob();
+      if(!captureCurrent())return;
       if(audioBlob&&useProviderTranscription){try{audioBlob=await recordingToWave(audioBlob);}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível preparar o áudio.');stopListening();return;}}
       const audioSize = audioBlob ? audioBlob.size : 0;
 
       if (audioBlob && audioSize > 100) {
         const reader = new FileReader();
         reader.onloadend = async () => {
+          if(!captureCurrent())return;
           const base64Audio = (reader.result as string).split(',')[1];
           try {
             const resp = await apiFetch('/api/transcribe', {
@@ -731,6 +853,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               body: JSON.stringify({ audio: base64Audio, mimeType: audioBlob.type }),
             });
             const data = await resp.json();
+            if(!captureCurrent())return;
             if(!resp.ok || data.status==='unavailable'){setSpeechFeedbackMsg('Transcrição indisponível. Use texto e tente mais tarde.');stopListening();return;}
             const text = (data.text || '').trim();
 
@@ -747,6 +870,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               }
             }
           } catch (err: any) {
+            if(!captureCurrent())return;
             setSpeechFeedbackMsg('Transcrição indisponível. Verifique a conexão e use texto.');
             setTimeout(() => setSpeechFeedbackMsg(null), 3000);
 
@@ -787,6 +911,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
       recognizerRef.current.start({
         onAudioStart: () => {
+          if(!captureCurrent())return;
           hasAudioStartedRef.current = true;
           if (audioTimeoutRef.current) {
             window.clearTimeout(audioTimeoutRef.current);
@@ -794,6 +919,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           }
         },
         onResult: (data) => {
+          if(!captureCurrent())return;
           const { interim, final, full } = data;
           latestInterimRef.current = interim;
           latestFinalRef.current = final;
@@ -839,24 +965,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (prevSpeakingRef.current && !isSpeaking && chatMode === 'live' && !isAudioMuted && !isLoading) {
-      autoResumeTimerRef.current = window.setTimeout(() => {
-        if (!isListening && !isSendingRef.current && !isManuallyPausedRef.current) {
-          startListeningWithPermission();
-        }
-        autoResumeTimerRef.current = null;
-      }, 200);
-      return () => {
-        if (autoResumeTimerRef.current) {
-          window.clearTimeout(autoResumeTimerRef.current);
-          autoResumeTimerRef.current = null;
-        }
-      };
-    }
-    prevSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, chatMode, isAudioMuted, isLoading]);
-
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file=e.target.files?.[0];e.target.value='';if(!file)return;
     try{setSelectedImage(await prepareImage(file));}catch(e){setSpeechFeedbackMsg(e instanceof Error?e.message:'Imagem indisponível.');}
@@ -887,15 +995,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleInterruptSpeech = () => {
+    if(chatMode==='live'&&cancelDeviceReading(true)){setSpeechFeedbackMsg(null);return;}
     if(chatMode==='live'){liveSessionRef.current?.interruptPlayback();return;}
     stopSpeaking();
   };
 
   const toggleMicListening = async () => {
     if(chatMode==='live'){
+      if(cancelDeviceReading(false)){setSpeechFeedbackMsg('Microfone pausado. Toque no microfone para continuar.');return;}
       if(liveRetryAt>Date.now())return;
       if(!liveSessionRef.current){setLiveSessionVersion(v=>v+1);return;}
       const next=!livePaused;
+      liveManualPauseRef.current=next;
       liveSessionRef.current.pauseMicrophone(next);
       setLivePaused(next);
       if(!next&&liveUnavailable){setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);}
@@ -935,12 +1046,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // Create new chat
   const endLiveConversation=()=>{
+    cancelDeviceReading(false);
     const session=liveSessionRef.current;
     liveSessionRef.current=null;
     session?.stop();
     voiceInput.current='';voiceOutput.current='';
     setLiveIsSpeaking(false);setLivePaused(false);setMicVolume(0);
     setLiveRetryAt(0);setLiveUnavailable(false);setLiveSubtitle('');setLiveCheckedReply('');setInterimSpeech('');
+    liveCheckedReplyRef.current='';deviceModeRef.current=false;setDeviceMode(false);setDeviceReading(false);
     if(chatMode==='live')setChatMode('text');
   };
 
@@ -1047,11 +1160,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
     if (currentIsSpeaking) {
       return {
-        text: chatMode==='live'&&!livePaused?'Pode me interromper falando':'A Vigia está falando…',
+        text: deviceMode?'Interrompa pelo botão':chatMode==='live'&&!livePaused?'Pode me interromper falando':'A Vigia está falando…',
         color: 'bg-sky-500/20 text-sky-300 border-sky-400/40',
         icon: <Volume2 className="w-3.5 h-3.5 text-sky-400 animate-pulse shrink-0" />,
       };
     }
+    if(chatMode==='live'&&livePaused)return {
+      text:'Microfone pausado',
+      color:'bg-amber-500/20 text-amber-300 border-amber-500/40',
+      icon:<MicOff className="w-3.5 h-3.5 text-amber-400 shrink-0"/>,
+    };
     if (isListening) {
       return {
         text: isSpeakingUser ? 'Estou ouvindo...' : 'Pode falar!',
@@ -1158,7 +1276,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             {/* Mode Switcher Segmented Control */}
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-0.5 shadow-inner">
               <button
-                onClick={() => setChatMode('text')}
+                onClick={endLiveConversation}
                 aria-label="Conversa por texto"
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
                   chatMode === 'text'
@@ -1635,14 +1753,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           {chatMode==='live'&&speechFeedbackMsg&&<div className="shrink-0 px-4 py-3 text-sm text-amber-100 bg-amber-900/40 border-b border-amber-500/30">
             <p role="alert">{speechFeedbackMsg}</p>
             {liveUnavailable&&<div className="mt-2 flex flex-wrap items-center gap-2">
-              <button onClick={()=>setChatMode('text')} className="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 cursor-pointer">Continuar por texto</button>
-              {onReadDevice&&liveCheckedReply&&liveSubtitle===liveCheckedReply&&<button onClick={()=>{const reply=liveCheckedReply;endLiveConversation();onReadDevice(reply);}} className="px-3 py-2 rounded-xl border border-sky-400/50 text-sky-100 font-semibold hover:bg-sky-500/10 cursor-pointer">Ouvir no aparelho</button>}
+              <button onClick={endLiveConversation} className="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 cursor-pointer">Continuar por texto</button>
+              {onReadDevice&&liveSessionRef.current&&liveCheckedReply&&liveSubtitle===liveCheckedReply&&<button onClick={()=>readWithDevice(liveCheckedReply,true)} className="px-3 py-2 rounded-xl border border-sky-400/50 text-sky-100 font-semibold hover:bg-sky-500/10 cursor-pointer">Usar voz do aparelho</button>}
               <button onClick={()=>void toggleMicListening()} disabled={liveRetryWaiting} className="px-3 py-2 rounded-xl border border-amber-500/50 font-semibold enabled:hover:bg-amber-500/10 enabled:cursor-pointer disabled:opacity-60">{liveRetryWaiting?`Tentar voz em ${liveRetrySeconds||Math.ceil((liveRetryAt-Date.now())/1000)} s`:'Tentar voz novamente'}</button>
               <span className="text-xs text-amber-100/80">{liveSubtitle?'A resposta continua disponível na conversa.':'Você pode continuar escrevendo.'}</span>
             </div>}
           </div>}
           {chatMode === 'live' ? (
             <div className="flex-1 min-h-0 min-w-0 bg-slate-950 flex flex-col relative overflow-hidden">
+              {!deviceMode&&onDeviceSpeechConsent&&isListening&&<div className="shrink-0 px-3 py-1.5 flex justify-end">
+                <button onClick={chooseDeviceVoice} className="text-xs px-2.5 py-1.5 rounded-lg border border-sky-400/30 text-sky-200 hover:bg-sky-500/10 cursor-pointer">Voz do aparelho</button>
+              </div>}
+              {deviceMode&&<div role="status" className="shrink-0 px-3 py-2 text-center text-xs text-sky-200 bg-sky-950/40 border-b border-sky-500/20">
+                <span className="font-bold">Voz do aparelho</span>{deviceReading?' · Microfone pausado · interrompa pelo botão':''}
+              </div>}
               
               {/* ZONA SUPERIOR: FAIXA DE LEGENDAS (Ocupa espaço apenas se ativada) */}
               <AnimatePresence>
@@ -1742,8 +1866,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
                       }`}
                       disabled={interactionState==='CONNECTING'||liveRetryWaiting}
-                      title={liveMicrophoneActive ? 'Pausar Conversa' : 'Ativar Conversa'}
-                      aria-label={interactionState==='CONNECTING'?'Conectando microfone':liveMicrophoneActive?'Pausar microfone':liveUnavailable?'Tentar voz novamente':'Ativar microfone'}
+                      title={deviceReading||liveMicrophoneActive ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      aria-label={interactionState==='CONNECTING'?'Conectando microfone':deviceReading?'Pausar conversa e interromper leitura':liveMicrophoneActive?'Pausar microfone':liveUnavailable?'Tentar voz novamente':'Ativar microfone'}
                       aria-pressed={liveMicrophoneActive}
                     >
                       {liveMicrophoneActive ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}

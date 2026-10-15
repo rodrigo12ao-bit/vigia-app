@@ -85,6 +85,7 @@ export interface GeminiLiveCallbacks {
   onInputLevel?: (rms: number) => void;
   onError?: (errorMsg: string) => void;
   onSpeechUnavailable?: (message: string, retryAfterMs?: number) => void;
+  onDeviceSpeech?: (text: string) => void;
   onClose?: () => void;
 }
 
@@ -124,6 +125,8 @@ export class GeminiLiveSession {
   private muted=false;
   private outputGain:GainNode|null=null;
   private lastInputLevelEmit = 0;
+  private speechOutput:'cloud'|'device'='cloud';
+  private devicePlaybackPending=false;
 
   constructor(callbacks: GeminiLiveCallbacks) {
     this.callbacks = callbacks;
@@ -296,6 +299,15 @@ export class GeminiLiveSession {
         this.callbacks.onSpeechUnavailable?.(payload.message||'A resposta está disponível por texto, mas a voz está indisponível.',retryAfterMs);
         return;
       }
+      case 'speech_output':
+        if(payload.mode==='cloud'||payload.mode==='device')this.speechOutput=payload.mode;
+        return;
+      case 'speech_on_device':
+        if(this.speechOutput==='device'&&typeof payload.text==='string'&&payload.text.trim()){
+          this.beginDevicePlayback();
+          this.callbacks.onDeviceSpeech?.(payload.text);
+        }
+        return;
 
       case 'emergency':
         this.callbacks.onOutputTranscription?.(payload.text);
@@ -555,7 +567,7 @@ export class GeminiLiveSession {
   }
 
   private finishTurnWhenPlaybackEnds(): void {
-    if (!this.serverTurnComplete || this.activeSources.length > 0) return;
+    if (!this.serverTurnComplete || this.activeSources.length > 0 || this.devicePlaybackPending) return;
 
     console.log('[GeminiLive] Geração e reprodução concluídas');
     if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'playback_ended'}));
@@ -603,6 +615,27 @@ export class GeminiLiveSession {
     for(const track of this.mediaStream.getAudioTracks())track.enabled=!paused;
     if(paused&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));
     if(this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
+  }
+
+  public setSpeechOutput(mode:'device'|'cloud'):boolean{
+    if(!this.streamedSpeech||this.stopped||this.ws?.readyState!==WebSocket.OPEN)return false;
+    try{this.ws.send(JSON.stringify({type:'speech_output',mode}));}catch{return false;}
+    this.speechOutput=mode;
+    return true;
+  }
+
+  public beginDevicePlayback():void{
+    this.devicePlaybackPending=true;
+    this.pauseMicrophone(true);
+  }
+
+  public finishDevicePlayback(resumeInput:boolean):void{
+    this.devicePlaybackPending=false;
+    this.serverTurnComplete=false;
+    if(this.stopped)return;
+    if(resumeInput)this.pauseMicrophone(false);
+    else this.setState('idle');
+    this.callbacks.onAvatarStateChange?.(resumeInput?'listening':'idle');
   }
 
   public interruptPlayback():void{
@@ -657,6 +690,7 @@ export class GeminiLiveSession {
   private async cleanupResources(): Promise<void> {
     if (this.cleanupDone) return;
     this.cleanupDone = true;
+    this.devicePlaybackPending=false;
     this.stopAudioPlayback();
     this.pcmBuffer = [];
 

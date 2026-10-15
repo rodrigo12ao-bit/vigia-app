@@ -7,7 +7,7 @@ const { geminiEnv } = require('../scripts/gemini-env.cjs');
 // This test verifies recovery and history isolation; it never invokes real AI.
 const online = process.env.VIGIA_TEST_URL === 'https://vigia-app.onrender.com';
 if (process.env.VIGIA_TEST_URL && !online) throw Error('Endereço externo não autorizado para este teste.');
-const port = '3116';
+const port = '3114';
 const root = online ? process.env.VIGIA_TEST_URL : 'http://localhost:' + port;
 const artifactPrefix = online ? 'voice-recovery-online' : 'voice-recovery';
 const report = {
@@ -181,8 +181,8 @@ async function startVoice(expectedSocketCount) {
           addEventListener() {}, removeEventListener() {},
           speak(utterance) {
             window.recoveryDeviceSpeech.push({ text: utterance.text,
-              microphoneStopped: window.recoveryTracks.every(track => track.readyState === 'ended'),
-              socketsClosed: window.recoverySockets.every(socket => socket.readyState === 3) });
+              microphonePaused: window.recoveryTracks.filter(track => track.readyState === 'live').every(track => !track.enabled),
+              socketOpen: window.recoverySockets.at(-1)?.readyState === 1 });
             const timer = setTimeout(() => { speechTimers.delete(timer); utterance.onstart?.(); utterance.onend?.(); }, 0);
             speechTimers.add(timer);
           },
@@ -212,6 +212,7 @@ async function startVoice(expectedSocketCount) {
           send(data) {
             const message = JSON.parse(data); this.sent.push(message);
             if (message.type === 'realtime_audio') window.recoveryFrames++;
+            if (message.type === 'speech_output') setTimeout(() => this.emit({ type: 'speech_output', mode: message.mode }), 0);
           }
           close() { this.readyState = 3; this.onclose?.(); }
         };
@@ -354,7 +355,7 @@ async function startVoice(expectedSocketCount) {
         { type: 'speech_unavailable', code: 'quota', message: 'Falha de voz simulada antes de confirmar a resposta.', retryAfterMs: 0 },
       ]);
       await page.waitForFunction(() => document.body.innerText.includes('Falha de voz simulada antes de confirmar a resposta.'));
-      assert.ok(await page.evaluate(() => !Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Ouvir no aparelho')),
+      assert.ok(await page.evaluate(() => !Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Usar voz do aparelho')),
         'Uma transcrição parcial sem reply_ready ou conclusão não pode oferecer leitura no aparelho.');
       assert.equal(await page.evaluate(() => window.recoveryDeviceSpeech.length), 0);
       report.results.push({ name: label + ': fragmento ainda não verificado não oferece nem executa leitura no aparelho', status: 'passed' });
@@ -369,41 +370,51 @@ async function startVoice(expectedSocketCount) {
         { type: 'turn_complete' },
       ]);
       acceptDeviceConsent = false;
-      await clickButton('Ouvir no aparelho');
-      await page.waitForSelector('textarea');
-      await expectReleased();
+      await clickButton('Usar voz do aparelho');
+      await page.waitForFunction(() => window.recoveryTracks.filter(track => track.readyState === 'live').every(track => !track.enabled));
       assert.equal(deviceConsentDialogs.length, 1);
       assert.match(deviceConsentDialogs[0], /serviços do fabricante/);
       assert.equal(await page.evaluate(() => window.recoveryDeviceSpeech.length), 0);
       assert.equal(await page.evaluate(() => localStorage.getItem('vigia_reading_voice_consent:guest')), null);
+      assert.equal(await page.evaluate(() => window.recoverySockets.length), 5);
+      assert.equal(await page.evaluate(() => window.recoverySockets.at(-1).readyState), 1);
+      assert.equal(await page.evaluate(() => window.recoverySockets.at(-1).sent.filter(message => message.type === 'speech_output').length), 0);
       await expectSavedOnce(deviceInput, deviceReply);
-      report.results.push({ name: label + ': recusar consentimento de leitura encerra a captura e preserva texto sem reproduzir voz', status: 'passed' });
+      report.results.push({ name: label + ': recusar consentimento preserva sessão pausada e texto, sem reproduzir voz nem selecionar modo', status: 'passed' });
 
-      await startVoice(6);
-      const acceptedInput = 'Nova pergunta fictícia para ouvir a resposta completa.';
-      const acceptedReply = 'Esta resposta integral é a frase verificada da simulação. A leitura respeita exatamente esse texto.';
-      await completeCheckedReply(acceptedInput, acceptedReply);
-      await emit([
-        { type: 'speech_unavailable', code: 'quota', message: 'Síntese simulada indisponível para validar leitura opcional.', retryAfterMs: 0 },
-        { type: 'turn_complete' },
-      ]);
       acceptDeviceConsent = true;
-      await clickButton('Ouvir no aparelho');
-      await page.waitForSelector('textarea');
+      await clickButton('Usar voz do aparelho');
       await page.waitForFunction(() => window.recoveryDeviceSpeech.length === 2);
       const spoken = await page.evaluate(() => window.recoveryDeviceSpeech);
       assert.equal(deviceConsentDialogs.length, 2);
-      assert.equal(spoken.map(chunk => chunk.text).join(' '), acceptedReply,
+      assert.equal(spoken.map(chunk => chunk.text).join(' '), deviceReply,
         'A leitura deve usar a resposta verificada integral, sem substituir por frase pronta.');
-      assert.ok(spoken.every(chunk => chunk.microphoneStopped && chunk.socketsClosed),
-        'A conexão e o microfone devem estar encerrados antes de qualquer leitura no aparelho.');
+      assert.ok(spoken.every(chunk => chunk.microphonePaused && chunk.socketOpen),
+        'O microfone deve ficar pausado durante a leitura, com a mesma conexão aberta.');
       assert.equal(await page.evaluate(() => localStorage.getItem('vigia_reading_voice_consent:guest')), 'true');
-      await expectReleased();
+      await page.waitForFunction(() => window.recoveryTracks.some(track => track.readyState === 'live' && track.enabled));
+      assert.equal(await page.evaluate(() => window.recoverySockets.length), 5);
+      assert.equal(await page.evaluate(() => window.recoverySockets.at(-1).sent.filter(message => message.type === 'speech_output' && message.mode === 'device').length), 1);
+      await expectSavedOnce(deviceInput, deviceReply);
+      report.results.push({ name: label + ': voz do aparelho com consentimento lê a resposta integral, pausa captura e preserva a mesma sessão', status: 'passed' });
+
+      const acceptedInput = 'Nova pergunta fictícia para ouvir a resposta completa.';
+      const acceptedReply = 'Esta resposta integral é a frase verificada da simulação. A leitura respeita exatamente esse texto.';
+      await completeCheckedReply(acceptedInput, acceptedReply);
+      await emit([{ type: 'speech_on_device', text: acceptedReply }, { type: 'turn_complete' }]);
+      await page.waitForFunction(() => window.recoveryDeviceSpeech.length === 4);
+      assert.equal(await page.evaluate(() => window.recoveryDeviceSpeech.slice(2).map(chunk => chunk.text).join(' ')), acceptedReply);
+      assert.equal(deviceConsentDialogs.length, 2, 'O consentimento existente não deve ser solicitado de novo na mesma conversa.');
+      assert.equal(await page.evaluate(() => window.recoverySockets.length), 5);
+      await page.waitForFunction(() => window.recoveryTracks.some(track => track.readyState === 'live' && track.enabled));
       await expectSavedOnce(acceptedInput, acceptedReply);
       assert.ok(await page.evaluate(fragment => !JSON.stringify(JSON.parse(localStorage.getItem('vigia_guest_chat_sessions_v1') || '[]')).includes(fragment), uncheckedFragment),
         'A transcrição parcial não deve ser salva como resposta verificada.');
       assert.deepEqual(blockedAiRequests, [], 'A leitura opcional não deve pedir síntese, transcrição ou qualquer outro endpoint de IA.');
-      report.results.push({ name: label + ': leitura opcional com consentimento reproduz a resposta integral, após encerrar microfone e conexão, sem chamar a IA', status: 'passed' });
+      report.results.push({ name: label + ': resposta seguinte mantém contexto e leitura integral na mesma sessão, sem pedir síntese à IA', status: 'passed' });
+      await page.click('[aria-label="Conversa por texto"]');
+      await page.waitForSelector('textarea');
+      await expectReleased();
       assert.deepEqual(pageErrors, [], 'A recuperação não deve gerar exceções na página.');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
       await page.screenshot({ path: 'artifacts/' + artifactPrefix + '-' + label + '.png', fullPage: true });
