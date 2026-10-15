@@ -1,0 +1,12 @@
+{
+  "project": "vigia-aplicativo-7ba1a",
+  "domain": "vigia-aplicativo-18plus.netlify.app",
+  "status": "blocked",
+  "phase": "read_domains",
+  "checkedAt": "2026-10-15T19:35:18.898Z",
+  "explicitUserAuthorizationReceived": true,
+  "patchRequestsSent": 0,
+  "changesApplied": false,
+  "httpStatus": 500,
+  "reason": "request_failed_no_terms_or_permissions_changed"
+}

@@ -1,0 +1,23 @@
+{
+  "url": "https://vigia-aplicativo-18plus.netlify.app",
+  "verifiedAt": "2026-10-15T19:20:08.624Z",
+  "revision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+  "entry": "/assets/index-CMRAQAUI.js",
+  "sha256": "290fa357562a8becc29389580ce80131e4798e7e4b8325e1908941d0f86f1ac7",
+  "status": {
+    "demo": false,
+    "audience": "18plus",
+    "localDemo": false,
+    "realAI": true,
+    "firebase": "cloud",
+    "ai": {
+      "mode": "adult-gemini",
+      "provider": "gemini",
+      "blocked": null,
+      "consentVersion": "2026-10-13-gemini-adults-free-v1",
+      "voice": true
+    }
+  },
+  "elapsedMs": 2711,
+  "coldStartBenchmark": false
+}

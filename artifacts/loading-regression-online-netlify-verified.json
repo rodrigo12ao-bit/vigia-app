@@ -1,0 +1,1262 @@
+{
+  "url": "https://vigia-aplicativo-18plus.netlify.app",
+  "startedAt": "2026-10-15T19:31:24.317Z",
+  "scope": "Regressão de carregamento desktop/celular emulado. /api/status e sessão guest simulados explicitamente; nenhum serviço de IA, conta real, escrita Firebase ou microfone. Assets e service worker reais. Offline não equivale à instalação em aparelho físico.",
+  "results": [
+    {
+      "name": "desktop: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    }
+  ],
+  "contexts": [
+    {
+      "id": "desktop-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "setup",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/AuthModal-CbRVaNE8.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ProfileModal-DFC8MtCF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/BadgesModal-luUvRdAp.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "desktop-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "https://vigia-aplicativo-18plus.netlify.app/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-aplicativo-18plus.netlify.app/",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/index.html",
+            "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+            "https://vigia-aplicativo-18plus.netlify.app/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-aplicativo-18plus.netlify.app/",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/index.html",
+            "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+            "https://vigia-aplicativo-18plus.netlify.app/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mobile-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/AuthModal-CbRVaNE8.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ProfileModal-DFC8MtCF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/BadgesModal-luUvRdAp.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "mobile-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "https://vigia-aplicativo-18plus.netlify.app/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+        "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-aplicativo-18plus.netlify.app/",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/index.html",
+            "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+            "https://vigia-aplicativo-18plus.netlify.app/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-aplicativo-18plus.netlify.app/",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/index.html",
+            "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+            "https://vigia-aplicativo-18plus.netlify.app/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/LearningCenter-BdD8MjF6.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/topics-DAmBaSGq.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/ChatTab-frot7fOS.js",
+            "https://vigia-aplicativo-18plus.netlify.app/assets/geminiLive-CAcknW92.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    }
+  ],
+  "authResetObservations": [
+    {
+      "profile": "desktop",
+      "startedAt": "2026-10-15T19:31:32.536Z",
+      "polling": "raf",
+      "timeoutMs": 5000,
+      "initial": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": false,
+        "passwordCleared": false,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "waitTimedOut": true,
+      "afterTimeout": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": true,
+        "passwordCleared": true,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "timingVerified": false,
+      "note": "RAF wait exceeded5s; immediate independent DOM read found both unique visible fields cleared. Reset functionality verified, <=5s timing not established.",
+      "elapsedMs": 5133,
+      "final": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": true,
+        "passwordCleared": true,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      }
+    },
+    {
+      "profile": "mobile",
+      "startedAt": "2026-10-15T19:32:02.721Z",
+      "polling": "raf",
+      "timeoutMs": 5000,
+      "initial": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": true,
+        "passwordCleared": true,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "waitTimedOut": false,
+      "elapsedMs": 3,
+      "final": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": true,
+        "passwordCleared": true,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "timingVerified": true
+    }
+  ],
+  "authOnly": false,
+  "status": "passed",
+  "finishedAt": "2026-10-15T19:32:08.580Z"
+}

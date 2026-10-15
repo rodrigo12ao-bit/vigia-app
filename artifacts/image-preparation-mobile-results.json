@@ -1,0 +1,34 @@
+{
+  "scope": "Actual built Netlify React UI served locally, desktop/mobile emulation. Image decoding is explicitly delayed; every API response is simulated and all external traffic is blocked. No real AI, account, microphone, Vite server or production deployment.",
+  "results": [
+    {
+      "name": "mobile: decoding blocks Enter, button and programmatic submit without losing draft",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: failed replacement preserves the previous image and draft",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: a late older selection cannot overwrite the latest prepared image",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: cancel history keeps image/text; confirmed switch discards late image only",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: removing an image cancels preparation and prevents preview revival",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: new conversation invalidates an old preparation",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: leaving Chat invalidates preparation without erasing the text draft",
+      "status": "passed"
+    }
+  ],
+  "status": "passed"
+}

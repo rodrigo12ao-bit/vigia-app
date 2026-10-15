@@ -1,0 +1,179 @@
+{
+  "url": "https://vigia-aplicativo-18plus.netlify.app",
+  "startedAt": "2026-10-15T19:29:56.722Z",
+  "scope": "Regressão de carregamento desktop/celular emulado. /api/status e sessão guest simulados explicitamente; nenhum serviço de IA, conta real, escrita Firebase ou microfone. Assets e service worker reais. Offline não equivale à instalação em aparelho físico.",
+  "results": [
+    {
+      "name": "desktop: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    }
+  ],
+  "contexts": [
+    {
+      "id": "desktop-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "setup",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-CMRAQAUI.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-Kd3RmAIh.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/App-DugQOb65.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-firebase-auth-DodbUaJM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/HomeTab-Ccorc1Vw.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/useLearning-Cgl_Ss7n.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-aplicativo-18plus.netlify.app/assets/AuthModal-CbRVaNE8.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    }
+  ],
+  "authResetObservations": [
+    {
+      "profile": "desktop",
+      "startedAt": "2026-10-15T19:30:41.728Z",
+      "polling": "raf",
+      "timeoutMs": 5000,
+      "initial": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": false,
+        "passwordCleared": false,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "waitTimedOut": false,
+      "elapsedMs": 1271,
+      "final": {
+        "emailExists": true,
+        "passwordExists": true,
+        "emailCount": 1,
+        "passwordCount": 1,
+        "emailIsInput": true,
+        "passwordIsInput": true,
+        "emailCleared": true,
+        "passwordCleared": true,
+        "emailVisible": true,
+        "passwordVisible": true,
+        "visibilityState": "visible"
+      },
+      "timingVerified": true
+    }
+  ],
+  "authOnly": true,
+  "status": "passed",
+  "finishedAt": "2026-10-15T19:30:43.959Z"
+}

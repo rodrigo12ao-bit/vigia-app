@@ -1,11 +1,19 @@
 const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
 const assert=require('node:assert/strict');
 const origin='http://localhost:3133';
+const publicDir=path.resolve('dist/netlify/public');
+if(process.argv.slice(2).some(value=>value!=='--mobile-only'))throw Error('Unknown option.');
+const mobileOnly=process.argv.includes('--mobile-only');
 const status={demo:false,realAI:true,audience:'18plus',ai:{mode:'adult-gemini',provider:'gemini',blocked:null,consentVersion:'fixture-image-only',voice:true}};
-const report={scope:'Actual development React UI, desktop/mobile emulation. Image decoding is explicitly delayed; every API response is simulated and all external traffic is blocked. No real AI, account, microphone or production build.',results:[],status:'running'};
+const report={scope:'Actual built Netlify React UI served locally, desktop/mobile emulation. Image decoding is explicitly delayed; every API response is simulated and all external traffic is blocked. No real AI, account, microphone, Vite server or production deployment.',results:[],status:'running'};
 const requests=[];let server,browser,page;
+let timedOut=false;
+const totalBudget=setTimeout(()=>{timedOut=true;server?.closeAllConnections();if(page)void page.close().catch(()=>{});else if(browser)void browser.close().catch(()=>{});},110000);
+totalBudget.unref();
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function check(name,run){await run();report.results.push({name,status:'passed'});console.log('PASS '+name);}
+async function check(name,run){console.log('RUN '+name);await run();report.results.push({name,status:'passed'});console.log('PASS '+name);}
 async function select(color,name){
   return page.evaluate(async({color,name})=>{
     const canvas=document.createElement('canvas');canvas.width=64;canvas.height=64;
@@ -23,12 +31,21 @@ async function submit(){await page.$eval('textarea',element=>element.closest('fo
 async function imageSource(){return page.$eval('img[alt="Prévia"]',element=>element.src);}
 
 (async()=>{try{
-  process.env.VITE_FIREBASE_MODE='cloud';process.env.VITE_AUDIENCE='18plus';process.env.DISABLE_HMR='true';
-  server=await(await import('vite')).createServer({mode:'publication',server:{host:'localhost',port:3133,strictPort:true,hmr:false}});await server.listen();
+  assert.ok(fs.existsSync(path.join(publicDir,'index.html')),'Build the Netlify package first.');
+  const assets=path.join(publicDir,'assets'),chatFile=fs.readdirSync(assets).find(file=>/^ChatTab-.*\.js$/.test(file));
+  assert.ok(chatFile&&fs.readFileSync(path.join(assets,chatFile),'utf8').includes('Aguarde antes de enviar'),'The built Chat must include the image preparation guard.');
+  server=http.createServer((request,response)=>{
+    const pathname=new URL(request.url,origin).pathname;
+    const file=path.resolve(publicDir,'.'+decodeURIComponent(pathname==='/'?'/index.html':pathname));
+    if(!file.startsWith(publicDir+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){response.writeHead(404);response.end('Local fixture: not found.');return;}
+    const type={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.glb':'model/gltf-binary','.webmanifest':'application/manifest+json'}[path.extname(file)]||'application/octet-stream';
+    response.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store'});fs.createReadStream(file).pipe(response);
+  });
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(3133,'localhost',resolve);});
   browser=await(await import('puppeteer')).default.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--mute-audio']});
   const adultVersion=fs.readFileSync('src/lib/audience.ts','utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];assert.ok(adultVersion);
-  for(const mode of ['desktop','mobile']){
-    const context=await browser.createBrowserContext();page=await context.newPage();page.setDefaultTimeout(30000);page.setDefaultNavigationTimeout(120000);let acceptDialogs=true;page.on('dialog',dialog=>acceptDialogs?dialog.accept():dialog.dismiss());
+  for(const mode of (mobileOnly?['mobile']:['desktop','mobile'])){
+    const context=await browser.createBrowserContext();page=await context.newPage();page.setDefaultTimeout(90000);page.setDefaultNavigationTimeout(120000);let acceptDialogs=true;page.on('dialog',dialog=>acceptDialogs?dialog.accept():dialog.dismiss());
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport(mode==='desktop'?{width:1280,height:900}:{width:390,height:844,isMobile:true,hasTouch:true});
     await page.evaluateOnNewDocument(version=>{
@@ -105,5 +122,10 @@ async function imageSource(){return page.$eval('img[alt="Prévia"]',element=>ele
     await context.close();page=undefined;
   }
   report.status='passed';
-}catch(error){report.status='failed';report.error=error.message;process.exitCode=1;if(page){await page.screenshot({path:'artifacts/image-preparation-failure.png',fullPage:true}).catch(()=>{});fs.writeFileSync('artifacts/image-preparation-failure.txt',await page.$eval('body',element=>element.innerText).catch(()=>''));}console.error(error.message);
-}finally{await browser?.close();await server?.close();fs.mkdirSync('artifacts',{recursive:true});fs.writeFileSync('artifacts/image-preparation-results.json',JSON.stringify(report,null,2));}})();
+}catch(error){report.status='failed';report.error=timedOut?'Limite total de 110 segundos atingido; nenhuma repetição automática.':error.message;process.exitCode=1;if(page){await page.screenshot({path:'artifacts/image-preparation-failure.png',fullPage:true}).catch(()=>{});fs.writeFileSync('artifacts/image-preparation-failure.txt',await page.$eval('body',element=>element.innerText).catch(()=>''));}console.error(report.error);
+}finally{
+  clearTimeout(totalBudget);
+  if(browser){let deadline;try{await Promise.race([browser.close(),new Promise(resolve=>deadline=setTimeout(resolve,10000))]);}finally{clearTimeout(deadline);if(browser.process()?.exitCode===null)browser.process().kill();}}
+  server?.closeAllConnections();if(server)await new Promise(resolve=>server.close(resolve));
+  fs.mkdirSync('artifacts',{recursive:true});fs.writeFileSync('artifacts/image-preparation'+(mobileOnly?'-mobile':'')+'-results.json',JSON.stringify(report,null,2));
+}})();

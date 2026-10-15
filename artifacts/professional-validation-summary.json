@@ -1,0 +1,353 @@
+{
+  "recordedAt": "2026-10-15T17:55:16.921Z",
+  "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+  "publicationProof": "artifacts/professional-public-revision-netlify-50c28a3.json",
+  "publicationProofNote": "Netlify is the current public frontend; Render remains the verified API server and previous public URL. Publication HTTP proofs do not substitute functional or hardware validation.",
+  "previousPublicationProof": "artifacts/professional-public-revision-proof.json",
+  "previousSourceRevision": "4e3a7023c3d702483960c848cf1e86001fb36a76",
+  "primaryUrl": "https://vigia-aplicativo-18plus.netlify.app",
+  "currentRenderPublication": {
+    "url": "https://vigia-app.onrender.com",
+    "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+    "deployment": "dep-db8idd6i0phs73fpktug",
+    "status": "live",
+    "entry": "/assets/index-L2qtY4Mx.js",
+    "proof": "artifacts/professional-public-revision-render-50c28a3.json",
+    "verification": "Render Live state, build/startup release guards and public entry/hash verified; not a controlled cold-start benchmark."
+  },
+  "previousRenderPublication": {
+    "url": "https://vigia-app.onrender.com",
+    "sourceRevision": "225f90bcb2459600e8e2345486bdab7f9f0eb3d4",
+    "deployment": "dep-db8i21ss728c738pmjt0",
+    "status": "live",
+    "entry": "/assets/index-W6BWHvLS.js",
+    "verification": "Root verified Render Live state, build/startup release guards and the public entry. Not a controlled cold-start benchmark."
+  },
+  "scope": "Published free-only Netlify frontend and Render backend; distinguishes real public UI/voice proofs, simulated loading/PWA checks, prior failures and outstanding Google sign-in/hardware/capacity limits.",
+  "automated": {
+    "core": 35,
+    "aiMocks": 91,
+    "publicationConfig": 5,
+    "voiceClient": 10,
+    "resilience": 70,
+    "firebaseRulesEmulator": 12,
+    "buildGraph": 15,
+    "edgeWorkerd": 7,
+    "netlifySupport": 28,
+    "browserTargetGuards": 19,
+    "previousTotal": 240,
+    "total": 292,
+    "countingNote": "Previous 240 + 5 new voice cases + 28 Netlify cases + 19 browser target cases. The 10 voice client cases already belong to the previous 240 and are not added again.",
+    "failed": 0
+  },
+  "localBackendEmulator": {
+    "passed": 6,
+    "failed": 0,
+    "report": "artifacts/professional-adult-api-final.json"
+  },
+  "browserFixtures": {
+    "loadingOffline": 32,
+    "conversationPersistenceAndUpdate": 14,
+    "edgeBackendHeldOrUnavailable": 10,
+    "total": 56,
+    "failed": 0,
+    "reports": [
+      "artifacts/loading-regression-local-professional-final.json",
+      "artifacts/conversation-persistence-browser.json",
+      "artifacts/professional-edge-opening.json"
+    ]
+  },
+  "dependencyAudit": {
+    "knownVulnerabilities": 0,
+    "report": "artifacts/professional-dependency-audit.json"
+  },
+  "builds": [
+    "publication",
+    "presentation",
+    "edge",
+    "netlify"
+  ],
+  "staticHosting": {
+    "provider": "Netlify",
+    "status": "published-presentation-flows-verified-on-emulated-clients",
+    "siteName": "vigia-aplicativo-18plus",
+    "expectedUrl": "https://vigia-aplicativo-18plus.netlify.app",
+    "publicUrlAvailable": true,
+    "publicFlowsValidated": {
+      "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+      "environment": "Interface checks: Chrome desktop and mobile emulation. Real three-turn Google voice on Netlify: mobile emulation only, 390x844, adult synthetic virtual input.",
+      "emailPasswordLogin": true,
+      "guestAccess": true,
+      "realGeminiChat": true,
+      "realGeminiImageAnalysis": true,
+      "realGoogleVoiceThreeTurnContinuity": true,
+      "realGoogleVoiceDesktopOnNewOrigin": false,
+      "historyAndAccountIsolation": true,
+      "salaSegura": true,
+      "learningActivityAndProgress": true,
+      "loadingAndPwaFunctionalChecks": true,
+      "googleSignIn": false,
+      "physicalAndroidOrMicrophone": false,
+      "humanListeningQuality": false
+    },
+    "remaining": "Resolve Firebase configuration-read API 500 before applying the owner-authorized exact Auth domain; Google sign-in remains unvalidated. Physical-device/microphone and human listening checks remain outside the validated presentation scope.",
+    "deployment": "6ad126d49fed818847b3ecd5",
+    "revision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+    "entry": "/assets/index-CMRAQAUI.js",
+    "entrySha256": "290fa357562a8becc29389580ce80131e4798e7e4b8325e1908941d0f86f1ac7",
+    "httpChecksPassed": 6,
+    "httpProof": "artifacts/netlify-publication-final-50c28a3.json",
+    "revisionProof": "artifacts/professional-public-revision-netlify-50c28a3.json",
+    "previousFailedAttempt": "The first Source Drop attempt failed during file preparation/extraction with permission denied; deployment 6ad1204277c3d4b669244bdc failed. The subsequent CLI publication succeeded. No broader claim about automatic compilation or a Windows ZIP root cause is established.",
+    "failedDeployment": "6ad1204277c3d4b669244bdc",
+    "otherProjectsModified": false,
+    "badge": {
+      "enabled": false,
+      "method": "Official Free-plan setting"
+    },
+    "firebaseAuthDomain": {
+      "domain": "vigia-aplicativo-18plus.netlify.app",
+      "status": "user-authorized-blocked-by-service-configuration-read-500",
+      "ownerAuthorizationGranted": true,
+      "approvalReview": "A previous automatic approval rejection prompted an explicit authorization request; the owner has now authorized the exact domain. Application/verification is pending after API 500.",
+      "configurationReadApiStatus": 500,
+      "adminReadAttempts": 2,
+      "publicSdkReadAttempts": 1,
+      "patchRequestsSent": 0,
+      "changesApplied": false,
+      "emailPasswordLoginValidated": true,
+      "googleSignInValidated": false,
+      "googleSignInConfigurationConfirmed": false,
+      "proof": "artifacts/firebase-auth-netlify-blocked-1792092383411.json",
+      "finalReadProof": "artifacts/firebase-auth-netlify-final-attempt-1792092918898.json",
+      "finalReadHttpStatus": 500
+    },
+    "freeCreditSnapshot": {
+      "remainingAtLastObservation": 115,
+      "sharedAcrossAccountProjects": true,
+      "freeHardLimit": true,
+      "paymentCardAdded": false,
+      "paidTopUpEnabled": false,
+      "note": "Observed by the root agent in the account UI, not a reserved balance or a live reading; independent from Gemini quotas."
+    },
+    "optionalCloudflarePrototype": {
+      "status": "prepared-not-deployed",
+      "previousBlocker": "Cloudflare account access not yet provided.",
+      "archive": "dist/edge/vigia-static-20261015-final.zip",
+      "archiveBytes": 6382174,
+      "files": 50,
+      "largestFileBytes": 8691428,
+      "archiveSha256": "176910087a81d752dfb33befa6cacf240bad6bf0ea9625e550e1c9d0a9978175",
+      "privateCredentialsIncluded": false
+    }
+  },
+  "publicFunctionalChecks": {
+    "status": "netlify-20-ui-32-loading-and-three-real-voice-turns-passed-with-explicit-limitations",
+    "netlifyUi": {
+      "status": "passed",
+      "passed": 20,
+      "failed": 0,
+      "pageErrors": [],
+      "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+      "report": "artifacts/professional-netlify-final-gemini-online-browser-results.json",
+      "imagePayloadVerified": true,
+      "scope": "Desktop/mobile emulation with real Gemini and Firebase; synthetic red-square JPEG payload and analysis passed in both viewports. Network failure and microphone denial simulated. No physical microphone validation."
+    },
+    "netlifyLoading": {
+      "status": "passed",
+      "passed": 32,
+      "failed": 0,
+      "expectedChecks": 32,
+      "report": "artifacts/loading-regression-online-netlify-verified.json",
+      "scope": "Real public assets and service worker, API/status/guest bootstrap explicitly simulated; desktop/mobile emulation. Functional reset verified by independent DOM read; <=5s desktop reset not established.",
+      "openingTimeMeasurementsCollected": false,
+      "controlledColdStartMeasured": false,
+      "authResetDesktop": {
+        "observerTimedOut": true,
+        "elapsedMs": 5133,
+        "independentReadFoundBothUniqueVisibleFieldsCleared": true,
+        "functionalResetVerified": true,
+        "withinFiveSecondsVerified": false,
+        "visibilityState": "visible"
+      },
+      "authResetMobile": {
+        "observerTimedOut": false,
+        "elapsedMs": 3,
+        "bothFieldsAlreadyClearedAtInitialObservation": true,
+        "functionalResetVerified": true,
+        "withinFiveSecondsVerified": true
+      }
+    },
+    "previousNetlifyLoadingAttempt": {
+      "status": "failed",
+      "passed": 1,
+      "failed": 1,
+      "reason": "Five-second Auth reset observer timeout; subsequent screenshot was insufficient to prove when fields cleared.",
+      "report": "artifacts/loading-regression-online-netlify-final.json"
+    },
+    "netlifyAuthResetIsolatedDiagnostic": {
+      "status": "passed",
+      "passed": 2,
+      "resetElapsedMs": 1271,
+      "observerTimedOut": false,
+      "forbiddenRequests": 0,
+      "pageErrors": 0,
+      "report": "artifacts/loading-regression-online-netlify-auth-reset-diagnostic.json",
+      "note": "The isolated run did not reproduce the timeout, but the subsequent full run did; functional cleared state was independently verified without claiming a <=5s desktop reset."
+    },
+    "netlifyRealGoogleContinuity": {
+      "status": "passed",
+      "expectedTurns": 3,
+      "completedTurns": 3,
+      "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+      "expectedVoiceOrigin": "wss://vigia-app.onrender.com",
+      "processingToFirstAudioMs": [
+        5509,
+        7897,
+        3279
+      ],
+      "maxScheduledGapMs": [
+        0,
+        0,
+        0
+      ],
+      "naturalAudioChunksPerTurn": [
+        99,
+        91,
+        113
+      ],
+      "captureCalls": 1,
+      "syntheticCaptureClosed": true,
+      "historyAndCleanupPassed": true,
+      "physicalMicrophoneUsed": false,
+      "report": "artifacts/gemini-google-continuity-online-mobile-netlify-final.json",
+      "scope": "Chrome mobile emulation, adult synthetic input in a virtual MediaStream; real Gemini STT/chat/TTS and natural Web Audio playback, output muted. Not a physical-device, echo or human-listening assessment."
+    },
+    "previousRenderRevision": "4e3a7023c3d702483960c848cf1e86001fb36a76",
+    "previousRenderUi": {
+      "passed": 20,
+      "report": "artifacts/professional-gemini-online-browser-results.json",
+      "scope": "Real Gemini/Firebase; network failures and microphone denial simulated; desktop/mobile emulation."
+    },
+    "previousRenderLoading": {
+      "passed": 32,
+      "report": "artifacts/loading-regression-online-professional-final.json",
+      "scope": "Real static assets and service worker; status and guest bootstrap simulated."
+    },
+    "previousRenderVoiceControls": {
+      "passed": 14,
+      "report": "artifacts/professional-voice-controls-online-results.json",
+      "scope": "Simulated WebSocket; no real AI calls."
+    },
+    "previousRealGoogleContinuity": {
+      "status": "failed",
+      "completedTurns": 1,
+      "failedTurn": 2,
+      "reason": "20-second voice timeout",
+      "report": "artifacts/gemini-google-continuity-online-mobile-professional-final.json"
+    },
+    "realGoogleContinuityRetest": {
+      "status": "passed",
+      "sourceRevision": "225f90bcb2459600e8e2345486bdab7f9f0eb3d4",
+      "completedTurns": 3,
+      "expectedTurns": 3,
+      "processingToFirstAudioMs": [
+        7950,
+        3478,
+        3355
+      ],
+      "maxScheduledGapMs": [
+        0,
+        0,
+        0
+      ],
+      "captureCalls": 1,
+      "syntheticCaptureClosed": true,
+      "physicalMicrophoneUsed": false,
+      "report": "artifacts/gemini-google-continuity-online-mobile-professional-fixed.json",
+      "scope": "Chrome mobile emulation, synthetic adult input in a virtual stream; real Gemini STT/chat/TTS and Web Audio; output muted. Does not assess hardware microphone, loudspeaker echo or quality by human listening."
+    }
+  },
+  "imageAttachmentRegression": {
+    "sourceRevision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+    "status": "fourteen-functional-cases-passed-in-two-separate-runs",
+    "passedDesktopCases": 7,
+    "passedMobileCasesInSeparateRun": 7,
+    "totalFunctionalCasesPassed": 14,
+    "executionCount": 2,
+    "previousMobileSetupFailure": "The first built-UI run passed seven desktop cases, then exceeded the 30-second navigation-selector wait before mobile image cases ran. A separate later mobile-only run passed seven cases; the earlier setup failure remains preserved.",
+    "report": "artifacts/image-preparation-results.json",
+    "mobileReport": "artifacts/image-preparation-mobile-results.json",
+    "preservedFailureDirectory": "artifacts/image-preparation-preserved-before-mobile-1792093090064",
+    "includedInAutomated292": false,
+    "scope": "Actual Netlify build served locally, delayed image decoding and all API responses simulated; no external services.",
+    "previousDevelopmentObservation": {
+      "observedPassedCases": 12,
+      "preservedReport": null,
+      "note": "Twelve earlier development-UI cases were observed passing in tool output. Their JSON report was overwritten; no retrospective artifact was fabricated and they are not added to automated totals."
+    }
+  },
+  "initialOpeningSample": {
+    "report": "artifacts/initial-load-netlify-final-online.json",
+    "url": "https://vigia-aplicativo-18plus.netlify.app",
+    "sampleCount": 1,
+    "environment": "Fresh Chrome, 390x844 mobile emulation, no artificial CPU/network throttling",
+    "ttfbMs": 39.5,
+    "visibleAgeGateMs": 10056.2,
+    "totalJsTransferBytes": 49112,
+    "totalJsDecodedBytes": 152294,
+    "firstPaintMs": null,
+    "physicalDevice": false,
+    "controlledRenderColdStart": false,
+    "fastScreenOpeningProven": false,
+    "diagnosis": "The 10056.2ms visible-gate observation did not recur in the second instrumented sample. This first sample lacks detailed resource/CPU spans; no cause is established and no new production defect was confirmed."
+  },
+  "secondOpeningDiagnosticSample": {
+    "report": "artifacts/initial-load-netlify-final-diagnostic.json",
+    "url": "https://vigia-aplicativo-18plus.netlify.app",
+    "sampleCount": 1,
+    "environment": "Fresh Chrome, 390x844 mobile emulation, no artificial CPU/network throttling",
+    "ttfbMs": 373.3,
+    "visibleAgeGateMs": 2811.7,
+    "htmlResponseEndMs": 618.4,
+    "domContentLoadedMs": 2780.1,
+    "reactDownloadDurationMs": 915.3,
+    "reactResponseEndMs": 1558,
+    "cssDownloadDurationMs": 552.1,
+    "cssResponseEndMs": 1195.2,
+    "totalJsDecodedBytes": 152294,
+    "totalJsTransferBytes": 49293,
+    "firstPaintMs": null,
+    "longTasks": [],
+    "visibilityState": "visible",
+    "documentFocused": true,
+    "physicalDevice": false,
+    "controlledRenderColdStart": false
+  },
+  "openingObservationConclusion": {
+    "sampleCount": 2,
+    "visibleAgeGateMs": [
+      10056.2,
+      2811.7
+    ],
+    "causeOfVariation": "Unknown; the first sample had no detailed spans and did not reproduce in the instrumented sample.",
+    "newProductionBugConfirmed": false,
+    "guaranteedFastOpening": false,
+    "note": "Two separate observations only; no mean, percentage improvement, causal diagnosis or hardware/cold-start guarantee is established."
+  },
+  "notTested": [
+    "Physical Android Chrome and physical microphone",
+    "Real three-turn Google voice in a desktop viewport on the new Netlify origin; the completed real-voice proof used mobile emulation only",
+    "Cloudflare public deployment and its real latency",
+    "A controlled Render cold start after 15 minutes idle",
+    "Full assistive-technology and external penetration audits"
+  ],
+  "remaining": [
+    "Initial history still loads all conversations and attachments; pagination remains necessary for large archives.",
+    "Resolve configuration-read API 500 to apply/verify the owner-authorized Firebase Auth domain; Google sign-in remains unvalidated. The email/guest, chat, image, real synthetic-input voice and learning presentation flow is validated on emulated clients only.",
+    "Netlify Function traffic can share an egress IP; the existing 120 requests per IP per minute API limiter may aggregate separate users. Concurrent-group capacity is a pending P2 issue.",
+    "Free Render can still delay the first API request; free Gemini quotas and latency remain external limits."
+  ],
+  "paidServicesEnabled": false,
+  "updatedAt": "2026-10-15T19:42:01.9867323Z"
+}

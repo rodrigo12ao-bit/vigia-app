@@ -1,0 +1,23 @@
+{
+  "url": "https://vigia-app.onrender.com",
+  "verifiedAt": "2026-10-15T19:22:00.263Z",
+  "revision": "50c28a385b48351540b727a3520e8e2aa505bea4",
+  "entry": "/assets/index-L2qtY4Mx.js",
+  "sha256": "7fa78e0b9297728c6df708bb47e8cf838986aa03bbed5e91f7738bec801f20dc",
+  "status": {
+    "demo": false,
+    "audience": "18plus",
+    "localDemo": false,
+    "realAI": true,
+    "firebase": "cloud",
+    "ai": {
+      "mode": "adult-gemini",
+      "provider": "gemini",
+      "blocked": null,
+      "consentVersion": "2026-10-13-gemini-adults-free-v1",
+      "voice": true
+    }
+  },
+  "elapsedMs": 2082,
+  "coldStartBenchmark": false
+}

@@ -1,0 +1,42 @@
+{
+  "ttfbMs": 39.5,
+  "navigationMs": 10005.40000000596,
+  "firstPaintMs": null,
+  "js": [
+    {
+      "file": "/assets/index-CMRAQAUI.js",
+      "decodedBytes": 5028,
+      "transferBytes": 2582
+    },
+    {
+      "file": "/assets/vendor-utils-CqkleIqs.js",
+      "decodedBytes": 116,
+      "transferBytes": 416
+    },
+    {
+      "file": "/assets/vendor-react-7kqsRsp0.js",
+      "decodedBytes": 147150,
+      "transferBytes": 46114
+    }
+  ],
+  "entryAssets": [
+    "/assets/index-CMRAQAUI.js"
+  ],
+  "url": "https://vigia-aplicativo-18plus.netlify.app",
+  "label": "netlify-final-online",
+  "sampleCount": 1,
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "throttling": false,
+  "observationWindowMs": 350,
+  "visibleAgeGateMs": 10056.199999988079,
+  "elapsedWallMs": 18064,
+  "blockedRequests": [],
+  "scope": "Chrome novo, tela de celular emulada, primeira tela18+ real da hospedagem, sem throttling. Uma amostra, sem IA/microfone/login; não representa aparelho físico nem comprova Render frio. Nenhum aquecimento prévio ou networkidle usado.",
+  "totalJsBytes": 152294,
+  "totalJsTransferBytes": 49112
+}

@@ -1,0 +1,64 @@
+{
+  "siteId": "f248bca0-6d38-4613-bbf6-114d57649ed4",
+  "siteUrl": "https://vigia-aplicativo-18plus.netlify.app",
+  "deployId": "6ad126d49fed818847b3ecd5",
+  "state": "ready-public",
+  "revision": "50c28a3",
+  "productionDeploysCreated": 2,
+  "freePlanOnly": true,
+  "checks": [
+    {
+      "name": "home-current-entry",
+      "httpStatus": 200,
+      "scripts": [
+        "/assets/index-CMRAQAUI.js"
+      ],
+      "expectedEntryPresent": true,
+      "localIndexSha256": "7c38447da39a15b96f3785f3589aa67920684b017a0339ed4dd2dd061fe2e176",
+      "publicIndexSha256": "c2df4361b493e092b398f27fe709f81f64dc3f62ef624b7bbfe3b2d98fba008c",
+      "indexMatchesLocal": false
+    },
+    {
+      "name": "entry-bytes",
+      "httpStatus": 200,
+      "bytes": 5028,
+      "sha256": "290fa357562a8becc29389580ce80131e4798e7e4b8325e1908941d0f86f1ac7",
+      "matchesLocal": true
+    },
+    {
+      "name": "api-status",
+      "httpStatus": 200,
+      "json": true,
+      "audience": "18plus",
+      "provider": "gemini",
+      "realAI": true,
+      "voice": true,
+      "noStore": true
+    },
+    {
+      "name": "session-cookie",
+      "httpStatus": 200,
+      "noStore": true,
+      "cookie": {
+        "present": true,
+        "httpOnly": true,
+        "secure": true,
+        "strict": true,
+        "apiPath": true,
+        "hostOnly": true
+      }
+    },
+    {
+      "name": "cookie-adult-access",
+      "httpStatus": 200,
+      "allowed": true,
+      "noStore": true
+    },
+    {
+      "name": "untrusted-origin-denied",
+      "httpStatus": 403,
+      "noStore": true
+    }
+  ],
+  "scope": "HTTP público e visitante adulto temporário; nenhuma chamada IA, microfone, login Firebase ou alteração de domínio."
+}
