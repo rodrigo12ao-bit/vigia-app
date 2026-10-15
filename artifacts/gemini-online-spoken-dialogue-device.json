@@ -1,0 +1,146 @@
+{
+  "url": "https://vigia-app.onrender.com",
+  "scope": "Chrome isolado, duas falas sintéticas adultas; transcrição e respostas Gemini reais gratuitas e síntese SpeechSynthesis real do aparelho, com saída silenciada no teste. Sem microfone físico ou avaliação da qualidade audível.",
+  "turns": [
+    {
+      "input": "Onde devo guardar a lanterna da mochila de emergência?",
+      "reply": "Guarde a lanterna com pilhas reservas na mochila de emergência. Quer ver quais itens mais colocar nela?",
+      "audioChunks": 0
+    },
+    {
+      "input": "e as pilhas dela",
+      "reply": "Guarde pilhas reservas junto com a lanterna na mochila. Quer ver o próximo item essencial para levar?",
+      "audioChunks": 0
+    }
+  ],
+  "events": [
+    {
+      "type": "open",
+      "mode": "streamed-speech",
+      "ms": 5488
+    },
+    {
+      "type": "interrupted",
+      "ms": 5981
+    },
+    {
+      "type": "speech_output",
+      "mode": "device",
+      "ms": 6001
+    },
+    {
+      "type": "processing",
+      "ms": 25724
+    },
+    {
+      "type": "input_transcription",
+      "text": "Onde devo guardar a lanterna da mochila de emergência?",
+      "ms": 30424
+    },
+    {
+      "type": "output_transcription",
+      "text": "Guarde a lanterna com pilhas reservas na mochila de emergência. Quer ver quais itens mais colocar nela?",
+      "ms": 33699
+    },
+    {
+      "type": "reply_ready",
+      "ms": 33700
+    },
+    {
+      "type": "speech_on_device",
+      "text": "Guarde a lanterna com pilhas reservas na mochila de emergência. Quer ver quais itens mais colocar nela?",
+      "ms": 33701
+    },
+    {
+      "type": "turn_complete",
+      "ms": 33709
+    },
+    {
+      "type": "processing",
+      "ms": 52968
+    },
+    {
+      "type": "input_transcription",
+      "text": "e as pilhas dela",
+      "ms": 54955
+    },
+    {
+      "type": "output_transcription",
+      "text": "Guarde pilhas reservas junto com a lanterna na mochila. Quer ver o próximo item essencial para levar?",
+      "ms": 55968
+    },
+    {
+      "type": "reply_ready",
+      "ms": 55971
+    },
+    {
+      "type": "speech_on_device",
+      "text": "Guarde pilhas reservas junto com a lanterna na mochila. Quer ver o próximo item essencial para levar?",
+      "ms": 55972
+    },
+    {
+      "type": "turn_complete",
+      "ms": 55976
+    }
+  ],
+  "deviceEvents": [
+    {
+      "type": "start",
+      "text": "Guarde a lanterna com pilhas reservas na mochila de emergência.",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 34360
+    },
+    {
+      "type": "end",
+      "text": "Guarde a lanterna com pilhas reservas na mochila de emergência.",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 39794
+    },
+    {
+      "type": "start",
+      "text": "Quer ver quais itens mais colocar nela?",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 39858
+    },
+    {
+      "type": "end",
+      "text": "Quer ver quais itens mais colocar nela?",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 43658
+    },
+    {
+      "type": "start",
+      "text": "Guarde pilhas reservas junto com a lanterna na mochila.",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 56047
+    },
+    {
+      "type": "end",
+      "text": "Guarde pilhas reservas junto com a lanterna na mochila.",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 60936
+    },
+    {
+      "type": "start",
+      "text": "Quer ver o próximo item essencial para levar?",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 61027
+    },
+    {
+      "type": "end",
+      "text": "Quer ver o próximo item essencial para levar?",
+      "voice": "Microsoft Daniel - Portuguese (Brazil)",
+      "local": true,
+      "ms": 65225
+    }
+  ],
+  "microphoneCaptureCalls": 1,
+  "status": "passed"
+}
