@@ -5,7 +5,7 @@ import {voiceText} from './voiceText';
 
 // Voice uses the same moderated text model as chat: transcription → response → speech.
 // Audio is released only after a complete, checked response; no invented transcription.
-export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: string,options:{streamSpeech?:boolean;turnTimeoutMs?:number}={}) {
+export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: string,options:{streamSpeech?:boolean;turnTimeoutMs?:number;speechIdleTimeoutMs?:number;streamTimeoutMs?:number}={}) {
   const emergencyReply=process.env.AI_AUDIENCE==='18plus'?adultEmergencyReply:legacyEmergencyReply;
   let chunks: Buffer[] = [], size = 0, voicedSamples = 0, silenceSamples = 0;
   let busy = false, closed = false, frames = 0,frameBytes=0, windowStart = Date.now();
@@ -35,8 +35,22 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
     busy = true; controller = new AbortController();
     const current=++generation,abort=controller,turnSpeechOutput=speechOutput;
     let verifiedReply=false;
-    const timeout=setTimeout(()=>abort.abort(new Error('voice_turn_timeout')),options.turnTimeoutMs??20000);
+    const timedOut=()=>abort.abort(new Error('voice_turn_timeout'));
+    const timeout=setTimeout(timedOut,options.turnTimeoutMs??20000);
     timeout.unref?.();
+    // STT, checked text and the first PCM keep their original deadline. Once
+    // validated speech is flowing, measure missing PCM instead of cutting an
+    // active answer. A separate absolute limit still bounds the entire turn.
+    const streamTimeout=setTimeout(timedOut,options.streamTimeoutMs??options.turnTimeoutMs??45000);
+    streamTimeout.unref?.();
+    let speechIdleTimeout:ReturnType<typeof setTimeout>|undefined;
+    const clearTurnTimers=()=>{clearTimeout(timeout);clearTimeout(streamTimeout);clearTimeout(speechIdleTimeout);};
+    abort.signal.addEventListener('abort',clearTurnTimers,{once:true});
+    const speechProgress=()=>{
+      clearTimeout(timeout);clearTimeout(speechIdleTimeout);
+      speechIdleTimeout=setTimeout(timedOut,options.speechIdleTimeoutMs??options.turnTimeoutMs??15000);
+      speechIdleTimeout.unref?.();
+    };
     const active=()=>!closed&&generation===current;
     send({type:'processing'});
     try {
@@ -70,6 +84,8 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
           for await(const pcm of ai.speechStream!(reply,abort.signal)){
             if(!active())return;
             if(abort.signal.aborted)throw abort.signal.reason;
+            if(!Buffer.isBuffer(pcm)||!pcm.length||pcm.length%2)throw Error('Invalid speech PCM');
+            speechProgress();
             speaking=playbackPending=true;
             for(let offset=0;offset<pcm.length;offset+=24000)send({type:'audio_chunk',pcmBase64:pcm.subarray(offset,offset+24000).toString('base64')});
           }
@@ -91,7 +107,7 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
           send({type:'turn_complete'});
         }else{send({type:'error',code:failure.code,message:failure.error});ws.close(1011);}
       }
-    } finally {clearTimeout(timeout); if(generation===current){busy=speaking=false;controller=null;} }
+    } finally {clearTurnTimers();abort.signal.removeEventListener('abort',clearTurnTimers);if(generation===current){busy=speaking=false;controller=null;} }
   }
 
   ws.on('message', data => {

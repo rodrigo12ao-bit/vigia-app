@@ -57,6 +57,74 @@ test('prazo total interrompe geração lenta sem inventar texto; síntese lenta 
  const f=fixture({models:{generateContent:blocked}},{turnTimeoutMs:5});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.find(p=>p.type==='error')?.code,'timeout');assert.equal(f.socket.sent.some(p=>p.type==='reply_ready'),false);assert.equal(f.socket.readyState,3);
  const s=fixture({speechStream:async function*(_text:string,signal:AbortSignal){await blocked(null,signal);yield Buffer.alloc(200);}},{turnTimeoutMs:5});s.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(s.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.ok(s.socket.sent.some(p=>p.type==='reply_ready'));assert.equal(s.socket.readyState,1);s.socket.close();
 });
+
+const settleVoice=()=>new Promise<void>(resolve=>setImmediate(resolve));
+const pendingVoice=(signal:AbortSignal)=>new Promise<never>((_resolve,reject)=>{if(signal.aborted)reject(signal.reason);else signal.addEventListener('abort',()=>reject(signal.reason),{once:true});});
+
+test('primeiro PCM dentro de20s permite fala ativa terminar além do antigo prazo',async t=>{
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ let signal:AbortSignal|undefined,speeches=0;
+ const f=fixture({models:{generateContent:async()=>{await new Promise(resolve=>setTimeout(resolve,18000));return{text:'Guarde a lanterna na mochila.'};}},speechStream:async function*(_text:string,s:AbortSignal){signal=s;speeches++;await new Promise(resolve=>setTimeout(resolve,800));yield Buffer.alloc(200);await new Promise(resolve=>setTimeout(resolve,1400));yield Buffer.alloc(200);await new Promise(resolve=>setTimeout(resolve,1400));yield Buffer.alloc(200);}});
+ try{
+  f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await settleVoice();
+  t.mock.timers.tick(18000);await settleVoice();assert.ok(f.socket.sent.some(p=>p.type==='reply_ready'));
+  t.mock.timers.tick(800);await settleVoice();assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,1);
+  t.mock.timers.tick(1400);await settleVoice();assert.equal(signal?.aborted,false);assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,2);
+  t.mock.timers.tick(1400);await settleVoice();assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,3);assert.equal(f.socket.sent.at(-1).type,'turn_complete');
+  assert.equal(f.socket.sent.some(p=>p.type==='speech_unavailable'||p.type==='error'),false);assert.equal(speeches,1);
+ }finally{f.socket.close();}
+});
+
+test('stream parado após primeiro PCM expira por inatividade sem repetir a fala',async t=>{
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ let signal:AbortSignal|undefined,speeches=0;
+ const f=fixture({speechStream:async function*(_text:string,s:AbortSignal){signal=s;speeches++;yield Buffer.alloc(200);await pendingVoice(s);}});
+ try{
+  f.socket.message({type:'realtime_text',text:'Lanterna'});await settleVoice();
+  t.mock.timers.tick(14999);await settleVoice();assert.equal(signal?.aborted,false);
+  t.mock.timers.tick(1);await settleVoice();assert.equal(signal?.aborted,true);assert.equal(f.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');
+  assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,1);assert.equal(f.socket.sent.filter(p=>p.type==='reply_ready').length,1);assert.equal(f.socket.sent.at(-1).type,'turn_complete');assert.equal(f.socket.readyState,1);assert.equal(speeches,1);
+ }finally{f.socket.close();}
+});
+
+test('PCM contínuo não renova o teto absoluto de45s contado desde processing',async t=>{
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ let signal:AbortSignal|undefined,speeches=0;
+ const f=fixture({speechStream:async function*(_text:string,s:AbortSignal){signal=s;speeches++;for(;;){yield Buffer.alloc(200);await new Promise(resolve=>setTimeout(resolve,1000));if(s.aborted)throw s.reason;}}});
+ try{
+  f.socket.message({type:'realtime_text',text:'Lanterna'});await settleVoice();
+  for(let second=0;second<44;second++){t.mock.timers.tick(1000);await settleVoice();}
+  assert.equal(signal?.aborted,false);assert.equal(f.socket.sent.some(p=>p.type==='speech_unavailable'),false);
+  t.mock.timers.tick(1000);await settleVoice();assert.equal(signal?.aborted,true);assert.equal(f.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.equal(speeches,1);
+  const count=f.socket.sent.filter(p=>p.type==='audio_chunk').length;t.mock.timers.tick(60000);await settleVoice();assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,count);
+ }finally{f.socket.close();}
+});
+
+test('interrupção e fechamento cancelam stream e todos os seus prazos sem eventos tardios',async t=>{
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ for(const action of ['interrupt','close']){
+  let signal:AbortSignal|undefined;
+  const f=fixture({speechStream:async function*(_text:string,s:AbortSignal){signal=s;yield Buffer.alloc(200);await pendingVoice(s);}});
+  f.socket.message({type:'realtime_text',text:'Lanterna'});await settleVoice();
+  if(action==='interrupt')f.socket.message({type:'interrupt'});else f.socket.close();
+  await settleVoice();assert.equal(signal?.aborted,true);const count=f.socket.sent.length;
+  t.mock.timers.tick(60000);await settleVoice();assert.equal(f.socket.sent.length,count);assert.equal(f.socket.sent.some(p=>p.type==='speech_unavailable'),false);f.socket.close();
+ }
+});
+
+test('budgets curtos de primeiro áudio, inatividade e total são injetáveis sem ampliar STT',async t=>{
+ t.mock.timers.enable({apis:['setTimeout','Date'],now:0});
+ const stalled=fixture({speechStream:async function*(_text:string,s:AbortSignal){yield Buffer.alloc(200);await pendingVoice(s);}},{turnTimeoutMs:5,speechIdleTimeoutMs:8,streamTimeoutMs:30});
+ try{
+  stalled.socket.message({type:'realtime_text',text:'Lanterna'});await settleVoice();
+  t.mock.timers.tick(5);await settleVoice();assert.equal(stalled.socket.sent.some(p=>p.type==='speech_unavailable'),false);
+  t.mock.timers.tick(3);await settleVoice();assert.equal(stalled.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');
+ }finally{stalled.socket.close();}
+ const noFirstAudio=fixture({speechStream:async function*(_text:string,s:AbortSignal){await pendingVoice(s);}},{turnTimeoutMs:5,speechIdleTimeoutMs:8,streamTimeoutMs:30});
+ try{
+  noFirstAudio.socket.message({type:'realtime_text',text:'Lanterna'});await settleVoice();t.mock.timers.tick(5);await settleVoice();assert.equal(noFirstAudio.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.equal(noFirstAudio.socket.sent.some(p=>p.type==='audio_chunk'),false);
+ }finally{noFirstAudio.socket.close();}
+});
 test('emergência digitada fornece entrada e orientação para salvar uma vez, sem geração de IA',()=>{
  const f=fixture();f.socket.message({type:'realtime_text',text:'tem fogo na minha casa'});assert.equal(f.socket.sent.find(p=>p.type==='input_transcription')?.text,'tem fogo na minha casa');assert.ok(f.socket.sent.find(p=>p.type==='emergency')?.text);assert.equal(f.calls.length,0);assert.equal(f.socket.readyState,3);
 });

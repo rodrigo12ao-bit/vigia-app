@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
+const { resolvePublicTestOrigin } = require('./browser-target.cjs');
 
 // Real application, public static files and service worker. Only /api/status and
 // guest bootstrap are simulated. No AI request, real sign-in, Firebase write or microphone.
@@ -15,8 +16,7 @@ for (let index = 0; index < args.length; index++) {
   if (args[index] !== '--online') throw Error('Opção desconhecida: ' + args[index]);
 }
 assert.ok(label && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$/.test(label), 'Rótulo de teste inválido.');
-const publicUrl = 'https://vigia-app.onrender.com';
-if (process.env.VIGIA_TEST_URL && process.env.VIGIA_TEST_URL.replace(/\/$/, '') !== publicUrl) throw Error('Endereço externo não autorizado.');
+const publicUrl = resolvePublicTestOrigin(process.env.VIGIA_TEST_URL);
 const online = args.includes('--online') || !!process.env.VIGIA_TEST_URL;
 const root = online ? publicUrl : 'http://localhost:3122';
 const adultVersion = fs.readFileSync('src/lib/audience.ts', 'utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];

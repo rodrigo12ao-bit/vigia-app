@@ -1,4 +1,5 @@
 import { apiFetch } from '../lib/api';
+import {buildVoiceSocketUrl} from '../lib/voiceOrigin';
 import { AvatarState } from '../types';
 
 type LiveState =
@@ -177,16 +178,12 @@ export class GeminiLiveSession {
       await this.resumeOutputContext();
       if(!this.isCurrent(token))return;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const contextParam = this.callbacks.context
-        ? `?context=${encodeURIComponent(this.callbacks.context)}`
-        : '';
       const response=await apiFetch('/api/live-ticket',{method:'POST'});
       const body=await response.json();
       if(!response.ok)throw new Error(body.error||'Voz indisponível.');
       const {ticket}=body;
       if(!this.isCurrent(token))return;
-      const wsUrl = `${protocol}//${window.location.host}/api/live-ws?ticket=${encodeURIComponent(ticket)}&voiceProtocol=stream-v1${contextParam.replace('?', '&')}`;
+      const wsUrl=buildVoiceSocketUrl(window.location,ticket,this.callbacks.context,import.meta.env.VITE_VOICE_ORIGIN);
       const socket = new WebSocket(wsUrl);
 
       if (!this.isCurrent(token)) {

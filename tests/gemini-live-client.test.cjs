@@ -4,8 +4,9 @@ const {readFileSync}=require('node:fs');
 const {transform}=require('esbuild');
 
 // The browser audio graph and transport are simulated. No browser, network or AI.
-const isolatedSource=readFileSync('src/utils/geminiLive.ts','utf8').replace("import { apiFetch } from '../lib/api';",'const apiFetch=async()=>({ok:true,json:async()=>({ticket:"isolated-test-ticket"})});');
-const bundle=transform(isolatedSource,{loader:'ts',format:'cjs',define:{'import.meta.env.DEV':'false'}});
+const voiceOriginSource=readFileSync('src/lib/voiceOrigin.ts','utf8').replace(/^export /gm,'');
+const isolatedSource=readFileSync('src/utils/geminiLive.ts','utf8').replace("import { apiFetch } from '../lib/api';",'const apiFetch=async()=>({ok:true,json:async()=>({ticket:"isolated-test-ticket"})});').replace("import {buildVoiceSocketUrl} from '../lib/voiceOrigin';",voiceOriginSource);
+const bundle=transform(isolatedSource,{loader:'ts',format:'cjs',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_VOICE_ORIGIN':'undefined'}});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const pcm=Buffer.alloc(4800).toString('base64');
 

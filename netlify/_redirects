@@ -1,0 +1,2 @@
+# Custom /api function paths run before redirects. Keep this SPA fallback last.
+/* /index.html 200

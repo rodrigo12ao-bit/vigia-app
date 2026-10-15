@@ -3,15 +3,17 @@ const path = require('node:path');
 const os = require('node:os');
 const assert = require('node:assert/strict');
 const { spawn, execFileSync } = require('node:child_process');
+const { resolvePublicTestOrigin, expectedVoiceSocketOrigin } = require('./browser-target.cjs');
 
 // Run only with explicit authorization for the existing, verified free Google project.
 // Capture is a synthetic adult WAV injected into a virtual MediaStreamDestination.
 // The physical microphone is never requested; Gemini STT/chat/TTS and Web Audio playback are real.
 const configuredUrl = process.env.VIGIA_TEST_URL;
-const online = configuredUrl === 'https://vigia-app.onrender.com';
-if (configuredUrl && !online) throw Error('Endereço externo não autorizado para este teste.');
-if (configuredUrl && process.argv.includes('--local')) throw Error('Escolha somente --local ou VIGIA_TEST_URL.');
-const root = online ? configuredUrl : 'http://localhost:3119';
+const publicUrl = resolvePublicTestOrigin(configuredUrl);
+const online = !!configuredUrl || process.argv.includes('--online');
+if (online && process.argv.includes('--local')) throw Error('Escolha somente --local ou um destino online.');
+const root = online ? publicUrl : 'http://localhost:3119';
+const expectedVoiceOrigin = expectedVoiceSocketOrigin(root);
 const runLabel = process.env.VIGIA_CONTINUITY_LABEL || '';
 if (runLabel && !/^[a-zA-Z0-9_-]{1,40}$/.test(runLabel)) throw Error('Rótulo de teste inválido.');
 const audible = process.argv.includes('--audible');
@@ -24,6 +26,7 @@ const expectedQuestions = [
 ];
 const report = {
   url: root,
+  expectedVoiceOrigin,
   scope: 'Três falas adultas sintéticas locais, captura virtual MediaStreamDestination sem acesso ao microfone físico; transcrição, respostas e voz Google reais da cota gratuita; reprodução Web Audio real' + (audible ? ', saída audível.' : ', saída silenciada no teste.') + ' Não avalia qualidade por audição humana nem eco de alto-falante físico.',
   runLabel: runLabel || null,
   viewport: mobile ? '390x844, Chrome com celular emulado' : '1280x900, Chrome desktop',
@@ -142,16 +145,20 @@ function summarizeTurn(snapshot, number) {
     page = await browser.newPage(); page.on('dialog', dialog => dialog.accept());
     const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
     await page.setViewport(mobile ? { width: 390, height: 844, isMobile: true, hasTouch: true } : { width: 1280, height: 900 });
-    await page.evaluateOnNewDocument(() => {
+    await page.evaluateOnNewDocument(expectedVoiceOrigin => {
       window.continuityTurn = 0; window.continuityEvents = []; window.continuitySent = [];
+      window.continuityVoiceSockets = [];
       window.continuityOutputSources = []; window.continuityCaptureCalls = 0; window.continuityCaptureStreams = [];
       window.continuityInputSources = []; window.continuityMicContexts = new WeakSet();
       window.continuityOutputContexts = new WeakMap(); window.continuityOutputContextCount = 0;
       const NativeWS = WebSocket;
       window.WebSocket = class extends NativeWS {
         constructor(...args) {
+          const url = new URL(String(args[0]), location.href), isVoice = url.pathname === '/api/live-ws';
+          if (isVoice && url.origin !== expectedVoiceOrigin) throw Error('Destino de voz diferente do backend autorizado.');
           super(...args);
-          if (!String(args[0]).includes('/api/live-ws')) return;
+          if (!isVoice) return;
+          window.continuityVoiceSockets.push(url.origin + url.pathname);
           this.addEventListener('message', event => {
             try {
               const body = JSON.parse(event.data);
@@ -229,7 +236,7 @@ function summarizeTurn(snapshot, number) {
           await window.continuityMic.context.close().catch(() => {});
         }
       };
-    });
+    }, expectedVoiceOrigin);
     await page.goto(root, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('[aria-label="Acesso para adultos"]'); await page.click('input[type="checkbox"]'); await button('Continuar');
     await page.waitForSelector('[aria-label="Boas-vindas à Vigia"]'); await button('Explorar como visitante');
@@ -239,6 +246,7 @@ function summarizeTurn(snapshot, number) {
     await page.evaluate(() => { window.continuityVoiceClickMs = Math.round(performance.now()); });
     await page.click('[aria-label="Conversa por voz"]');
     await readyForSpeech(0);
+    assert.deepEqual(await page.evaluate(() => window.continuityVoiceSockets), [expectedVoiceOrigin + '/api/live-ws']);
     for (let index = 0; index < utterances.length; index++) {
       await readyForSpeech(index);
       await page.evaluate(utterance => window.feedContinuityUtterance(utterance), { ...utterances[index], number: index + 1 });
@@ -254,6 +262,7 @@ function summarizeTurn(snapshot, number) {
     }
     assert.equal(report.turns.length, 3);
     report.events = await page.evaluate(() => window.continuityEvents);
+    report.voiceSockets = await page.evaluate(() => window.continuityVoiceSockets);
     report.sent = await page.evaluate(() => window.continuitySent);
     report.playbackSources = await page.evaluate(() => window.continuityOutputSources);
     report.inputSources = await page.evaluate(() => window.continuityInputSources.map(source => ({ number: source.number, duration: source.duration, startedMs: source.startedMs, ended: source.ended })));

@@ -1,0 +1,23 @@
+# Only public static assets are covered here. The API Function sets no-store.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Vite generates content hashes in these filenames.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/workbox-*.js
+  Cache-Control: public, max-age=31536000, immutable
