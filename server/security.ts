@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import {runtimeConfig} from './runtime';
 import {canUseRealAi,realAiConfig} from './realAi';
+import {apiResponseHeaders} from './apiBoundary';
 
 export const runtime = runtimeConfig();
 export const demoMode = runtime.demo;
@@ -34,11 +35,10 @@ export function consumeTicket(ticket: string) {
   const item = tickets.get(ticket); tickets.delete(ticket);
   return item && item.expires > Date.now() ? item.uid : null;
 }
-export function installSecurity(app: Express) {
+export function installSecurity(app: Express,options:{skipApiHeaders?:boolean}={}) {
   app.disable('x-powered-by');
+  if(!options.skipApiHeaders)app.use('/api',apiResponseHeaders);
   app.use('/api', (req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
     if (req.method !== 'GET' && !allowedOrigin(req.headers.origin)) return res.status(403).json({ error: 'Origem não permitida.' });
     next();
   });

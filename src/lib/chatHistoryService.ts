@@ -1,6 +1,7 @@
 import {auth} from './firebaseAuth';
 import type { ChatSession } from '../types';
 import { createHistoryStore } from './historyStore';
+import {recoverGuestHistory,stageGuestHistory} from './guestHistoryRecovery';
 function requireHistoryAccount(uid:string) {
   if(auth.currentUser?.uid!==uid)throw new Error('A conta mudou. Reabra o histórico na sua conta.');
 }
@@ -62,8 +63,19 @@ const store = createHistoryStore({
     requireHistoryAccount(uid);
   }
 },localStorage);
-export const loadSessions=store.load;
-export const saveSession=store.save;
-export const deleteSession=store.remove;
-export async function deleteAllSessions(uid?:string){for(const s of await store.load(uid))await store.remove(s.id,uid);}
-export async function renameSession(id:string,title:string,uid?:string){const target=(await store.load(uid)).find(s=>s.id===id);if(!target)throw new Error('Conversa indisponível.');await store.save({...target,title:title.slice(0,120),updatedAt:new Date().toISOString()},uid);}
+let guestRecovery:Promise<void>|undefined;
+function recoverGuestSessions() {
+  if(auth.currentUser)throw Error('A conta mudou. Reabra o histórico na sua conta.');
+  if(!guestRecovery){
+    const pending=recoverGuestHistory({load:()=>store.load(),save:session=>store.save(session)},localStorage,()=>!auth.currentUser).finally(()=>{if(guestRecovery===pending)guestRecovery=undefined;});
+    guestRecovery=pending;
+  }
+  return guestRecovery;
+}
+export function stageGuestSession(session:ChatSession){if(auth.currentUser)throw Error('A conta mudou.');stageGuestHistory(session,localStorage);}
+function requireGuestAccount(){if(auth.currentUser)throw Error('A conta mudou. Reabra o histórico na sua conta.');}
+export async function loadSessions(uid?:string){if(!uid){await recoverGuestSessions();requireGuestAccount();}return store.load(uid);}
+export async function saveSession(session:ChatSession,uid?:string){if(!uid){await recoverGuestSessions();requireGuestAccount();}return store.save(session,uid);}
+export async function deleteSession(id:string,uid?:string){if(!uid){await recoverGuestSessions();requireGuestAccount();}return store.remove(id,uid);}
+export async function deleteAllSessions(uid?:string){for(const s of await loadSessions(uid))await deleteSession(s.id,uid);}
+export async function renameSession(id:string,title:string,uid?:string){const target=(await loadSessions(uid)).find(s=>s.id===id);if(!target)throw new Error('Conversa indisponível.');const renamed={...target,title:title.slice(0,120),updatedAt:new Date().toISOString()};await saveSession(renamed,uid);return renamed;}

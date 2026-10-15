@@ -15,26 +15,33 @@ export function deserializeSession(data: any): ChatSession {
 }
 export function createHistoryStore(port: HistoryPort, storage: Pick<Storage,'getItem'|'setItem'>) {
   const queues = new Map<string,Promise<void>>();
+  async function mutate(uid: string | undefined, action:()=>Promise<void>) {
+    // Guest sessions share one storage record. Serialize their read/modify/write
+    // operations together, while keeping different authenticated accounts independent.
+    const key=uid ? `user:${uid}` : 'guest';
+    const operation=(queues.get(key)||Promise.resolve()).catch(()=>{}).then(action);
+    queues.set(key,operation);
+    try { await operation; } finally { if(queues.get(key)===operation) queues.delete(key); }
+  }
   async function load(uid?: string): Promise<ChatSession[]> {
     const list = uid ? await port.read(uid) : JSON.parse(storage.getItem(guestHistoryKey) || '[]');
     if (!Array.isArray(list)) throw new Error('Histórico inválido.');
     return list.map(deserializeSession).sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt));
   }
   async function save(session: ChatSession, uid?: string) {
-    const data=serializeSession(session), key=`${uid || 'guest'}:${session.id}`;
-    const operation=(queues.get(key)||Promise.resolve()).catch(()=>{}).then(async()=>{
+    const data=serializeSession(session);
+    await mutate(uid,async()=>{
       if (uid) return port.write(uid,data);
       const list=await load(); const index=list.findIndex(s=>s.id===session.id);
-      if(index<0) list.push(session); else list[index]=session;
+      if(index<0) list.push(data); else list[index]=data;
       storage.setItem(guestHistoryKey,JSON.stringify(list.map(serializeSession)));
     });
-    queues.set(key,operation);
-    try { await operation; } finally { if(queues.get(key)===operation) queues.delete(key); }
   }
   async function remove(id: string, uid?: string) {
-    await queues.get(`${uid || 'guest'}:${id}`)?.catch(()=>{});
-    if(uid) return port.remove(uid,id);
-    storage.setItem(guestHistoryKey,JSON.stringify((await load()).filter(s=>s.id!==id).map(serializeSession)));
+    await mutate(uid,async()=>{
+      if(uid) return port.remove(uid,id);
+      storage.setItem(guestHistoryKey,JSON.stringify((await load()).filter(s=>s.id!==id).map(serializeSession)));
+    });
   }
   return {load,save,remove};
 }

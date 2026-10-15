@@ -1,5 +1,17 @@
 # Vigia — Aprender com a Vigia
 
+## Revisão de abertura e estabilidade — 15/10/2026
+
+As correções desta rodada preservam identidade e rascunho da conversa entre abas, recuperam sessões de visitante expiradas, serializam gravações por conta, aguardam o salvamento antes de atualizar/trocar conta e oferecem recuperação explícita de falhas. O aviso de atualização ocupa uma faixa própria e deixa o compositor acessível. O histórico não é relido por inteiro a cada autosave. Voz respeita o limite de mensagens; histórico indisponível, exclusão e renomeação têm tratamento recuperável. A orientação emergencial local continua disponível quando os oito trabalhos HTTP de IA estão ocupados. Requisições excessivas são rejeitadas antes de processar JSON; erros antecipados conservam os cabeçalhos de privacidade.
+
+O pacote estático gratuito está preparado em `dist/edge/public`, gerado por `npm run build:edge`. As telas podem ser entregues pela Cloudflare Pages sem esperar o Render; somente `/api` e `/api/*` passam pelo Worker, com destino fixo e cookies HttpOnly/Strict preservados, sem chaves privadas e sem cache da API. **Ainda exige acesso à conta da hospedagem e validação no endereço novo.** Render Free continua suspendendo o servidor após inatividade; a primeira operação online pode aguardar seu despertar. O endereço Render sozinho não recebe essa independência de abertura.
+
+Antes de ativar um novo domínio, cadastre somente sua origem HTTPS exata em `ALLOWED_ORIGINS` e nos domínios autorizados do Firebase Auth, mantenha as cotas gratuitas e confirme texto/imagem/voz/login/Sala Segura nessa origem. Contas exigem novo login no endereço novo; históricos locais de visitantes permanecem na origem anterior. Não transfira credenciais do Render para o Worker. A revisão e os resultados efetivos de publicação ficam em [vigia-revisao-profissional.html](vigia-revisao-profissional.html).
+
+`build:publication` grava `dist/publication/release.json`, fora da pasta pública, com revisão e hashes. `start:publication` recusa arquivos ausentes/corrompidos ou revisão Render divergente antes de ler credenciais. Refaça o build antes de iniciar um pacote antigo sem manifesto. Confirme também o HTML e os assets públicos após cada deploy: o manifesto não substitui essa prova.
+
+Testes adicionais: `npm run test:resilience`, `node --test tests/loading-bundle.test.cjs`, `node --use-system-ca tests/conversation-persistence-browser.cjs`, `node --use-system-ca tests/edge-opening-browser.cjs` e `npm run test:edge-runtime`. O último usa Miniflare `4.20260730.0`, instalado separadamente em `.tools/edge-runtime`, sem alterar dependências do aplicativo: `npm install --prefix .tools/edge-runtime --no-save --no-package-lock miniflare@4.20260730.0`. Os novos testes de interface bloqueiam tráfego externo e usam simulações explícitas. Emulação de celular e runtime local não certificam aparelho físico nem o serviço Cloudflare online.
+
 ## Versão atual: Gemini real gratuito, acesso 18+
 
 **Resultado online do carregamento (15/10/2026):** o pacote otimizado foi confirmado no endereço público após refazer a publicação com o cache de compilação limpo. No celular emulado, Home abriu em 1,782 s contra 3,126 s; com rede/CPU limitadas, 3,400 s contra 4,670 s. O conteúdo observado até Home caiu de 1.452.056 para 790.708 bytes descompactados. São amostras, sujeitas à variação de rede/servidor; o primeiro Chat passou a baixar seu módulo separadamente e demorou mais nesse primeiro clique. Passaram 32 verificações online de carregamento/offline, 20 de fluxos reais com Gemini/Firebase e 3 turnos de voz Google completos. A espera da voz variou de 3 a 11 segundos; microfone e celular físicos continuam sem validação. Os resultados e limites estão em [vigia-carregamento-validacao.html](vigia-carregamento-validacao.html).
@@ -89,7 +101,7 @@ O progresso das novas missões funciona offline após carregamento e sincroniza 
 
 Os relatórios locais acima descrevem as versões testadas antes da publicação. A etapa de publicação foi autorizada posteriormente, com IA simulada e um novo Firebase gratuito separado. Permanecem fora da validação: autenticação social real, dispositivos físicos e Safari, qualidade de voz real, auditoria completa com leitores de tela e avaliação pedagógica/jurídica especializada. A exclusão de conta implementada é restrita à demonstração; produção exige um processo de retenção aprovado. A verificação real de adultos, a revisão de vínculos/troca de turma e a operação contínua de moderação precisam de processo externo. As denúncias têm revisão manual, sem prazo garantido.
 
-## Prévia online com IA simulada
+## Registro da etapa anterior: prévia online com IA simulada
 
 Destino autorizado: **https://vigia-app.onrender.com**. O estado efetivo da publicação e os testes online ficam em `artifacts/publication-validation.json`; a presença deste endereço no README não confirma uma publicação concluída.
 

@@ -3,7 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
+export const PWAPrompt: React.FC<{visible?:boolean;onBeforeUpdate?:()=>Promise<void>}> = ({visible=true,onBeforeUpdate}) => {
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -16,6 +16,16 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [updating,setUpdating]=useState(false);
+  const [updateError,setUpdateError]=useState('');
+  const updateLock=React.useRef(false);
+  const handleUpdate=async()=>{
+    if(updateLock.current)return;
+    updateLock.current=true;setUpdating(true);setUpdateError('');
+    try{await onBeforeUpdate?.();await updateServiceWorker(true);}
+    catch(error){setUpdateError(error instanceof Error?error.message:'Não foi possível salvar antes de atualizar. Tente novamente.');}
+    finally{updateLock.current=false;setUpdating(false);}
+  };
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -56,37 +66,41 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
   // still explicit so an open conversation or activity is never reloaded here.
   if(!visible&&!needRefresh)return null;
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 items-end">
+    <div className={needRefresh?'relative z-30 shrink-0 px-3 py-2':'fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 items-end'}>
       <AnimatePresence>
         {/* Nova versão (Update) */}
         {needRefresh && (
           <motion.div 
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-slate-900 border border-cyan-500/50 shadow-[0_0_20px_rgba(0,210,211,0.3)] rounded-2xl p-4 w-72 text-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            aria-label="Atualização do aplicativo"
+            className="bg-slate-900 border border-cyan-500/50 shadow-lg rounded-2xl p-3 w-full max-w-5xl mx-auto text-white"
           >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
-                <h3 className="font-bold text-sm">Nova versão!</h3>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <RefreshCw className="w-4 h-4 text-cyan-400 shrink-0" />
+                <h3 className="font-bold text-xs sm:text-sm">Nova versão!</h3>
+                <p className="hidden md:block text-xs text-slate-300">Atualize quando terminar sua conversa.</p>
               </div>
+              <button
+                onClick={()=>void handleUpdate()}
+                disabled={updating}
+                aria-busy={updating}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer shrink-0"
+              >
+                {updating?'Salvando…':'Atualizar Agora'}
+              </button>
               <button aria-label="Fechar aviso de atualização" onClick={closeRefresh} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-300 mb-3">O Vigia tem uma nova atualização disponível. Instale para usar as novas funções.</p>
-            <button 
-              onClick={() => updateServiceWorker(true)}
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded-xl text-xs transition-colors cursor-pointer"
-            >
-              Atualizar Agora
-            </button>
+            {updateError&&<p role="alert" className="text-xs text-amber-200 mt-3">{updateError}</p>}
           </motion.div>
         )}
 
         {/* Offline Ready */}
-        {visible && offlineReady && (
+        {visible && !needRefresh && offlineReady && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -107,7 +121,7 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
         )}
 
         {/* Botão de Instalar (PWA) */}
-        {visible && isInstallable && (
+        {visible && !needRefresh && isInstallable && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -12,6 +12,7 @@ import type {ActivityClaim} from './lib/adventureModel';
 import {RewardCelebration} from './components/learning/RewardCelebration';
 import { Navbar,type AppTab } from './components/Navbar';
 import {useDialog} from './hooks/useDialog';
+import {createConversationMemory,queueConversationSnapshot,requireConversationReadyForUpdate,flushConversationForUpdate,appendVoiceTurn,type ConversationMetadata} from './lib/conversationState';
 const HomeTab=React.lazy(()=>import('./components/HomeTab'));
 const LearningCenter=React.lazy(()=>import('./components/learning/LearningCenter'));
 const SchoolDashboard=React.lazy(()=>import('./components/SchoolDashboard'));
@@ -46,11 +47,11 @@ function ModalLoading({label,onClose}:{label:string;onClose:()=>void}) {
 }
 
 // Load each modal once it is requested, then retain its state between openings.
-function DeferredModal({open,label,onClose,children}:{open:boolean;label:string;onClose:()=>void;children:React.ReactNode}) {
+function DeferredModal({open,label,onClose,onReload,children}:{open:boolean;label:string;onClose:()=>void;onReload?:()=>Promise<void>;children:React.ReactNode}) {
   const [opened,setOpened]=useState(open);
   useEffect(()=>{if(open)setOpened(true);},[open]);
   if(!open&&!opened)return null;
-  return <div hidden={!open}><FeatureBoundary onReset={onClose}><React.Suspense fallback={open?<ModalLoading label={label} onClose={onClose}/>:null}>{children}</React.Suspense></FeatureBoundary></div>;
+  return <div hidden={!open}><FeatureBoundary onReset={onClose} onReload={onReload}><React.Suspense fallback={open?<ModalLoading label={label} onClose={onClose}/>:null}>{children}</React.Suspense></FeatureBoundary></div>;
 }
 
 export default function App() {
@@ -59,6 +60,7 @@ export default function App() {
   const [profileRetry,setProfileRetry]=useState(0);
   const accountVersion=useRef(0);
   const conversationVersion=useRef(0);
+  const conversationMemory=useRef(createConversationMemory());
   const renderedAccountVersion=accountVersion.current;
   const renderedConversationVersion=conversationVersion.current;
   const [notice,setNotice]=useState('');
@@ -145,6 +147,8 @@ export default function App() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
+  const conversationMessages=useRef(messages);conversationMessages.current=messages;
+  const conversationActivity=useRef({loading:isLoading,mode:chatMode});conversationActivity.current={loading:isLoading,mode:chatMode};
   const [isBadgesModalOpen, setIsBadgesModalOpen] = useState(false);
   // Refs for preventing duplicate sends and aborting previous requests
   const sendingRef = useRef(false);
@@ -182,6 +186,71 @@ export default function App() {
       return INITIAL_BADGES;
     }
   });
+
+  const flushActiveConversation=async()=>{
+    const memory=conversationMemory.current,version=accountVersion.current;
+    const isCurrent=()=>conversationMemory.current===memory&&version===accountVersion.current&&auth.currentUser?.uid===memory.uid;
+    if(!isCurrent())throw Error('A conta ou a conversa mudou. Tente novamente.');
+    queueConversationSnapshot(memory,conversationMessages.current,conversationActivity.current.loading);
+    if(memory.pendingSave.current){
+      if(!memory.flush)throw Error('A conversa ainda está sendo preparada. Aguarde antes de atualizar.');
+      await memory.flush();
+      if(!isCurrent())throw Error('A conta ou a conversa mudou. Tente novamente.');
+    }
+  };
+  const prepareUpdate=async()=>{
+    const memory=conversationMemory.current,version=accountVersion.current;
+    const check=()=>{
+      if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)throw Error('A conta ou a conversa mudou. Tente atualizar novamente.');
+      requireConversationReadyForUpdate(memory,conversationMessages.current,conversationActivity.current);
+    };
+    await flushConversationForUpdate(flushActiveConversation,check);
+  };
+  const prepareAccountChange=async(action:string)=>{
+    const memory=conversationMemory.current,version=accountVersion.current;
+    memory.stopAudio?.();stopSpeaking();setIsSpeaking(false);setChatMode('text');
+    const check=()=>{
+      if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)throw Error('A conta ou a conversa mudou. Tente novamente.');
+      requireConversationReadyForUpdate(memory,conversationMessages.current,{...conversationActivity.current,mode:'text'},action);
+    };
+    await flushConversationForUpdate(flushActiveConversation,check);
+    return {memory,version};
+  };
+  const openAuthSafely=async()=>{
+    const version=accountVersion.current,uid=auth.currentUser?.uid;
+    try{
+      const {memory,version}=await prepareAccountChange('entrar em outra conta');
+      if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)return;
+      setIsWelcomeOpen(false);setIsAuthModalOpen(true);
+    }catch(error){if(version===accountVersion.current&&auth.currentUser?.uid===uid)setNotice(error instanceof Error?error.message:'Não foi possível salvar a conversa antes de abrir o acesso. Tente novamente.');}
+  };
+  useEffect(()=>{
+    if(profileReady&&auth.currentUser?.uid===conversationMemory.current.uid)queueConversationSnapshot(conversationMemory.current,messages,isLoading);
+  },[profileReady,messages,isLoading]);
+  useEffect(()=>{
+    const stage=()=>{
+      const memory=conversationMemory.current;
+      if(auth.currentUser?.uid!==memory.uid)return;
+      queueConversationSnapshot(memory,conversationMessages.current,conversationActivity.current.loading);
+      const pending=memory.pendingSave.current;
+      if(pending&&!pending.uid)memory.stageGuest?.(pending.session);
+    };
+    const flush=()=>{
+      const memory=conversationMemory.current,version=accountVersion.current;
+      if(auth.currentUser?.uid!==memory.uid)return;
+      try{stage();}catch{setNotice('Não foi possível guardar a última conversa neste aparelho. Não atualize antes de tentar novamente.');}
+      void flushActiveConversation().catch(()=>{if(version===accountVersion.current&&memory===conversationMemory.current)setNotice('A última conversa ainda não foi salva. Tente novamente antes de atualizar.');});
+    };
+    const hidden=()=>{if(document.visibilityState==='hidden')flush();};
+    const beforeUnload=(event:BeforeUnloadEvent)=>{
+      const memory=conversationMemory.current;
+      let failed=false;try{stage();}catch{failed=true;}
+      const unavailableHistory=!memory.historyReady&&conversationMessages.current.some(message=>message.role==='user');
+      if(failed||unavailableHistory||memory.draft.text.trim()||memory.draft.image||conversationActivity.current.loading||(memory.uid&&memory.pendingSave.current)){event.preventDefault();event.returnValue='';}
+    };
+    window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',hidden);window.addEventListener('beforeunload',beforeUnload);
+    return()=>{window.removeEventListener('pagehide',flush);document.removeEventListener('visibilitychange',hidden);window.removeEventListener('beforeunload',beforeUnload);};
+  },[]);
 
   useEffect(()=>{
     let disposed=false;let stopProfile:(()=>void)|undefined;
@@ -238,9 +307,12 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    const version=accountVersion.current,uid=auth.currentUser?.uid;
     try {
+      await prepareAccountChange('sair da conta');
       await signOut(auth);
-    } catch { setNotice('Não foi possível sair da conta. Tente novamente.'); return; }
+    } catch(error) { if(version===accountVersion.current&&auth.currentUser?.uid===uid)setNotice(error instanceof Error?error.message:'Não foi possível salvar antes de sair. Sua conta continua aberta; tente novamente.'); return; }
+    if(auth.currentUser)return;
     setIsGuest(false);
     localStorage.removeItem('dc_is_guest');
     setIsProfileModalOpen(false);
@@ -514,6 +586,9 @@ export default function App() {
   const handleResetChat = (force=false) => {
     if(!force && renderedAccountVersion!==accountVersion.current)return;
     ++conversationVersion.current;
+    const previous=conversationMemory.current;
+    conversationMemory.current=createConversationMemory(auth.currentUser?.uid);
+    conversationMemory.current.historyReady=!force&&previous.uid===auth.currentUser?.uid&&previous.historyReady;
     chatAbortRef.current?.abort();
     stopSpeaking();
     setIsSpeaking(false);
@@ -535,9 +610,12 @@ export default function App() {
     setAvatarState('idle');
   };
 
-  const handleLoadSession = (sessionMessages: ChatMessage[]) => {
+  const handleLoadSession = (sessionMessages: ChatMessage[],metadata?:ConversationMetadata,updatedAt?:string) => {
     if(renderedAccountVersion!==accountVersion.current)return;
     ++conversationVersion.current;
+    const previous=conversationMemory.current,next=createConversationMemory(auth.currentUser?.uid);
+    next.historyReady=previous.historyReady;next.metadata.current=metadata||null;next.restoredMessages.current=sessionMessages;
+    next.updatedAt=Date.parse(updatedAt||'')||0;next.draft=previous.draft;conversationMemory.current=next;
     chatAbortRef.current?.abort();
     stopSpeaking();
     setIsSpeaking(false);
@@ -570,7 +648,7 @@ export default function App() {
         onOpenScenarioAnalyzer={() => setIsScenarioAnalyzerOpen(true)}
         onOpenDynamicQuiz={() => setIsDynamicQuizOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => void openAuthSafely()}
         currentUser={currentUser}
         nickname={nickname}
         isGuest={isGuest}
@@ -585,10 +663,11 @@ export default function App() {
         }}
       />
 
+      <PWAPrompt visible={activeTab==='phones'} onBeforeUpdate={prepareUpdate}/>
       {!profileReady && (profileError?<div role="alert" className="p-4 text-center"><p>{profileError}</p><button className="vigia-primary" onClick={()=>{setProfileError('');setProfileRetry(value=>value+1);}}>Tentar carregar perfil novamente</button></div>:<div role="status" className="p-4 text-center">Carregando seu perfil com segurança…</div>)}
       {/* Main View Area */}
       <main className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
-        <FeatureBoundary key={activeTab+':'+(currentUser?.uid||'guest')} onReset={()=>setActiveTab('chat')}><AnimatePresence mode="wait">
+        <FeatureBoundary key={activeTab+':'+(currentUser?.uid||'guest')} onReset={()=>setActiveTab('home')} onReload={prepareUpdate}><AnimatePresence mode="wait">
           <motion.div
             key={activeTab+':'+(currentUser?.uid||'guest')}
             initial={{ opacity: 0, y: 3 }}
@@ -605,6 +684,8 @@ export default function App() {
             {activeTab === 'chat' && profileReady && (
               <React.Suspense fallback={<div role="status" className="learn-shell">Preparando sua conversa com a Vigia…</div>}>
               <ChatTab
+                conversationMemory={conversationMemory.current}
+                onHistoryError={message=>{if(renderedAccountVersion===accountVersion.current&&auth.currentUser?.uid===currentUser?.uid)setNotice(message);}}
                 messages={messages}
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
@@ -620,8 +701,8 @@ export default function App() {
                 debugInfo={debugInfo}
                 currentUser={currentUser}
                 isGuest={isGuest}
-                onChatModeChange={setChatMode}
-                onVoiceTurn={(input,reply)=>{if(renderedAccountVersion!==accountVersion.current||renderedConversationVersion!==conversationVersion.current)return;const now=new Date();setMessages(previous=>[...previous,{id:crypto.randomUUID(),role:'user',content:input,timestamp:now},{id:crypto.randomUUID(),role:'assistant',content:reply,timestamp:now,emotion:'explaining'}]);}}
+                onChatModeChange={mode=>{if(renderedAccountVersion===accountVersion.current&&auth.currentUser?.uid===currentUser?.uid)setChatMode(mode);}}
+                onVoiceTurn={(input,reply)=>{if(renderedAccountVersion!==accountVersion.current||renderedConversationVersion!==conversationVersion.current)return;setMessages(previous=>appendVoiceTurn(previous,input,reply));}}
                 onSpeechRecognized={(speechText) => {
                   setDebugInfo((prev) => ({
                     ...prev,
@@ -689,7 +770,7 @@ export default function App() {
                 <SalaSeguraTab
                   currentUser={currentUser}
                   isGuest={isGuest}
-                  onOpenAuth={() => setIsAuthModalOpen(true)}
+                  onOpenAuth={() => void openAuthSafely()}
                 />
               </React.Suspense>
             )}
@@ -713,7 +794,7 @@ export default function App() {
       )}
 
       {/* Badges Modal */}
-      <DeferredModal open={isBadgesModalOpen} label="Preparando suas conquistas…" onClose={()=>setIsBadgesModalOpen(false)}>
+      <DeferredModal open={isBadgesModalOpen} label="Preparando suas conquistas…" onClose={()=>setIsBadgesModalOpen(false)} onReload={prepareUpdate}>
       <BadgesModal
         isOpen={isBadgesModalOpen}
         onClose={() => setIsBadgesModalOpen(false)}
@@ -723,7 +804,7 @@ export default function App() {
       </DeferredModal>
 
       {/* Daily Mission Modal */}
-      <DeferredModal key={'daily:'+(currentUser?.uid||'guest')} open={isDailyMissionOpen} label="Preparando a missão do dia…" onClose={()=>setIsDailyMissionOpen(false)}>
+      <DeferredModal key={'daily:'+(currentUser?.uid||'guest')} open={isDailyMissionOpen} label="Preparando a missão do dia…" onClose={()=>setIsDailyMissionOpen(false)} onReload={prepareUpdate}>
       <DailyMissionModal onReward={rewardActivity} key={'daily:'+(currentUser?.uid || 'guest')}
         isOpen={isDailyMissionOpen}
         onClose={() => setIsDailyMissionOpen(false)}
@@ -734,7 +815,7 @@ export default function App() {
       </DeferredModal>
 
       {/* AI Scenario Risk Analyzer Modal */}
-      <DeferredModal key={'scenario:'+(currentUser?.uid||'guest')} open={isScenarioAnalyzerOpen} label="Preparando a análise de cenário…" onClose={()=>setIsScenarioAnalyzerOpen(false)}>
+      <DeferredModal key={'scenario:'+(currentUser?.uid||'guest')} open={isScenarioAnalyzerOpen} label="Preparando a análise de cenário…" onClose={()=>setIsScenarioAnalyzerOpen(false)} onReload={prepareUpdate}>
       <ScenarioAnalyzerModal onReward={rewardActivity} key={'scenario:'+(currentUser?.uid || 'guest')}
         isOpen={isScenarioAnalyzerOpen}
         onClose={() => setIsScenarioAnalyzerOpen(false)}
@@ -744,7 +825,7 @@ export default function App() {
       </DeferredModal>
 
       {/* AI Dynamic Quiz Generator Modal */}
-      <DeferredModal key={'quiz:'+(currentUser?.uid||'guest')} open={isDynamicQuizOpen} label="Preparando o desafio…" onClose={()=>setIsDynamicQuizOpen(false)}>
+      <DeferredModal key={'quiz:'+(currentUser?.uid||'guest')} open={isDynamicQuizOpen} label="Preparando o desafio…" onClose={()=>setIsDynamicQuizOpen(false)} onReload={prepareUpdate}>
       <DynamicAIQuizModal onReward={rewardActivity} key={'quiz:'+(currentUser?.uid || 'guest')}
         isOpen={isDynamicQuizOpen}
         onClose={() => setIsDynamicQuizOpen(false)}
@@ -758,20 +839,14 @@ export default function App() {
         <WelcomeScreen
           avatarGender={avatarGender}
           onSelectGender={setAvatarGender}
-          onStart={() => {
-            setIsWelcomeOpen(false);
-            setIsAuthModalOpen(true);
-          }}
-          onLoginClick={() => {
-            setIsWelcomeOpen(false);
-            setIsAuthModalOpen(true);
-          }}
+          onStart={() => void openAuthSafely()}
+          onLoginClick={() => void openAuthSafely()}
           onContinueAsGuest={handleContinueAsGuest}
         />
       )}
 
       {/* Authentication Modal */}
-      <DeferredModal open={isAuthModalOpen} label="Preparando o acesso à sua conta…" onClose={()=>setIsAuthModalOpen(false)}>
+      <DeferredModal open={isAuthModalOpen} label="Preparando o acesso à sua conta…" onClose={()=>setIsAuthModalOpen(false)} onReload={prepareUpdate}>
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -781,7 +856,7 @@ export default function App() {
       </DeferredModal>
 
       {/* User Profile & Progress Modal */}
-      <DeferredModal key={'profile:'+(currentUser?.uid||'guest')} open={isProfileModalOpen} label="Preparando seu perfil…" onClose={()=>setIsProfileModalOpen(false)}>
+      <DeferredModal key={'profile:'+(currentUser?.uid||'guest')} open={isProfileModalOpen} label="Preparando seu perfil…" onClose={()=>setIsProfileModalOpen(false)} onReload={prepareUpdate}>
       <ProfileModal key={'profile:'+(currentUser?.uid || 'guest')} userId={currentUser?.uid} userRole={userRole}
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -799,7 +874,7 @@ export default function App() {
       </DeferredModal>
 
       {/* Terms and Privacy Legal Modals */}
-      <DeferredModal open={!!legalModalType} label="Preparando as informações…" onClose={()=>setLegalModalType(null)}>
+      <DeferredModal open={!!legalModalType} label="Preparando as informações…" onClose={()=>setLegalModalType(null)} onReload={prepareUpdate}>
       <LegalModals
         type={legalModalType}
         onClose={() => setLegalModalType(null)}
@@ -808,7 +883,6 @@ export default function App() {
 
       {/* PWA Components */}
       <RewardCelebration key={'reward:'+(currentUser?.uid||'guest')} uid={currentUser?.uid}/>
-      <PWAPrompt visible={activeTab==='phones'}/>
       <OfflineWarning />
     </div></AvatarGenderContext.Provider></MotionConfig>
   );

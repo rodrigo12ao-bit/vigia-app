@@ -1,4 +1,11 @@
 const fs=require('node:fs'),crypto=require('node:crypto'),{spawn}=require('node:child_process');
+try{
+ const {verifyRelease,releaseSummary}=require('./publication-assets.cjs');
+ console.log(releaseSummary(verifyRelease()));
+}catch{
+ console.error('Pacote de publicação inválido ou desatualizado. Refaça o build antes de iniciar.');
+ process.exit(1);
+}
 const credentialPath=process.env.GOOGLE_APPLICATION_CREDENTIALS;
 try{
  if(!credentialPath)throw Error('Configure GOOGLE_APPLICATION_CREDENTIALS com o arquivo privado do Firebase no servidor.');

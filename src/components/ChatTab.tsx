@@ -55,16 +55,20 @@ import {
 import { GeminiLiveSession } from '../utils/geminiLive';
 import {getAiAccess,getAiStatus} from '../lib/api';
 import {recordingToWave} from '../utils/audioWave';
+import {auth} from '../lib/firebaseAuth';
+import {createConversationMemory,queueConversationSnapshot,mergeSavedSession,type ConversationMemory,type ConversationMetadata} from '../lib/conversationState';
 import {
   loadSessions,
   saveSession,
   deleteSession,
   deleteAllSessions,
   renameSession,
+  stageGuestSession,
 } from '../lib/chatHistoryService';
 
 const publishedBuild=import.meta.env.MODE==='publication';
 const voiceUnavailable='Voz e microfone indisponíveis nesta prévia. Você pode escrever ou enviar uma imagem.';
+const conversationLimitMessage='Esta conversa atingiu o limite. Abra um novo chat; seu histórico foi preservado.';
 
 export type ConversationState =
   | 'IDLE'
@@ -89,7 +93,9 @@ interface ChatTabProps {
   onDeviceSpeechConsent?: () => boolean;
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
-  onLoadSession?: (messages: ChatMessage[]) => void;
+  onLoadSession?: (messages: ChatMessage[],metadata?:ConversationMetadata,updatedAt?:string) => void;
+  conversationMemory?:ConversationMemory;
+  onHistoryError?:(message:string)=>void;
   onChatModeChange?: (mode: 'text' | 'live') => void;
   onVoiceTurn?: (input:string,reply:string)=>void;
   isAudioMuted?: boolean;
@@ -228,6 +234,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   onSelectPrompt,
   onResetChat,
   onLoadSession,
+  conversationMemory,
+  onHistoryError,
   onChatModeChange,
   onVoiceTurn,
   isAudioMuted = false,
@@ -237,6 +245,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   currentUser,
   isGuest = true,
 }) => {
+  const userId=currentUser?.uid;
+  const localMemory=useRef(createConversationMemory(userId));
+  const memory=conversationMemory||localMemory.current;
+  const memoryRef=useRef(memory);memoryRef.current=memory;
+  const componentActive=useRef(true);
+  useEffect(()=>{componentActive.current=true;return()=>{componentActive.current=false;};},[]);
   const [onlinePreview,setOnlinePreview]=useState(publishedBuild);
   const [aiConnection,setAiConnection]=useState<'checking'|'ready'|'error'>('checking');
   const [connectionAttempt,setConnectionAttempt]=useState(0);
@@ -260,17 +274,37 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
   const voiceStartLock=useRef(false);
-  const switchToVoice=async()=>{if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
+  const switchToVoice=async()=>{if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
   useEffect(()=>{voiceStartLock.current=false;},[chatMode]);
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
+  useEffect(()=>()=>{if(auth.currentUser?.uid===memory.uid)onChatModeChange?.('text');},[memory]);
   const [historyReady,setHistoryReady]=useState(false);
-  const sessionMetadata=useRef<{id:string;title:string;createdAt:string}|null>(null);
-  const restoredMessages=useRef<ChatMessage[]|null>(null);
-  const pendingSave=useRef<{session:ChatSession;uid?:string}|null>(null);
+  const [historyError,setHistoryError]=useState('');
+  const [historyAttempt,setHistoryAttempt]=useState(0);
+  const [historyMutationError,setHistoryMutationError]=useState('');
+  const historyMutation=useRef(false);
+  const sessionMetadata=memory.metadata;
+  const restoredMessages=memory.restoredMessages;
+  const pendingSave=memory.pendingSave;
   const switchLock=useRef(false);
-  const flushSession=async()=>{const pending=pendingSave.current;if(!pending)return;await saveSession(pending.session,pending.uid);if(pendingSave.current===pending)pendingSave.current=null;};
+  const flushSession=()=>{
+    if(memory.flushing)return memory.flushing;
+    const current=()=>auth.currentUser?.uid===memory.uid;
+    const run=async()=>{while(pendingSave.current){
+      if(!current())throw Error('A conta mudou. Reabra o histórico na sua conta.');
+      const pending=pendingSave.current;
+      if(!pending.uid)stageGuestSession(pending.session);
+      await saveSession(pending.session,pending.uid);
+      if(!current())throw Error('A conta mudou. Reabra o histórico na sua conta.');
+      memory.savedSession=pending.session;
+      if(pendingSave.current===pending)pendingSave.current=null;
+    }};
+    const flushing=run().finally(()=>{if(memory.flushing===flushing)memory.flushing=undefined;});
+    memory.flushing=flushing;return flushing;
+  };
+  memory.flush=flushSession;memory.stageGuest=stageGuestSession;
   const [showSubtitles, setShowSubtitles] = useState(true);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState(memory.draft.text);
   const [interactionState, setInteractionState] = useState<ConversationState>('IDLE');
   
   // Derived state from interactionState to preserve JSX backward compatibility
@@ -303,7 +337,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // History & Session State
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(memory.metadata.current?.id||null);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
@@ -314,7 +348,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     data: string;
     mimeType: string;
     previewUrl: string;
-  } | null>(null);
+  } | null>(memory.draft.image);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -373,8 +407,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const timer=window.setInterval(()=>{const remaining=seconds();setLiveRetrySeconds(remaining);if(remaining===0)window.clearInterval(timer);},1000);
     return ()=>window.clearInterval(timer);
   },[liveRetryAt]);
-
-  const userId = currentUser?.uid;
 
   const currentAvatarState = React.useMemo(() => {
     if (interactionState === 'LISTENING' || interactionState === 'USER_SPEAKING') return 'listening';
@@ -484,23 +516,25 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   }, [isListening, isSpeaking, isLoading]);
 
   useEffect(() => {
-    let cancelled=false; setHistoryReady(false); setSessions([]); setCurrentSessionId(null); sessionMetadata.current=null;pendingSave.current=null;
-    loadSessions(userId).then(list=>{ if(cancelled)return; setSessions(list); setHistoryReady(true); }).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
+    let cancelled=false; setHistoryReady(false);setHistoryError('');memoryRef.current.historyReady=false;
+    loadSessions(userId).then(list=>{if(cancelled||auth.currentUser?.uid!==userId)return;memoryRef.current.historyReady=true;setSessions(list);setHistoryReady(true);}).catch(()=>{if(!cancelled&&auth.currentUser?.uid===userId)setHistoryError('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
     return ()=>{cancelled=true;};
-  },[userId]);
+  },[userId,historyAttempt]);
+  useEffect(()=>{setCurrentSessionId(memory.metadata.current?.id||null);},[memory]);
+  useEffect(()=>{memory.draft.text=inputText;memory.draft.image=selectedImage;},[memory,inputText,selectedImage]);
+  useEffect(()=>()=>{
+    if(auth.currentUser?.uid!==memory.uid)return;
+    void flushSession().catch(()=>onHistoryError?.('Não foi possível salvar a última conversa. Ela permanece aberta neste aparelho; tente salvar novamente antes de atualizar.'));
+  },[memory]);
   useEffect(()=>{
     if(!historyReady || isLoading || !messages.some(m=>m.role==='user'))return;
-    if(restoredMessages.current===messages)return;
-    const first=messages.find(m=>m.role==='user')!;
-    const id=currentSessionId || crypto.randomUUID();
-    if(!currentSessionId){setCurrentSessionId(id);sessionMetadata.current={id,title:first.content.slice(0,30),createdAt:new Date().toISOString()};return;}
-    const meta=sessionMetadata.current || {id,title:first.content.slice(0,30),createdAt:new Date().toISOString()};
-    const object:ChatSession={...meta,updatedAt:new Date().toISOString(),lastMessagePreview:messages.at(-1)?.content.slice(0,50)||'',messages};
-    pendingSave.current={session:object,uid:userId};
+    queueConversationSnapshot(memory,messages,isLoading);
+    if(memory.metadata.current?.id!==currentSessionId)setCurrentSessionId(memory.metadata.current?.id||null);
+    if(!pendingSave.current)return;
     let cancelled=false;
-    const timer=setTimeout(()=>{flushSession().then(()=>loadSessions(userId)).then(list=>{if(!cancelled)setSessions(list);}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
+    const timer=setTimeout(()=>{flushSession().then(()=>{if(!cancelled&&memory.savedSession)setSessions(list=>mergeSavedSession(list,memory.savedSession!));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
     return ()=>{cancelled=true;clearTimeout(timer);};
-  },[historyReady,messages,isLoading,userId,currentSessionId]);
+  },[historyReady,messages,isLoading,userId,currentSessionId,memory]);
 
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
@@ -760,6 +794,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     // Live capture belongs exclusively to GeminiLiveSession.
     const legacyMode=()=>chatModeRef.current==='text'&&!liveSessionRef.current;
     if(!legacyMode())return;
+    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
     const captureVersion=++legacyCaptureVersion.current;
     const captureCurrent=()=>captureVersion===legacyCaptureVersion.current&&legacyMode();
     if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
@@ -999,7 +1034,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !selectedImage) || isLoading) return;
+    if ((!inputText.trim() && !selectedImage) || isLoading || historyMutation.current) return;
+    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
 
     const imageToSend = selectedImage
       ? { data: selectedImage.data, mimeType: selectedImage.mimeType }
@@ -1035,6 +1071,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if(!next&&liveUnavailable){setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);}
       return;
     }
+    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
     if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!isListening&&!await voiceAllowed())return;
@@ -1081,6 +1118,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     liveCheckedReplyRef.current='';deviceModeRef.current=false;setDeviceMode(false);setDeviceReading(false);
     if(chatMode==='live')setChatMode('text');
   };
+  memory.stopAudio=()=>{endLiveConversation();stopListening();};
+  useEffect(()=>{
+    if(messages.length<198)return;
+    if(chatModeRef.current==='live')endLiveConversation();
+    if(isListeningRef.current)stopListening();
+    setSpeechFeedbackMsg(conversationLimitMessage);
+  },[messages.length]);
 
   const handleNewChat = async () => {
     if(switchLock.current)return;
@@ -1094,8 +1138,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=null; sessionMetadata.current=null;
     onResetChat?.();
-    const newId = 'sess_' + Date.now();
-    setCurrentSessionId(newId);
+    setCurrentSessionId(null);
     setInputText('');
     setShowHistoryDrawer(false);
   };
@@ -1107,50 +1150,58 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=session.messages;
     sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
-    onLoadSession?.(session.messages);
+    onLoadSession?.(session.messages,sessionMetadata.current,session.updatedAt);
     setCurrentSessionId(session.id);
     setShowHistoryDrawer(false);
   };
 
   // Confirm and delete session
   const handleConfirmDeleteSession = async () => {
-    if (!sessionToDelete || isLoading) return;
-    if(pendingSave.current?.session.id===sessionToDelete.id)pendingSave.current=null;
-    await deleteSession(sessionToDelete.id, userId);
-    const updated = await loadSessions(userId);
-    setSessions(updated);
-
-    if (currentSessionId === sessionToDelete.id) {
-      if (updated.length > 0) {
-        handleSelectSession(updated[0]);
-      } else {
-        handleNewChat();
+    if (!sessionToDelete || isLoading || historyMutation.current) return;
+    const target=sessionToDelete,current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
+    historyMutation.current=true;setHistoryMutationError('');
+    try{
+      endLiveConversation();stopListening();await flushSession();if(!current())return;
+      await deleteSession(target.id,userId);if(!current())return;
+      const updated=sessions.filter(session=>session.id!==target.id);setSessions(updated);
+      if(pendingSave.current?.session.id===target.id)pendingSave.current=null;
+      if(currentSessionId===target.id){
+        if(updated.length)await handleSelectSession(updated[0]);
+        else {restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
       }
-    }
-    setSessionToDelete(null);
+      setSessionToDelete(null);
+    }catch{if(current())setHistoryMutationError('Não foi possível apagar esta conversa. A conversa aberta foi preservada. Tente novamente.');}
+    finally{historyMutation.current=false;}
   };
 
   // Delete all sessions
   const handleConfirmDeleteAll = async () => {
-    if(isLoading)return;
-    pendingSave.current=null;
-    await deleteAllSessions(userId);
-    setSessions([]);
-    handleNewChat();
-    setIsConfirmDeleteAllOpen(false);
-    setShowHistoryDrawer(false);
+    if(isLoading||historyMutation.current)return;
+    const current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
+    historyMutation.current=true;setHistoryMutationError('');
+    try{
+      endLiveConversation();stopListening();await flushSession();if(!current())return;
+      await deleteAllSessions(userId);if(!current())return;
+      pendingSave.current=null;setSessions([]);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);
+      setIsConfirmDeleteAllOpen(false);setShowHistoryDrawer(false);
+    }catch{if(current())setHistoryMutationError('Não foi possível concluir a exclusão. As conversas restantes e a conversa aberta foram preservadas. Tente novamente.');}
+    finally{historyMutation.current=false;}
   };
 
   // Rename session
   const handleSaveRename = async (sessionId: string) => {
-    if (!editingTitleText.trim() || isLoading) return;
-    await flushSession();
-    await renameSession(sessionId, editingTitleText.trim(), userId);
-    const updated = await loadSessions(userId);
-    setSessions(updated);
-    if(sessionMetadata.current?.id===sessionId)sessionMetadata.current={...sessionMetadata.current,title:editingTitleText.trim()};
-    setEditingSessionId(null);
-    setEditingTitleText('');
+    if (!editingTitleText.trim() || isLoading || historyMutation.current) return;
+    const title=editingTitleText.trim(),current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
+    historyMutation.current=true;setHistoryMutationError('');
+    try{
+      endLiveConversation();stopListening();await flushSession();if(!current())return;
+      const renamed=await renameSession(sessionId,title,userId);if(!current())return;
+      setSessions(list=>mergeSavedSession(list,renamed));
+      if(sessionMetadata.current?.id===sessionId)sessionMetadata.current={...sessionMetadata.current,title};
+      if(memory.savedSession?.id===sessionId)memory.savedSession=renamed;
+      setEditingSessionId(null);setEditingTitleText('');
+    }catch{if(current())setHistoryMutationError('Não foi possível renomear. O título anterior e o texto digitado foram preservados. Tente novamente.');}
+    finally{historyMutation.current=false;}
   };
 
   const [isConfirmEndCallOpen, setIsConfirmEndCallOpen] = useState(false);
@@ -1374,6 +1425,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>
         </div>
 
+        {historyError&&<div role="alert" className="px-3 py-2 bg-amber-500/20 text-amber-200 text-xs border-b border-amber-500/30">{historyError} <button className="font-bold underline ml-2" onClick={()=>setHistoryAttempt(value=>value+1)}>Tentar carregar histórico</button></div>}
+
         {/* TECHNICAL DEBUG MODAL */}
         <AnimatePresence>
           {showDebugPanel && (
@@ -1507,6 +1560,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 <div className="text-center">
                   <h3 className="font-black text-sm text-white">Apagar esta conversa?</h3>
                   <p className="text-xs text-slate-400 font-medium mt-1">Essa ação não poderá ser desfeita.</p>
+                  {historyMutationError&&<p role="alert" className="text-xs text-amber-200 mt-2">{historyMutationError}</p>}
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -1547,6 +1601,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <p className="text-xs text-slate-400 font-medium mt-1">
                     Isso apagará permanentemente todas as suas conversas gravadas.
                   </p>
+                  {historyMutationError&&<p role="alert" className="text-xs text-amber-200 mt-2">{historyMutationError}</p>}
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -1694,7 +1749,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                                 onClick={() => !isEditing && handleSelectSession(session)}
                               >
                                 {isEditing ? (
-                                  <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
+                                  <div className="w-full" onClick={(e) => e.stopPropagation()}><div className="flex items-center gap-1 w-full">
                                     <input
                                       type="text"
                                       value={editingTitleText}
@@ -1708,7 +1763,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                                     >
                                       <Check className="w-3.5 h-3.5" />
                                     </button>
-                                  </div>
+                                  </div>{historyMutationError&&<p role="alert" className="text-xs text-amber-200 mt-2">{historyMutationError}</p>}</div>
                                 ) : (
                                   <>
                                     <div className="overflow-hidden flex-1">
@@ -1727,6 +1782,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                                           e.stopPropagation();
                                           setEditingSessionId(session.id);
                                           setEditingTitleText(session.title);
+                                          setHistoryMutationError('');
                                         }}
                                         className="p-1 text-slate-400 hover:text-amber-300 hover:bg-slate-800 rounded-md"
                                         title="Renomear conversa"
@@ -1737,6 +1793,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSessionToDelete(session);
+                                          setHistoryMutationError('');
                                         }}
                                         className="p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-md"
                                         title="Apagar conversa"
