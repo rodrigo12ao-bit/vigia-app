@@ -1,0 +1,142 @@
+{
+  "url": "http://localhost:3117",
+  "scope": "Chrome desktop/celular emulado; IA, WebSocket, microfone, síntese e login Firebase simulados. Sem IA real, dados pessoais ou gravações no Firebase.",
+  "results": [
+    {
+      "name": "desktop: texto parcial não oferece nem executa leitura no aparelho",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: recusar consentimento não lê nem seleciona modo e preserva a sessão pausada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: aceitar consentimento lê a resposta completa na mesma conexão e preserva o histórico",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: captura fica pausada durante todos os trechos e retoma uma única vez no fim natural",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: próxima resposta verificada é lida automaticamente, preservando contexto e a mesma conexão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: pausa manual durante o preparo é respeitada no fim da leitura e exige retomada explícita",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: pausar durante leitura cancela sem retomada tardia e exige ativação explícita",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: interromper cancela a fala e retoma uma vez; callback antigo não retoma de novo",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: silenciar cancela leitura sem reativar o microfone por callback atrasado",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: falha da síntese preserva texto integral e não pula frase nem retoma a captura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: nova conversa limpa a sessão e não retoma captura quando termina uma leitura antiga",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: abrir histórico encerra leitura e ignora término tardio sem sobrescrever a conversa",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: encerrar cancela a leitura e libera todos os recursos sem retomada tardia",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: seleção do aparelho antes da primeira resposta mantém sessão, rejeita fragmentos e lê só a resposta verificada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: login de outra conta simulado encerra a sessão visitante e não retoma leitura/captura antiga",
+      "status": "passed"
+    },
+    {
+      "name": "celular: texto parcial não oferece nem executa leitura no aparelho",
+      "status": "passed"
+    },
+    {
+      "name": "celular: recusar consentimento não lê nem seleciona modo e preserva a sessão pausada",
+      "status": "passed"
+    },
+    {
+      "name": "celular: aceitar consentimento lê a resposta completa na mesma conexão e preserva o histórico",
+      "status": "passed"
+    },
+    {
+      "name": "celular: captura fica pausada durante todos os trechos e retoma uma única vez no fim natural",
+      "status": "passed"
+    },
+    {
+      "name": "celular: próxima resposta verificada é lida automaticamente, preservando contexto e a mesma conexão",
+      "status": "passed"
+    },
+    {
+      "name": "celular: pausa manual durante o preparo é respeitada no fim da leitura e exige retomada explícita",
+      "status": "passed"
+    },
+    {
+      "name": "celular: pausar durante leitura cancela sem retomada tardia e exige ativação explícita",
+      "status": "passed"
+    },
+    {
+      "name": "celular: interromper cancela a fala e retoma uma vez; callback antigo não retoma de novo",
+      "status": "passed"
+    },
+    {
+      "name": "celular: silenciar cancela leitura sem reativar o microfone por callback atrasado",
+      "status": "passed"
+    },
+    {
+      "name": "celular: falha da síntese preserva texto integral e não pula frase nem retoma a captura",
+      "status": "passed"
+    },
+    {
+      "name": "celular: nova conversa limpa a sessão e não retoma captura quando termina uma leitura antiga",
+      "status": "passed"
+    },
+    {
+      "name": "celular: abrir histórico encerra leitura e ignora término tardio sem sobrescrever a conversa",
+      "status": "passed"
+    },
+    {
+      "name": "celular: encerrar cancela a leitura e libera todos os recursos sem retomada tardia",
+      "status": "passed"
+    },
+    {
+      "name": "celular: seleção do aparelho antes da primeira resposta mantém sessão, rejeita fragmentos e lê só a resposta verificada",
+      "status": "passed"
+    },
+    {
+      "name": "celular: login de outra conta simulado encerra a sessão visitante e não retoma leitura/captura antiga",
+      "status": "passed"
+    }
+  ],
+  "networkGuard": [
+    {
+      "label": "desktop",
+      "blocked": [
+        "blocked-database:POST",
+        "blocked-database:POST"
+      ]
+    },
+    {
+      "label": "celular",
+      "blocked": [
+        "blocked-database:POST",
+        "blocked-database:POST"
+      ]
+    }
+  ]
+}

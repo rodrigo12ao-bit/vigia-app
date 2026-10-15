@@ -1,0 +1,182 @@
+{
+  "url": "http://localhost:3114",
+  "scope": "Chrome desktop e celular emulado; WebSocket, respostas HTTP, microfone e síntese do aparelho simulados. Visitante e histórico apenas neste contexto isolado do navegador. Sem chamadas de IA, gravações no Firebase, dados reais ou validação acústica física.",
+  "results": [
+    {
+      "name": "desktop: pausa manual durante a resposta preserva a captura desativada até a reprodução terminar",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: cota exclusiva da síntese preserva resposta integral e histórico, pausa captura e mantém a sessão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: retomar após o prazo reutiliza a mesma conexão sem duplicar a resposta",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: interrupção recebida durante pausa mantém captura e indicador de escuta desativados",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: pedido por texto após falha de voz preserva o contexto",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: continuar por texto libera áudio e microfone sem perder mensagens",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: nova conversa encerra sessão pendente e ignora texto/áudio atrasados, preservando histórico anterior",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: abrir histórico durante resposta pendente encerra voz, ignora callbacks atrasados e não sobrescreve a conversa restaurada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: emergência salva exatamente uma entrada e uma orientação, encerra sessão e recursos sem fabricar áudio",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: fragmento ainda não verificado não oferece nem executa leitura no aparelho",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: recusar consentimento preserva sessão pausada e texto, sem reproduzir voz nem selecionar modo",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: voz do aparelho com consentimento lê a resposta integral, pausa captura e preserva a mesma sessão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: resposta seguinte mantém contexto e leitura integral na mesma sessão, sem pedir síntese à IA",
+      "status": "passed"
+    },
+    {
+      "name": "celular: pausa manual durante a resposta preserva a captura desativada até a reprodução terminar",
+      "status": "passed"
+    },
+    {
+      "name": "celular: cota exclusiva da síntese preserva resposta integral e histórico, pausa captura e mantém a sessão",
+      "status": "passed"
+    },
+    {
+      "name": "celular: retomar após o prazo reutiliza a mesma conexão sem duplicar a resposta",
+      "status": "passed"
+    },
+    {
+      "name": "celular: interrupção recebida durante pausa mantém captura e indicador de escuta desativados",
+      "status": "passed"
+    },
+    {
+      "name": "celular: pedido por texto após falha de voz preserva o contexto",
+      "status": "passed"
+    },
+    {
+      "name": "celular: continuar por texto libera áudio e microfone sem perder mensagens",
+      "status": "passed"
+    },
+    {
+      "name": "celular: nova conversa encerra sessão pendente e ignora texto/áudio atrasados, preservando histórico anterior",
+      "status": "passed"
+    },
+    {
+      "name": "celular: abrir histórico durante resposta pendente encerra voz, ignora callbacks atrasados e não sobrescreve a conversa restaurada",
+      "status": "passed"
+    },
+    {
+      "name": "celular: emergência salva exatamente uma entrada e uma orientação, encerra sessão e recursos sem fabricar áudio",
+      "status": "passed"
+    },
+    {
+      "name": "celular: fragmento ainda não verificado não oferece nem executa leitura no aparelho",
+      "status": "passed"
+    },
+    {
+      "name": "celular: recusar consentimento preserva sessão pausada e texto, sem reproduzir voz nem selecionar modo",
+      "status": "passed"
+    },
+    {
+      "name": "celular: voz do aparelho com consentimento lê a resposta integral, pausa captura e preserva a mesma sessão",
+      "status": "passed"
+    },
+    {
+      "name": "celular: resposta seguinte mantém contexto e leitura integral na mesma sessão, sem pedir síntese à IA",
+      "status": "passed"
+    }
+  ],
+  "voiceReadiness": [
+    {
+      "expectedSocketCount": 1,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 6
+    },
+    {
+      "expectedSocketCount": 2,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 6
+    },
+    {
+      "expectedSocketCount": 3,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 5
+    },
+    {
+      "expectedSocketCount": 4,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 3
+    },
+    {
+      "expectedSocketCount": 5,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 5
+    },
+    {
+      "expectedSocketCount": 1,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 4
+    },
+    {
+      "expectedSocketCount": 2,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 4
+    },
+    {
+      "expectedSocketCount": 3,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 4
+    },
+    {
+      "expectedSocketCount": 4,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 5
+    },
+    {
+      "expectedSocketCount": 5,
+      "labelsBeforeWait": [
+        "Conversa por voz"
+      ],
+      "waitedMs": 4
+    }
+  ]
+}

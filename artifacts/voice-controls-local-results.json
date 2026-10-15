@@ -1,0 +1,61 @@
+{
+  "scope": "Interface desktop/celular, provedor WebSocket simulado; sem chamadas de IA.",
+  "results": [
+    {
+      "name": "desktop: silêncio altera o volume real e pode ser desfeito",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: pausar interrompe envio do microfone; retomar preserva a sessão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: preparo da resposta bloqueia captura e envio de eco ou ruído",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: fim da reprodução respeita pausa manual e só retoma após escolha",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: reprodução sem eco retoma naturalmente na mesma sessão ao terminar",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: interromper cancela a reprodução e volta à escuta",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: encerrar libera todos os recursos",
+      "status": "passed"
+    },
+    {
+      "name": "celular: silêncio altera o volume real e pode ser desfeito",
+      "status": "passed"
+    },
+    {
+      "name": "celular: pausar interrompe envio do microfone; retomar preserva a sessão",
+      "status": "passed"
+    },
+    {
+      "name": "celular: preparo da resposta bloqueia captura e envio de eco ou ruído",
+      "status": "passed"
+    },
+    {
+      "name": "celular: fim da reprodução respeita pausa manual e só retoma após escolha",
+      "status": "passed"
+    },
+    {
+      "name": "celular: reprodução sem eco retoma naturalmente na mesma sessão ao terminar",
+      "status": "passed"
+    },
+    {
+      "name": "celular: interromper cancela a reprodução e volta à escuta",
+      "status": "passed"
+    },
+    {
+      "name": "celular: encerrar libera todos os recursos",
+      "status": "passed"
+    }
+  ]
+}
