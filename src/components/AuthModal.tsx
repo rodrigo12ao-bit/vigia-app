@@ -80,6 +80,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return 'Endereço de e-mail inválido.';
       case 'auth/popup-closed-by-user':
         return 'A janela do Google foi fechada antes de concluir o login.';
+      case 'auth/unauthorized-domain':
+        return 'O login com Google ainda não está liberado neste endereço. Use a entrada por e-mail ou o endereço anterior do Vigia.';
       default:
         return 'Ocorreu um erro ao conectar. Verifique sua conexão e tente novamente.';
     }

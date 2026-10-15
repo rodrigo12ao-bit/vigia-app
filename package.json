@@ -21,6 +21,7 @@
     "test:edge": "node --test tests/edge-proxy.test.cjs",
     "test:edge-runtime": "node --test tests/edge-runtime.test.cjs",
     "test:netlify": "node --test tests/netlify-proxy.test.cjs tests/netlify-build.test.cjs tests/voice-origin.test.cjs",
+    "test:image-preparation": "node tests/image-preparation-browser.cjs",
     "test:client-api": "node --test tests/api-client-recovery.test.cjs",
     "test:resilience": "node --test tests/api-client-recovery.test.cjs tests/publication-assets.test.cjs tests/edge-proxy.test.cjs tests/conversation-persistence.test.cjs tests/startup-update-controls.test.cjs tests/ai-admission.test.cjs tests/api-boundary.test.cjs",
     "preview": "vite preview",

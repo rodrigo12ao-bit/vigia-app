@@ -349,6 +349,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     mimeType: string;
     previewUrl: string;
   } | null>(memory.draft.image);
+  const selectedImageRef=useRef(selectedImage);selectedImageRef.current=selectedImage;
+  const imagePreparation=useRef({generation:0,pending:false});
+  const [isPreparingImage,setIsPreparingImage]=useState(false);
+  const updateSelectedImage=(image:typeof selectedImage)=>{
+    selectedImageRef.current=image;memory.draft.image=image;setSelectedImage(image);
+  };
+  const cancelImagePreparation=(clearImage=false)=>{
+    ++imagePreparation.current.generation;imagePreparation.current.pending=false;setIsPreparingImage(false);
+    if(clearImage)updateSelectedImage(null);
+  };
+  useEffect(()=>{setIsPreparingImage(false);return()=>{++imagePreparation.current.generation;imagePreparation.current.pending=false;};},[memory,userId]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1025,25 +1036,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file=e.target.files?.[0];e.target.value='';if(!file)return;
-    try{setSelectedImage(await prepareImage(file));}catch(e){setSpeechFeedbackMsg(e instanceof Error?e.message:'Imagem indisponível.');}
+    if(switchLock.current||historyMutation.current)return;
+    const generation=++imagePreparation.current.generation;
+    imagePreparation.current.pending=true;setIsPreparingImage(true);setSpeechFeedbackMsg(null);
+    const current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId&&generation===imagePreparation.current.generation;
+    try{
+      const image=await prepareImage(file);
+      if(current())updateSelectedImage(image);
+    }catch(error){if(current())setSpeechFeedbackMsg(error instanceof Error?error.message:'Imagem indisponível.');}
+    finally{if(current()){imagePreparation.current.pending=false;setIsPreparingImage(false);}}
   };
 
   const handleRemoveImage = () => {
-    setSelectedImage(null);
+    cancelImagePreparation(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !selectedImage) || isLoading || historyMutation.current) return;
+    if(imagePreparation.current.pending||switchLock.current||!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
+    const image=selectedImageRef.current;
+    if (!inputText.trim() || isLoading || historyMutation.current) return;
     if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
 
-    const imageToSend = selectedImage
-      ? { data: selectedImage.data, mimeType: selectedImage.mimeType }
+    const imageToSend = image
+      ? { data: image.data, mimeType: image.mimeType }
       : undefined;
 
     onSendMessage(inputText.trim(), imageToSend);
     setInputText('');
-    setSelectedImage(null);
+    cancelImagePreparation(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1128,30 +1149,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const handleNewChat = async () => {
     if(switchLock.current)return;
-    if (inputText.trim()) {
+    if (inputText.trim()||selectedImageRef.current||imagePreparation.current.pending) {
       if (!window.confirm('Você tem uma mensagem não enviada. Deseja iniciar um novo chat mesmo assim?')) {
         return;
       }
     }
     if(isLoading)return;
+    cancelImagePreparation();
     endLiveConversation();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=null; sessionMetadata.current=null;
     onResetChat?.();
     setCurrentSessionId(null);
     setInputText('');
+    updateSelectedImage(null);
     setShowHistoryDrawer(false);
   };
 
   // Switch to a chat session
   const handleSelectSession = async (session: ChatSession) => {
     if(isLoading || switchLock.current)return;
+    if((inputText.trim()||selectedImageRef.current||imagePreparation.current.pending)&&!window.confirm('Há uma mensagem não enviada. Deseja abrir outra conversa? O texto digitado será preservado; imagens serão removidas após a troca.'))return;
+    cancelImagePreparation();
     endLiveConversation();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
     restoredMessages.current=session.messages;
     sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
     onLoadSession?.(session.messages,sessionMetadata.current,session.updatedAt);
     setCurrentSessionId(session.id);
+    updateSelectedImage(null);
     setShowHistoryDrawer(false);
   };
 
@@ -1167,7 +1193,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if(pendingSave.current?.session.id===target.id)pendingSave.current=null;
       if(currentSessionId===target.id){
         if(updated.length)await handleSelectSession(updated[0]);
-        else {restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
+        else {cancelImagePreparation(true);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
       }
       setSessionToDelete(null);
     }catch{if(current())setHistoryMutationError('Não foi possível apagar esta conversa. A conversa aberta foi preservada. Tente novamente.');}
@@ -1182,6 +1208,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     try{
       endLiveConversation();stopListening();await flushSession();if(!current())return;
       await deleteAllSessions(userId);if(!current())return;
+      cancelImagePreparation(true);
       pendingSave.current=null;setSessions([]);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);
       setIsConfirmDeleteAllOpen(false);setShowHistoryDrawer(false);
     }catch{if(current())setHistoryMutationError('Não foi possível concluir a exclusão. As conversas restantes e a conversa aberta foram preservadas. Tente novamente.');}
@@ -2122,6 +2149,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
               {/* FIXED BOTTOM MESSAGE FIELD */}
               <div className="p-2 sm:p-3 bg-slate-900 border-t border-slate-800 shrink-0 z-20 w-full min-w-0">
+                {isPreparingImage&&(
+                  <div role="status" aria-live="polite" className="mb-2 max-w-4xl mx-auto flex items-center justify-between gap-2 text-xs text-indigo-200">
+                    <span>Preparando imagem… Aguarde antes de enviar.</span>
+                    <button type="button" onClick={()=>cancelImagePreparation()} className="underline cursor-pointer" title="Cancelar preparação da imagem">Cancelar</button>
+                  </div>
+                )}
                 {/* Image Preview Area if selected */}
                 {selectedImage && (
                   <div className="mb-2 max-w-4xl mx-auto flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-800">
@@ -2137,15 +2170,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       </button>
                     </div>
                     <div className="flex-1 min-w-0 text-xs">
-                      <p className="font-bold text-slate-200 truncate">Foto anexada para análise</p>
-                      <p className="text-slate-400 text-[11px] truncate">
-                        A Vigia analisará esta imagem para identificar riscos e dar orientações de segurança.
+                      <p className="font-bold text-slate-200 truncate">Imagem pronta para enviar</p>
+                      <p className="text-slate-400 text-[11px]">
+                        A IA pode comentar elementos visíveis, mas pode errar e não confirma se um local é seguro.
                       </p>
                     </div>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="flex items-end gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full min-w-0">
+                <form onSubmit={handleSubmit} aria-busy={isPreparingImage} className="flex items-end gap-1.5 sm:gap-2 max-w-4xl mx-auto w-full min-w-0">
                   {/* Hidden Image Input */}
                   <input
                     type="file"
@@ -2164,7 +2197,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         ? 'bg-indigo-600 text-white border-indigo-400 shadow-md ring-2 ring-indigo-400/50'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                     }`}
-                    title="Anexar foto para análise de riscos"
+                    title="Anexar imagem para comentar elementos visíveis"
                   >
                     <Camera className="w-5 h-5 text-amber-300" />
                   </button>
@@ -2212,7 +2245,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   {/* Send Message Button */}
                   <button
                     type="submit"
-                    disabled={!inputText.trim() || isLoading}
+                    disabled={!inputText.trim()||isLoading||isPreparingImage}
                     className="p-2.5 sm:p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
                     title="Enviar mensagem"
                   >
