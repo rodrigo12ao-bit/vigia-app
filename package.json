@@ -15,6 +15,7 @@
     "start:gemini": "node scripts/start-gemini.cjs",
     "test:real-ai": "tsx --test --test-concurrency=1 tests/real-ai.test.ts tests/real-voice.test.ts tests/gemini-voice.test.ts tests/gemini-speech-stream.test.ts tests/gemini-literal-speech.test.ts tests/voice-text.test.ts tests/gemini-ai.test.ts tests/educational-plan.test.ts",
     "test:publication": "tsx --test tests/publication.test.ts",
+    "test:voice-client": "node --test --test-concurrency=1 tests/gemini-live-client.test.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",

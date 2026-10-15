@@ -213,6 +213,7 @@ async function startVoice(expectedSocketCount) {
             const message = JSON.parse(data); this.sent.push(message);
             if (message.type === 'realtime_audio') window.recoveryFrames++;
             if (message.type === 'speech_output') setTimeout(() => this.emit({ type: 'speech_output', mode: message.mode }), 0);
+            if (message.type === 'interrupt') setTimeout(() => this.emit({ type: 'interrupted' }), 0);
           }
           close() { this.readyState = 3; this.onclose?.(); }
         };
@@ -238,8 +239,8 @@ async function startVoice(expectedSocketCount) {
       await wait(220);
       assert.equal(await page.evaluate(() => window.recoveryFrames), pausedFrames);
       await page.click('[title="Ativar Conversa"]');
-      await page.waitForFunction(() => window.recoveryTracks.some(track => track.readyState === 'live' && track.enabled));
-      report.results.push({ name: label + ': pausar captura durante a resposta realmente interrompe o envio do microfone', status: 'passed' });
+      await page.waitForFunction(() => window.recoveryTracks.filter(track => track.readyState === 'live').every(track => !track.enabled));
+      report.results.push({ name: label + ': pausa manual durante a resposta preserva a captura desativada até a reprodução terminar', status: 'passed' });
 
       await emit([
         { type: 'speech_unavailable', code: 'quota', message: 'Cota de voz simulada. Sua resposta continua disponível por texto.', retryAfterMs: 1200 },

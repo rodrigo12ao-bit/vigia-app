@@ -1,0 +1,5647 @@
+{
+  "url": "http://localhost:3119",
+  "scope": "Três falas adultas sintéticas locais, captura virtual MediaStreamDestination sem acesso ao microfone físico; transcrição, respostas e voz Google reais da cota gratuita; reprodução Web Audio real, saída silenciada no teste. Não avalia qualidade por audição humana nem eco de alto-falante físico.",
+  "runLabel": "stream-fallback",
+  "maxAllowedChunkGapMs": 150,
+  "turns": [
+    {
+      "number": 1,
+      "input": "Onde devo guardar a lanterna na mochila de emergência?",
+      "reply": "Guarde a lanterna junto com pilhas reservas na mochila de emergência. Prefere colocar água e alimentos também?",
+      "audioChunks": 85,
+      "receivedPcmBytes": 337920,
+      "playbackSources": 85,
+      "naturalEnds": 85,
+      "playbackSeconds": 7.0400000000000045,
+      "maxScheduledGapMs": 0,
+      "processingToFirstAudioMs": 3491,
+      "playbackEndMs": 18507
+    },
+    {
+      "number": 2,
+      "input": "as pilhas dela",
+      "reply": "Guarde pilhas reservas na mochila de emergência junto com a lanterna. Quer saber quais alimentos incluir?",
+      "audioChunks": 93,
+      "receivedPcmBytes": 307200,
+      "playbackSources": 93,
+      "naturalEnds": 93,
+      "playbackSeconds": 6.400000000000005,
+      "maxScheduledGapMs": 0,
+      "processingToFirstAudioMs": 4130,
+      "playbackEndMs": 31857
+    },
+    {
+      "number": 3,
+      "input": "Como eu confiro se elas ainda funcionam?",
+      "reply": "Teste a lanterna ligando-a periodicamente e guarde pilhas novas na embalagem. Quer saber o que mais vai no kit?",
+      "audioChunks": 111,
+      "receivedPcmBytes": 339840,
+      "playbackSources": 111,
+      "naturalEnds": 111,
+      "playbackSeconds": 7.080000000000005,
+      "maxScheduledGapMs": 0,
+      "processingToFirstAudioMs": 3620,
+      "playbackEndMs": 47117
+    }
+  ],
+  "events": [
+    {
+      "turn": 0,
+      "type": "open",
+      "ms": 2265
+    },
+    {
+      "turn": 1,
+      "type": "processing",
+      "ms": 7903
+    },
+    {
+      "turn": 1,
+      "type": "input_transcription",
+      "text": "Onde devo guardar a lanterna na mochila de emergência?",
+      "ms": 9961
+    },
+    {
+      "turn": 1,
+      "type": "output_transcription",
+      "text": "Guarde a lanterna junto com pilhas reservas na mochila de emergência. Prefere colocar água e alimentos também?",
+      "ms": 10860
+    },
+    {
+      "turn": 1,
+      "type": "reply_ready",
+      "ms": 10861
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11394
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11396
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11396
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11409
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11409
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11445
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11457
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11517
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11522
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11533
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11539
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11566
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11587
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11610
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11642
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11643
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11656
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11698
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11699
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11716
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11717
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11719
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11725
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11726
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11742
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11746
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11770
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11780
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11780
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11783
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11790
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11795
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11801
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11806
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11821
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11826
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11832
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11850
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11851
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11893
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11904
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11915
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 11937
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11937
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11960
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 11965
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11966
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 11984
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 11986
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12001
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12003
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12013
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12014
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 12039
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 12048
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12063
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12066
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12079
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12080
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 12116
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12117
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12130
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12131
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 12150
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 12183
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12184
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12197
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12197
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12198
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12216
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 12241
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12244
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12259
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12260
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 12300
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12300
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12318
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12320
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12320
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12333
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 12351
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12353
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12353
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 12365
+    },
+    {
+      "turn": 1,
+      "type": "audio_chunk",
+      "bytes": 7680,
+      "ms": 12383
+    },
+    {
+      "turn": 1,
+      "type": "turn_complete",
+      "ms": 12484
+    },
+    {
+      "turn": 2,
+      "type": "processing",
+      "ms": 21248
+    },
+    {
+      "turn": 2,
+      "type": "input_transcription",
+      "text": "as pilhas dela",
+      "ms": 23034
+    },
+    {
+      "turn": 2,
+      "type": "output_transcription",
+      "text": "Guarde pilhas reservas na mochila de emergência junto com a lanterna. Quer saber quais alimentos incluir?",
+      "ms": 23847
+    },
+    {
+      "turn": 2,
+      "type": "reply_ready",
+      "ms": 23848
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25378
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25379
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25388
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25421
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25421
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25473
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25479
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25504
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25513
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25524
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25534
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25535
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25556
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25596
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25606
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25615
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25626
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25628
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25676
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25692
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25694
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25731
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25733
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25752
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25756
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25778
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25779
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25780
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25831
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25832
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25850
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25851
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25868
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25868
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25906
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25920
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25934
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 25935
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 25978
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25983
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25989
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 25999
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26040
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26110
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26120
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26121
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26148
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26156
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26160
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26161
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26164
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26165
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26204
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26231
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26234
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26281
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26283
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26339
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26346
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26346
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26355
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26356
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26366
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26380
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26395
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26429
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26465
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26468
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26495
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26529
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26530
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26531
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26577
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26579
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26594
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26594
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26631
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26632
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26666
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26666
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26694
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26694
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26742
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26762
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26783
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26796
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26810
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26811
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26813
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26834
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 26847
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 26857
+    },
+    {
+      "turn": 2,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 26891
+    },
+    {
+      "turn": 2,
+      "type": "turn_complete",
+      "ms": 26958
+    },
+    {
+      "turn": 3,
+      "type": "processing",
+      "ms": 36328
+    },
+    {
+      "turn": 3,
+      "type": "input_transcription",
+      "text": "Como eu confiro se elas ainda funcionam?",
+      "ms": 38228
+    },
+    {
+      "turn": 3,
+      "type": "output_transcription",
+      "text": "Teste a lanterna ligando-a periodicamente e guarde pilhas novas na embalagem. Quer saber o que mais vai no kit?",
+      "ms": 39010
+    },
+    {
+      "turn": 3,
+      "type": "reply_ready",
+      "ms": 39012
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 39948
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 39950
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 39950
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 39957
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 39978
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 39978
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40069
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40072
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40086
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40091
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40101
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40127
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40128
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40144
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40157
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40160
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40166
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40200
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40209
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40211
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40241
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40248
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40280
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40284
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40312
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40360
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40361
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40373
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40378
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40378
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40401
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40430
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40438
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40494
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40508
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40508
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40516
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40539
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40539
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40588
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40592
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40592
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40617
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40618
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40635
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40640
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40640
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40677
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40721
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40726
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40791
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40792
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40802
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40804
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40810
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40836
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40838
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40872
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40873
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40932
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40933
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40933
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40948
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 40955
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40969
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 40969
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 40989
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41010
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41038
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41044
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41111
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41112
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41113
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41115
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41134
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41135
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41165
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41188
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41201
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41202
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41208
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41252
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41290
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41316
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41317
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41318
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41358
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41369
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41400
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41400
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41427
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41429
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41462
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41464
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41476
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41482
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41489
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41492
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41558
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41573
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41578
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41610
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41611
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41660
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41664
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41664
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41665
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 3840,
+      "ms": 41689
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41690
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 5760,
+      "ms": 41692
+    },
+    {
+      "turn": 3,
+      "type": "audio_chunk",
+      "bytes": 1920,
+      "ms": 41694
+    },
+    {
+      "turn": 3,
+      "type": "turn_complete",
+      "ms": 41763
+    }
+  ],
+  "sent": [
+    {
+      "turn": 1,
+      "type": "playback_ended",
+      "ms": 18507
+    },
+    {
+      "turn": 2,
+      "type": "playback_ended",
+      "ms": 31857
+    },
+    {
+      "turn": 3,
+      "type": "playback_ended",
+      "ms": 47117
+    }
+  ],
+  "playbackSources": [
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.034666666666666,
+      "scheduledEnd": 9.074666666666666,
+      "contextTimeAtStart": 8.954666666666666,
+      "startedMs": 11394,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11517
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.074666666666666,
+      "scheduledEnd": 9.114666666666665,
+      "contextTimeAtStart": 8.954666666666666,
+      "startedMs": 11396,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11547
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.114666666666665,
+      "scheduledEnd": 9.154666666666664,
+      "contextTimeAtStart": 8.954666666666666,
+      "startedMs": 11396,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11597
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.154666666666664,
+      "scheduledEnd": 9.194666666666663,
+      "contextTimeAtStart": 8.970666666666666,
+      "startedMs": 11409,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11627
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.194666666666663,
+      "scheduledEnd": 9.234666666666662,
+      "contextTimeAtStart": 8.970666666666666,
+      "startedMs": 11410,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11677
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 9.234666666666662,
+      "scheduledEnd": 9.394666666666662,
+      "contextTimeAtStart": 9.002666666666666,
+      "startedMs": 11445,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11837
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 9.394666666666662,
+      "scheduledEnd": 9.474666666666662,
+      "contextTimeAtStart": 9.024,
+      "startedMs": 11457,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11917
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.474666666666662,
+      "scheduledEnd": 9.514666666666661,
+      "contextTimeAtStart": 9.082666666666666,
+      "startedMs": 11517,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11947
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.514666666666661,
+      "scheduledEnd": 9.55466666666666,
+      "contextTimeAtStart": 9.082666666666666,
+      "startedMs": 11522,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 11996
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 9.55466666666666,
+      "scheduledEnd": 9.59466666666666,
+      "contextTimeAtStart": 9.093333333333334,
+      "startedMs": 11533,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12026
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 9.59466666666666,
+      "scheduledEnd": 9.67466666666666,
+      "contextTimeAtStart": 9.104,
+      "startedMs": 11540,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12107
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 9.67466666666666,
+      "scheduledEnd": 9.83466666666666,
+      "contextTimeAtStart": 9.130666666666666,
+      "startedMs": 11567,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12266
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 9.83466666666666,
+      "scheduledEnd": 9.95466666666666,
+      "contextTimeAtStart": 9.152,
+      "startedMs": 11587,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12397
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 9.95466666666666,
+      "scheduledEnd": 10.11466666666666,
+      "contextTimeAtStart": 9.173333333333334,
+      "startedMs": 11611,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12556
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 10.11466666666666,
+      "scheduledEnd": 10.27466666666666,
+      "contextTimeAtStart": 9.2,
+      "startedMs": 11643,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12717
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.27466666666666,
+      "scheduledEnd": 10.314666666666659,
+      "contextTimeAtStart": 9.2,
+      "startedMs": 11643,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12746
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 10.314666666666659,
+      "scheduledEnd": 10.474666666666659,
+      "contextTimeAtStart": 9.210666666666667,
+      "startedMs": 11656,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 12907
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 10.474666666666659,
+      "scheduledEnd": 10.594666666666658,
+      "contextTimeAtStart": 9.264,
+      "startedMs": 11699,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13037
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.594666666666658,
+      "scheduledEnd": 10.634666666666657,
+      "contextTimeAtStart": 9.264,
+      "startedMs": 11699,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13066
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 10.634666666666657,
+      "scheduledEnd": 10.794666666666657,
+      "contextTimeAtStart": 9.274666666666667,
+      "startedMs": 11716,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13227
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.794666666666657,
+      "scheduledEnd": 10.834666666666656,
+      "contextTimeAtStart": 9.28,
+      "startedMs": 11717,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13277
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.834666666666656,
+      "scheduledEnd": 10.874666666666656,
+      "contextTimeAtStart": 9.28,
+      "startedMs": 11719,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13307
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.874666666666656,
+      "scheduledEnd": 10.914666666666655,
+      "contextTimeAtStart": 9.28,
+      "startedMs": 11725,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13356
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 10.914666666666655,
+      "scheduledEnd": 10.954666666666654,
+      "contextTimeAtStart": 9.28,
+      "startedMs": 11726,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13387
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 10.954666666666654,
+      "scheduledEnd": 11.114666666666654,
+      "contextTimeAtStart": 9.301333333333334,
+      "startedMs": 11743,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13547
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 11.114666666666654,
+      "scheduledEnd": 11.154666666666653,
+      "contextTimeAtStart": 9.301333333333334,
+      "startedMs": 11746,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13596
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 11.154666666666653,
+      "scheduledEnd": 11.234666666666653,
+      "contextTimeAtStart": 9.333333333333334,
+      "startedMs": 11771,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13676
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 11.234666666666653,
+      "scheduledEnd": 11.354666666666652,
+      "contextTimeAtStart": 9.344,
+      "startedMs": 11780,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13787
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 11.354666666666652,
+      "scheduledEnd": 11.434666666666653,
+      "contextTimeAtStart": 9.344,
+      "startedMs": 11781,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13867
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 11.434666666666653,
+      "scheduledEnd": 11.474666666666652,
+      "contextTimeAtStart": 9.344,
+      "startedMs": 11783,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 13917
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 11.474666666666652,
+      "scheduledEnd": 11.634666666666652,
+      "contextTimeAtStart": 9.354666666666667,
+      "startedMs": 11791,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14077
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 11.634666666666652,
+      "scheduledEnd": 11.714666666666652,
+      "contextTimeAtStart": 9.354666666666667,
+      "startedMs": 11795,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14157
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 11.714666666666652,
+      "scheduledEnd": 11.834666666666651,
+      "contextTimeAtStart": 9.36,
+      "startedMs": 11801,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14267
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 11.834666666666651,
+      "scheduledEnd": 11.914666666666651,
+      "contextTimeAtStart": 9.36,
+      "startedMs": 11807,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14346
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 11.914666666666651,
+      "scheduledEnd": 12.074666666666651,
+      "contextTimeAtStart": 9.381333333333334,
+      "startedMs": 11822,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14507
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 12.074666666666651,
+      "scheduledEnd": 12.154666666666651,
+      "contextTimeAtStart": 9.381333333333334,
+      "startedMs": 11826,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14587
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 12.154666666666651,
+      "scheduledEnd": 12.234666666666651,
+      "contextTimeAtStart": 9.392,
+      "startedMs": 11833,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14666
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 12.234666666666651,
+      "scheduledEnd": 12.35466666666665,
+      "contextTimeAtStart": 9.413333333333334,
+      "startedMs": 11850,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14796
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 12.35466666666665,
+      "scheduledEnd": 12.39466666666665,
+      "contextTimeAtStart": 9.413333333333334,
+      "startedMs": 11851,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14827
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 12.39466666666665,
+      "scheduledEnd": 12.55466666666665,
+      "contextTimeAtStart": 9.450666666666667,
+      "startedMs": 11894,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 14987
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 12.55466666666665,
+      "scheduledEnd": 12.71466666666665,
+      "contextTimeAtStart": 9.461333333333334,
+      "startedMs": 11905,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15147
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 12.71466666666665,
+      "scheduledEnd": 12.79466666666665,
+      "contextTimeAtStart": 9.472,
+      "startedMs": 11915,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15227
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 12.79466666666665,
+      "scheduledEnd": 12.95466666666665,
+      "contextTimeAtStart": 9.504,
+      "startedMs": 11937,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15387
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 12.95466666666665,
+      "scheduledEnd": 12.99466666666665,
+      "contextTimeAtStart": 9.504,
+      "startedMs": 11938,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15437
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 12.99466666666665,
+      "scheduledEnd": 13.07466666666665,
+      "contextTimeAtStart": 9.52,
+      "startedMs": 11960,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15517
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 13.07466666666665,
+      "scheduledEnd": 13.194666666666649,
+      "contextTimeAtStart": 9.52,
+      "startedMs": 11965,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15627
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.194666666666649,
+      "scheduledEnd": 13.234666666666648,
+      "contextTimeAtStart": 9.52,
+      "startedMs": 11966,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15677
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.234666666666648,
+      "scheduledEnd": 13.274666666666647,
+      "contextTimeAtStart": 9.541333333333334,
+      "startedMs": 11984,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15707
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 13.274666666666647,
+      "scheduledEnd": 13.354666666666647,
+      "contextTimeAtStart": 9.541333333333334,
+      "startedMs": 11986,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15787
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 13.354666666666647,
+      "scheduledEnd": 13.434666666666647,
+      "contextTimeAtStart": 9.562666666666667,
+      "startedMs": 12001,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15867
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.434666666666647,
+      "scheduledEnd": 13.474666666666646,
+      "contextTimeAtStart": 9.562666666666667,
+      "startedMs": 12004,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15917
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.474666666666646,
+      "scheduledEnd": 13.514666666666646,
+      "contextTimeAtStart": 9.573333333333334,
+      "startedMs": 12013,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15947
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.514666666666646,
+      "scheduledEnd": 13.554666666666645,
+      "contextTimeAtStart": 9.573333333333334,
+      "startedMs": 12014,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 15997
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 13.554666666666645,
+      "scheduledEnd": 13.674666666666644,
+      "contextTimeAtStart": 9.6,
+      "startedMs": 12039,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16107
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 13.674666666666644,
+      "scheduledEnd": 13.794666666666643,
+      "contextTimeAtStart": 9.610666666666667,
+      "startedMs": 12048,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16237
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 13.794666666666643,
+      "scheduledEnd": 13.874666666666643,
+      "contextTimeAtStart": 9.621333333333334,
+      "startedMs": 12063,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16317
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 13.874666666666643,
+      "scheduledEnd": 13.954666666666643,
+      "contextTimeAtStart": 9.621333333333334,
+      "startedMs": 12066,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16396
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 13.954666666666643,
+      "scheduledEnd": 13.994666666666642,
+      "contextTimeAtStart": 9.642666666666667,
+      "startedMs": 12079,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16427
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 13.994666666666642,
+      "scheduledEnd": 14.074666666666642,
+      "contextTimeAtStart": 9.642666666666667,
+      "startedMs": 12080,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16507
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 14.074666666666642,
+      "scheduledEnd": 14.234666666666643,
+      "contextTimeAtStart": 9.674666666666667,
+      "startedMs": 12116,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16667
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 14.234666666666643,
+      "scheduledEnd": 14.314666666666643,
+      "contextTimeAtStart": 9.68,
+      "startedMs": 12118,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16747
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 14.314666666666643,
+      "scheduledEnd": 14.354666666666642,
+      "contextTimeAtStart": 9.690666666666667,
+      "startedMs": 12130,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16797
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 14.354666666666642,
+      "scheduledEnd": 14.394666666666641,
+      "contextTimeAtStart": 9.690666666666667,
+      "startedMs": 12131,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16827
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 14.394666666666641,
+      "scheduledEnd": 14.554666666666641,
+      "contextTimeAtStart": 9.712,
+      "startedMs": 12151,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 16987
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 14.554666666666641,
+      "scheduledEnd": 14.714666666666641,
+      "contextTimeAtStart": 9.744,
+      "startedMs": 12183,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17147
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 14.714666666666641,
+      "scheduledEnd": 14.794666666666641,
+      "contextTimeAtStart": 9.744,
+      "startedMs": 12184,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17227
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 14.794666666666641,
+      "scheduledEnd": 14.83466666666664,
+      "contextTimeAtStart": 9.76,
+      "startedMs": 12197,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17277
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 14.83466666666664,
+      "scheduledEnd": 14.87466666666664,
+      "contextTimeAtStart": 9.76,
+      "startedMs": 12197,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17307
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 14.87466666666664,
+      "scheduledEnd": 14.914666666666639,
+      "contextTimeAtStart": 9.76,
+      "startedMs": 12199,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17357
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 14.914666666666639,
+      "scheduledEnd": 14.994666666666639,
+      "contextTimeAtStart": 9.770666666666667,
+      "startedMs": 12216,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17437
+    },
+    {
+      "turn": 1,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 14.994666666666639,
+      "scheduledEnd": 15.114666666666638,
+      "contextTimeAtStart": 9.802666666666667,
+      "startedMs": 12242,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17547
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.114666666666638,
+      "scheduledEnd": 15.154666666666637,
+      "contextTimeAtStart": 9.802666666666667,
+      "startedMs": 12244,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17597
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.154666666666637,
+      "scheduledEnd": 15.194666666666636,
+      "contextTimeAtStart": 9.824,
+      "startedMs": 12259,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17627
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 15.194666666666636,
+      "scheduledEnd": 15.274666666666636,
+      "contextTimeAtStart": 9.824,
+      "startedMs": 12260,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17707
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 15.274666666666636,
+      "scheduledEnd": 15.434666666666637,
+      "contextTimeAtStart": 9.861333333333333,
+      "startedMs": 12300,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17867
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.434666666666637,
+      "scheduledEnd": 15.474666666666636,
+      "contextTimeAtStart": 9.861333333333333,
+      "startedMs": 12300,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17917
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 15.474666666666636,
+      "scheduledEnd": 15.554666666666636,
+      "contextTimeAtStart": 9.882666666666667,
+      "startedMs": 12318,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 17997
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.554666666666636,
+      "scheduledEnd": 15.594666666666635,
+      "contextTimeAtStart": 9.882666666666667,
+      "startedMs": 12320,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18027
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.594666666666635,
+      "scheduledEnd": 15.634666666666634,
+      "contextTimeAtStart": 9.882666666666667,
+      "startedMs": 12320,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18077
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 15.634666666666634,
+      "scheduledEnd": 15.714666666666634,
+      "contextTimeAtStart": 9.893333333333333,
+      "startedMs": 12334,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18157
+    },
+    {
+      "turn": 1,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 15.714666666666634,
+      "scheduledEnd": 15.794666666666634,
+      "contextTimeAtStart": 9.914666666666667,
+      "startedMs": 12351,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18237
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.794666666666634,
+      "scheduledEnd": 15.834666666666633,
+      "contextTimeAtStart": 9.914666666666667,
+      "startedMs": 12353,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18267
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.834666666666633,
+      "scheduledEnd": 15.874666666666633,
+      "contextTimeAtStart": 9.914666666666667,
+      "startedMs": 12353,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18317
+    },
+    {
+      "turn": 1,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 15.874666666666633,
+      "scheduledEnd": 15.914666666666632,
+      "contextTimeAtStart": 9.92,
+      "startedMs": 12365,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18347
+    },
+    {
+      "turn": 1,
+      "samples": 3840,
+      "duration": 0.16,
+      "sampleRate": 24000,
+      "scheduledAt": 15.914666666666632,
+      "scheduledEnd": 16.07466666666663,
+      "contextTimeAtStart": 9.941333333333333,
+      "startedMs": 12383,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 18507
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 23.023999999999997,
+      "scheduledEnd": 23.103999999999996,
+      "contextTimeAtStart": 22.944,
+      "startedMs": 25378,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25537
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.103999999999996,
+      "scheduledEnd": 23.143999999999995,
+      "contextTimeAtStart": 22.944,
+      "startedMs": 25379,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25587
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 23.143999999999995,
+      "scheduledEnd": 23.263999999999996,
+      "contextTimeAtStart": 22.954666666666668,
+      "startedMs": 25388,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25697
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.263999999999996,
+      "scheduledEnd": 23.303999999999995,
+      "contextTimeAtStart": 22.981333333333332,
+      "startedMs": 25421,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25747
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.303999999999995,
+      "scheduledEnd": 23.343999999999994,
+      "contextTimeAtStart": 22.981333333333332,
+      "startedMs": 25421,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25778
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 23.343999999999994,
+      "scheduledEnd": 23.423999999999992,
+      "contextTimeAtStart": 23.034666666666666,
+      "startedMs": 25473,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25857
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.423999999999992,
+      "scheduledEnd": 23.46399999999999,
+      "contextTimeAtStart": 23.04,
+      "startedMs": 25479,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25907
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 23.46399999999999,
+      "scheduledEnd": 23.54399999999999,
+      "contextTimeAtStart": 23.061333333333334,
+      "startedMs": 25505,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 25987
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.54399999999999,
+      "scheduledEnd": 23.58399999999999,
+      "contextTimeAtStart": 23.072,
+      "startedMs": 25514,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26017
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 23.58399999999999,
+      "scheduledEnd": 23.663999999999987,
+      "contextTimeAtStart": 23.082666666666668,
+      "startedMs": 25525,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26097
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.663999999999987,
+      "scheduledEnd": 23.703999999999986,
+      "contextTimeAtStart": 23.093333333333334,
+      "startedMs": 25534,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26147
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 23.703999999999986,
+      "scheduledEnd": 23.743999999999986,
+      "contextTimeAtStart": 23.093333333333334,
+      "startedMs": 25535,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26177
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 23.743999999999986,
+      "scheduledEnd": 23.863999999999987,
+      "contextTimeAtStart": 23.11466666666667,
+      "startedMs": 25556,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26307
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 23.863999999999987,
+      "scheduledEnd": 23.983999999999988,
+      "contextTimeAtStart": 23.152,
+      "startedMs": 25596,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26417
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 23.983999999999988,
+      "scheduledEnd": 24.063999999999986,
+      "contextTimeAtStart": 23.162666666666667,
+      "startedMs": 25607,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26497
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.063999999999986,
+      "scheduledEnd": 24.103999999999985,
+      "contextTimeAtStart": 23.173333333333332,
+      "startedMs": 25615,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26547
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.103999999999985,
+      "scheduledEnd": 24.183999999999983,
+      "contextTimeAtStart": 23.184,
+      "startedMs": 25626,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26627
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.183999999999983,
+      "scheduledEnd": 24.223999999999982,
+      "contextTimeAtStart": 23.194666666666667,
+      "startedMs": 25628,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26657
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.223999999999982,
+      "scheduledEnd": 24.26399999999998,
+      "contextTimeAtStart": 23.232,
+      "startedMs": 25676,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26707
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 24.26399999999998,
+      "scheduledEnd": 24.383999999999983,
+      "contextTimeAtStart": 23.253333333333334,
+      "startedMs": 25693,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26817
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.383999999999983,
+      "scheduledEnd": 24.46399999999998,
+      "contextTimeAtStart": 23.253333333333334,
+      "startedMs": 25694,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26897
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.46399999999998,
+      "scheduledEnd": 24.50399999999998,
+      "contextTimeAtStart": 23.290666666666667,
+      "startedMs": 25731,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26947
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.50399999999998,
+      "scheduledEnd": 24.54399999999998,
+      "contextTimeAtStart": 23.290666666666667,
+      "startedMs": 25733,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 26977
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.54399999999998,
+      "scheduledEnd": 24.623999999999977,
+      "contextTimeAtStart": 23.312,
+      "startedMs": 25752,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27057
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.623999999999977,
+      "scheduledEnd": 24.703999999999976,
+      "contextTimeAtStart": 23.322666666666667,
+      "startedMs": 25757,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27137
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.703999999999976,
+      "scheduledEnd": 24.743999999999975,
+      "contextTimeAtStart": 23.344,
+      "startedMs": 25778,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27187
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.743999999999975,
+      "scheduledEnd": 24.783999999999974,
+      "contextTimeAtStart": 23.344,
+      "startedMs": 25779,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27217
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.783999999999974,
+      "scheduledEnd": 24.823999999999973,
+      "contextTimeAtStart": 23.344,
+      "startedMs": 25780,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27267
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.823999999999973,
+      "scheduledEnd": 24.90399999999997,
+      "contextTimeAtStart": 23.392,
+      "startedMs": 25832,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27347
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 24.90399999999997,
+      "scheduledEnd": 24.94399999999997,
+      "contextTimeAtStart": 23.392,
+      "startedMs": 25832,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27377
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 24.94399999999997,
+      "scheduledEnd": 25.02399999999997,
+      "contextTimeAtStart": 23.413333333333334,
+      "startedMs": 25851,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27457
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 25.02399999999997,
+      "scheduledEnd": 25.063999999999968,
+      "contextTimeAtStart": 23.413333333333334,
+      "startedMs": 25851,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27507
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.063999999999968,
+      "scheduledEnd": 25.143999999999966,
+      "contextTimeAtStart": 23.434666666666665,
+      "startedMs": 25868,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27589
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 25.143999999999966,
+      "scheduledEnd": 25.183999999999966,
+      "contextTimeAtStart": 23.434666666666665,
+      "startedMs": 25868,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27617
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 25.183999999999966,
+      "scheduledEnd": 25.303999999999967,
+      "contextTimeAtStart": 23.461333333333332,
+      "startedMs": 25906,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27747
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.303999999999967,
+      "scheduledEnd": 25.383999999999965,
+      "contextTimeAtStart": 23.482666666666667,
+      "startedMs": 25921,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27827
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.383999999999965,
+      "scheduledEnd": 25.463999999999963,
+      "contextTimeAtStart": 23.493333333333332,
+      "startedMs": 25934,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27907
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 25.463999999999963,
+      "scheduledEnd": 25.503999999999962,
+      "contextTimeAtStart": 23.493333333333332,
+      "startedMs": 25935,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 27937
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 25.503999999999962,
+      "scheduledEnd": 25.623999999999963,
+      "contextTimeAtStart": 23.541333333333334,
+      "startedMs": 25978,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28067
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.623999999999963,
+      "scheduledEnd": 25.70399999999996,
+      "contextTimeAtStart": 23.541333333333334,
+      "startedMs": 25983,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28147
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.70399999999996,
+      "scheduledEnd": 25.78399999999996,
+      "contextTimeAtStart": 23.552,
+      "startedMs": 25989,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28227
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 25.78399999999996,
+      "scheduledEnd": 25.863999999999958,
+      "contextTimeAtStart": 23.562666666666665,
+      "startedMs": 25999,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28308
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 25.863999999999958,
+      "scheduledEnd": 25.98399999999996,
+      "contextTimeAtStart": 23.6,
+      "startedMs": 26040,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28417
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 25.98399999999996,
+      "scheduledEnd": 26.10399999999996,
+      "contextTimeAtStart": 23.674666666666667,
+      "startedMs": 26110,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28547
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.10399999999996,
+      "scheduledEnd": 26.14399999999996,
+      "contextTimeAtStart": 23.68,
+      "startedMs": 26121,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28577
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.14399999999996,
+      "scheduledEnd": 26.18399999999996,
+      "contextTimeAtStart": 23.68,
+      "startedMs": 26121,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28627
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 26.18399999999996,
+      "scheduledEnd": 26.30399999999996,
+      "contextTimeAtStart": 23.712,
+      "startedMs": 26148,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28738
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 26.30399999999996,
+      "scheduledEnd": 26.42399999999996,
+      "contextTimeAtStart": 23.712,
+      "startedMs": 26156,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28866
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.42399999999996,
+      "scheduledEnd": 26.46399999999996,
+      "contextTimeAtStart": 23.722666666666665,
+      "startedMs": 26160,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28897
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.46399999999996,
+      "scheduledEnd": 26.50399999999996,
+      "contextTimeAtStart": 23.722666666666665,
+      "startedMs": 26161,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28947
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.50399999999996,
+      "scheduledEnd": 26.543999999999958,
+      "contextTimeAtStart": 23.722666666666665,
+      "startedMs": 26164,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 28977
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.543999999999958,
+      "scheduledEnd": 26.583999999999957,
+      "contextTimeAtStart": 23.722666666666665,
+      "startedMs": 26165,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29027
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 26.583999999999957,
+      "scheduledEnd": 26.703999999999958,
+      "contextTimeAtStart": 23.76,
+      "startedMs": 26204,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29137
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 26.703999999999958,
+      "scheduledEnd": 26.783999999999956,
+      "contextTimeAtStart": 23.792,
+      "startedMs": 26231,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29217
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 26.783999999999956,
+      "scheduledEnd": 26.863999999999955,
+      "contextTimeAtStart": 23.792,
+      "startedMs": 26234,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29297
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 26.863999999999955,
+      "scheduledEnd": 26.903999999999954,
+      "contextTimeAtStart": 23.84,
+      "startedMs": 26281,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29347
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 26.903999999999954,
+      "scheduledEnd": 26.983999999999952,
+      "contextTimeAtStart": 23.84,
+      "startedMs": 26283,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29427
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 26.983999999999952,
+      "scheduledEnd": 27.06399999999995,
+      "contextTimeAtStart": 23.904,
+      "startedMs": 26339,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29507
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 27.06399999999995,
+      "scheduledEnd": 27.10399999999995,
+      "contextTimeAtStart": 23.904,
+      "startedMs": 26346,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29538
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 27.10399999999995,
+      "scheduledEnd": 27.183999999999948,
+      "contextTimeAtStart": 23.904,
+      "startedMs": 26346,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29617
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 27.183999999999948,
+      "scheduledEnd": 27.223999999999947,
+      "contextTimeAtStart": 23.914666666666665,
+      "startedMs": 26355,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29667
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 27.223999999999947,
+      "scheduledEnd": 27.303999999999945,
+      "contextTimeAtStart": 23.914666666666665,
+      "startedMs": 26356,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29747
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 27.303999999999945,
+      "scheduledEnd": 27.343999999999944,
+      "contextTimeAtStart": 23.92,
+      "startedMs": 26366,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29777
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 27.343999999999944,
+      "scheduledEnd": 27.463999999999945,
+      "contextTimeAtStart": 23.941333333333333,
+      "startedMs": 26380,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 29907
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 27.463999999999945,
+      "scheduledEnd": 27.583999999999946,
+      "contextTimeAtStart": 23.952,
+      "startedMs": 26395,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30017
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 27.583999999999946,
+      "scheduledEnd": 27.623999999999945,
+      "contextTimeAtStart": 23.994666666666667,
+      "startedMs": 26429,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30067
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 27.623999999999945,
+      "scheduledEnd": 27.743999999999946,
+      "contextTimeAtStart": 24.021333333333335,
+      "startedMs": 26465,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30177
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 27.743999999999946,
+      "scheduledEnd": 27.823999999999945,
+      "contextTimeAtStart": 24.032,
+      "startedMs": 26468,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30257
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 27.823999999999945,
+      "scheduledEnd": 27.903999999999943,
+      "contextTimeAtStart": 24.053333333333335,
+      "startedMs": 26495,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30338
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 27.903999999999943,
+      "scheduledEnd": 27.98399999999994,
+      "contextTimeAtStart": 24.090666666666667,
+      "startedMs": 26529,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30417
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 27.98399999999994,
+      "scheduledEnd": 28.02399999999994,
+      "contextTimeAtStart": 24.090666666666667,
+      "startedMs": 26530,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30467
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.02399999999994,
+      "scheduledEnd": 28.06399999999994,
+      "contextTimeAtStart": 24.090666666666667,
+      "startedMs": 26531,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30497
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.06399999999994,
+      "scheduledEnd": 28.143999999999938,
+      "contextTimeAtStart": 24.144,
+      "startedMs": 26577,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30577
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.143999999999938,
+      "scheduledEnd": 28.183999999999937,
+      "contextTimeAtStart": 24.144,
+      "startedMs": 26579,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30627
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.183999999999937,
+      "scheduledEnd": 28.223999999999936,
+      "contextTimeAtStart": 24.154666666666667,
+      "startedMs": 26594,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30657
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.223999999999936,
+      "scheduledEnd": 28.303999999999935,
+      "contextTimeAtStart": 24.154666666666667,
+      "startedMs": 26595,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30737
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.303999999999935,
+      "scheduledEnd": 28.343999999999934,
+      "contextTimeAtStart": 24.192,
+      "startedMs": 26631,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30787
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.343999999999934,
+      "scheduledEnd": 28.383999999999933,
+      "contextTimeAtStart": 24.192,
+      "startedMs": 26632,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30817
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.383999999999933,
+      "scheduledEnd": 28.46399999999993,
+      "contextTimeAtStart": 24.224,
+      "startedMs": 26666,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30897
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.46399999999993,
+      "scheduledEnd": 28.54399999999993,
+      "contextTimeAtStart": 24.234666666666666,
+      "startedMs": 26667,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 30977
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.54399999999993,
+      "scheduledEnd": 28.623999999999928,
+      "contextTimeAtStart": 24.250666666666667,
+      "startedMs": 26694,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31057
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.623999999999928,
+      "scheduledEnd": 28.663999999999927,
+      "contextTimeAtStart": 24.250666666666667,
+      "startedMs": 26694,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31108
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.663999999999927,
+      "scheduledEnd": 28.703999999999926,
+      "contextTimeAtStart": 24.304,
+      "startedMs": 26742,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31137
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 28.703999999999926,
+      "scheduledEnd": 28.823999999999927,
+      "contextTimeAtStart": 24.32,
+      "startedMs": 26762,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31267
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.823999999999927,
+      "scheduledEnd": 28.863999999999926,
+      "contextTimeAtStart": 24.341333333333335,
+      "startedMs": 26783,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31297
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 28.863999999999926,
+      "scheduledEnd": 28.943999999999924,
+      "contextTimeAtStart": 24.362666666666666,
+      "startedMs": 26797,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31377
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 28.943999999999924,
+      "scheduledEnd": 28.983999999999924,
+      "contextTimeAtStart": 24.373333333333335,
+      "startedMs": 26811,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31427
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 28.983999999999924,
+      "scheduledEnd": 29.103999999999925,
+      "contextTimeAtStart": 24.373333333333335,
+      "startedMs": 26811,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31538
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 29.103999999999925,
+      "scheduledEnd": 29.143999999999924,
+      "contextTimeAtStart": 24.373333333333335,
+      "startedMs": 26813,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31588
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 29.143999999999924,
+      "scheduledEnd": 29.183999999999923,
+      "contextTimeAtStart": 24.394666666666666,
+      "startedMs": 26834,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31616
+    },
+    {
+      "turn": 2,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 29.183999999999923,
+      "scheduledEnd": 29.26399999999992,
+      "contextTimeAtStart": 24.410666666666668,
+      "startedMs": 26847,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31697
+    },
+    {
+      "turn": 2,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 29.26399999999992,
+      "scheduledEnd": 29.30399999999992,
+      "contextTimeAtStart": 24.421333333333333,
+      "startedMs": 26857,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31747
+    },
+    {
+      "turn": 2,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 29.30399999999992,
+      "scheduledEnd": 29.42399999999992,
+      "contextTimeAtStart": 24.453333333333333,
+      "startedMs": 26891,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 31857
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 37.59466666666666,
+      "scheduledEnd": 37.63466666666666,
+      "contextTimeAtStart": 37.51466666666666,
+      "startedMs": 39948,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40077
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 37.63466666666666,
+      "scheduledEnd": 37.71466666666666,
+      "contextTimeAtStart": 37.51466666666666,
+      "startedMs": 39950,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40157
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 37.71466666666666,
+      "scheduledEnd": 37.79466666666666,
+      "contextTimeAtStart": 37.51466666666666,
+      "startedMs": 39950,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40238
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 37.79466666666666,
+      "scheduledEnd": 37.83466666666666,
+      "contextTimeAtStart": 37.52,
+      "startedMs": 39957,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40267
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 37.83466666666666,
+      "scheduledEnd": 37.914666666666655,
+      "contextTimeAtStart": 37.541333333333334,
+      "startedMs": 39978,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40347
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 37.914666666666655,
+      "scheduledEnd": 37.954666666666654,
+      "contextTimeAtStart": 37.541333333333334,
+      "startedMs": 39978,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40397
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 37.954666666666654,
+      "scheduledEnd": 38.07466666666665,
+      "contextTimeAtStart": 37.632,
+      "startedMs": 40069,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40507
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.07466666666665,
+      "scheduledEnd": 38.11466666666665,
+      "contextTimeAtStart": 37.632,
+      "startedMs": 40073,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40557
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 38.11466666666665,
+      "scheduledEnd": 38.19466666666665,
+      "contextTimeAtStart": 37.64266666666666,
+      "startedMs": 40087,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40639
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.19466666666665,
+      "scheduledEnd": 38.23466666666665,
+      "contextTimeAtStart": 37.653333333333336,
+      "startedMs": 40091,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40667
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 38.23466666666665,
+      "scheduledEnd": 38.314666666666646,
+      "contextTimeAtStart": 37.664,
+      "startedMs": 40102,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40747
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 38.314666666666646,
+      "scheduledEnd": 38.434666666666644,
+      "contextTimeAtStart": 37.690666666666665,
+      "startedMs": 40128,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40877
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.434666666666644,
+      "scheduledEnd": 38.47466666666664,
+      "contextTimeAtStart": 37.690666666666665,
+      "startedMs": 40128,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40908
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 38.47466666666664,
+      "scheduledEnd": 38.55466666666664,
+      "contextTimeAtStart": 37.70133333333333,
+      "startedMs": 40145,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 40988
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.55466666666664,
+      "scheduledEnd": 38.59466666666664,
+      "contextTimeAtStart": 37.72266666666667,
+      "startedMs": 40157,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41038
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.59466666666664,
+      "scheduledEnd": 38.63466666666664,
+      "contextTimeAtStart": 37.72266666666667,
+      "startedMs": 40160,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41067
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.63466666666664,
+      "scheduledEnd": 38.67466666666664,
+      "contextTimeAtStart": 37.733333333333334,
+      "startedMs": 40167,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41117
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 38.67466666666664,
+      "scheduledEnd": 38.794666666666636,
+      "contextTimeAtStart": 37.76,
+      "startedMs": 40200,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41227
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.794666666666636,
+      "scheduledEnd": 38.834666666666635,
+      "contextTimeAtStart": 37.77066666666666,
+      "startedMs": 40209,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41277
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 38.834666666666635,
+      "scheduledEnd": 38.874666666666634,
+      "contextTimeAtStart": 37.77066666666666,
+      "startedMs": 40211,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41308
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 38.874666666666634,
+      "scheduledEnd": 38.95466666666663,
+      "contextTimeAtStart": 37.80266666666667,
+      "startedMs": 40241,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41388
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 38.95466666666663,
+      "scheduledEnd": 39.03466666666663,
+      "contextTimeAtStart": 37.81333333333333,
+      "startedMs": 40249,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41467
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 39.03466666666663,
+      "scheduledEnd": 39.15466666666663,
+      "contextTimeAtStart": 37.84,
+      "startedMs": 40281,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41596
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 39.15466666666663,
+      "scheduledEnd": 39.19466666666663,
+      "contextTimeAtStart": 37.84,
+      "startedMs": 40284,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41627
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 39.19466666666663,
+      "scheduledEnd": 39.314666666666625,
+      "contextTimeAtStart": 37.872,
+      "startedMs": 40312,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41756
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 39.314666666666625,
+      "scheduledEnd": 39.43466666666662,
+      "contextTimeAtStart": 37.92,
+      "startedMs": 40361,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41866
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 39.43466666666662,
+      "scheduledEnd": 39.47466666666662,
+      "contextTimeAtStart": 37.92,
+      "startedMs": 40362,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41916
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 39.47466666666662,
+      "scheduledEnd": 39.51466666666662,
+      "contextTimeAtStart": 37.93066666666667,
+      "startedMs": 40373,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 41947
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 39.51466666666662,
+      "scheduledEnd": 39.59466666666662,
+      "contextTimeAtStart": 37.94133333333333,
+      "startedMs": 40378,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42027
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 39.59466666666662,
+      "scheduledEnd": 39.63466666666662,
+      "contextTimeAtStart": 37.94133333333333,
+      "startedMs": 40378,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42077
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 39.63466666666662,
+      "scheduledEnd": 39.714666666666616,
+      "contextTimeAtStart": 37.962666666666664,
+      "startedMs": 40402,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42157
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 39.714666666666616,
+      "scheduledEnd": 39.794666666666615,
+      "contextTimeAtStart": 37.99466666666667,
+      "startedMs": 40430,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42245
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 39.794666666666615,
+      "scheduledEnd": 39.87466666666661,
+      "contextTimeAtStart": 38,
+      "startedMs": 40438,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42316
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 39.87466666666661,
+      "scheduledEnd": 39.99466666666661,
+      "contextTimeAtStart": 38.053333333333335,
+      "startedMs": 40494,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42426
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 39.99466666666661,
+      "scheduledEnd": 40.03466666666661,
+      "contextTimeAtStart": 38.074666666666666,
+      "startedMs": 40508,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42484
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.03466666666661,
+      "scheduledEnd": 40.07466666666661,
+      "contextTimeAtStart": 38.074666666666666,
+      "startedMs": 40508,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42507
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.07466666666661,
+      "scheduledEnd": 40.11466666666661,
+      "contextTimeAtStart": 38.074666666666666,
+      "startedMs": 40516,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42557
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.11466666666661,
+      "scheduledEnd": 40.15466666666661,
+      "contextTimeAtStart": 38.101333333333336,
+      "startedMs": 40539,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42589
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.15466666666661,
+      "scheduledEnd": 40.194666666666606,
+      "contextTimeAtStart": 38.101333333333336,
+      "startedMs": 40540,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42638
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 40.194666666666606,
+      "scheduledEnd": 40.274666666666604,
+      "contextTimeAtStart": 38.154666666666664,
+      "startedMs": 40589,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42716
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.274666666666604,
+      "scheduledEnd": 40.314666666666604,
+      "contextTimeAtStart": 38.154666666666664,
+      "startedMs": 40592,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42747
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.314666666666604,
+      "scheduledEnd": 40.3546666666666,
+      "contextTimeAtStart": 38.154666666666664,
+      "startedMs": 40592,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42796
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 40.3546666666666,
+      "scheduledEnd": 40.4346666666666,
+      "contextTimeAtStart": 38.181333333333335,
+      "startedMs": 40617,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42876
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.4346666666666,
+      "scheduledEnd": 40.4746666666666,
+      "contextTimeAtStart": 38.181333333333335,
+      "startedMs": 40618,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42908
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.4746666666666,
+      "scheduledEnd": 40.5146666666666,
+      "contextTimeAtStart": 38.192,
+      "startedMs": 40635,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42957
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.5146666666666,
+      "scheduledEnd": 40.5546666666666,
+      "contextTimeAtStart": 38.202666666666666,
+      "startedMs": 40640,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 42988
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.5546666666666,
+      "scheduledEnd": 40.5946666666666,
+      "contextTimeAtStart": 38.202666666666666,
+      "startedMs": 40641,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43036
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 40.5946666666666,
+      "scheduledEnd": 40.714666666666595,
+      "contextTimeAtStart": 38.24,
+      "startedMs": 40677,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43146
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.714666666666595,
+      "scheduledEnd": 40.754666666666594,
+      "contextTimeAtStart": 38.282666666666664,
+      "startedMs": 40721,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43197
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 40.754666666666594,
+      "scheduledEnd": 40.83466666666659,
+      "contextTimeAtStart": 38.282666666666664,
+      "startedMs": 40726,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43277
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 40.83466666666659,
+      "scheduledEnd": 40.91466666666659,
+      "contextTimeAtStart": 38.352,
+      "startedMs": 40791,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43356
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.91466666666659,
+      "scheduledEnd": 40.95466666666659,
+      "contextTimeAtStart": 38.352,
+      "startedMs": 40792,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43387
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.95466666666659,
+      "scheduledEnd": 40.99466666666659,
+      "contextTimeAtStart": 38.36266666666667,
+      "startedMs": 40802,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43436
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 40.99466666666659,
+      "scheduledEnd": 41.03466666666659,
+      "contextTimeAtStart": 38.36266666666667,
+      "startedMs": 40804,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43466
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.03466666666659,
+      "scheduledEnd": 41.07466666666659,
+      "contextTimeAtStart": 38.373333333333335,
+      "startedMs": 40810,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43516
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.07466666666659,
+      "scheduledEnd": 41.11466666666659,
+      "contextTimeAtStart": 38.394666666666666,
+      "startedMs": 40836,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43546
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.11466666666659,
+      "scheduledEnd": 41.154666666666586,
+      "contextTimeAtStart": 38.4,
+      "startedMs": 40838,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43598
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 41.154666666666586,
+      "scheduledEnd": 41.27466666666658,
+      "contextTimeAtStart": 38.432,
+      "startedMs": 40872,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43708
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.27466666666658,
+      "scheduledEnd": 41.31466666666658,
+      "contextTimeAtStart": 38.432,
+      "startedMs": 40873,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43757
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.31466666666658,
+      "scheduledEnd": 41.35466666666658,
+      "contextTimeAtStart": 38.49066666666667,
+      "startedMs": 40932,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43788
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.35466666666658,
+      "scheduledEnd": 41.39466666666658,
+      "contextTimeAtStart": 38.49066666666667,
+      "startedMs": 40933,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43836
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.39466666666658,
+      "scheduledEnd": 41.43466666666658,
+      "contextTimeAtStart": 38.49066666666667,
+      "startedMs": 40934,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43866
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.43466666666658,
+      "scheduledEnd": 41.47466666666658,
+      "contextTimeAtStart": 38.512,
+      "startedMs": 40949,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43917
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 41.47466666666658,
+      "scheduledEnd": 41.55466666666658,
+      "contextTimeAtStart": 38.512,
+      "startedMs": 40955,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 43996
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.55466666666658,
+      "scheduledEnd": 41.594666666666576,
+      "contextTimeAtStart": 38.53333333333333,
+      "startedMs": 40969,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44026
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 41.594666666666576,
+      "scheduledEnd": 41.634666666666575,
+      "contextTimeAtStart": 38.53333333333333,
+      "startedMs": 40969,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44077
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 41.634666666666575,
+      "scheduledEnd": 41.75466666666657,
+      "contextTimeAtStart": 38.55466666666667,
+      "startedMs": 40989,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44188
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 41.75466666666657,
+      "scheduledEnd": 41.87466666666657,
+      "contextTimeAtStart": 38.57066666666667,
+      "startedMs": 41010,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44317
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 41.87466666666657,
+      "scheduledEnd": 41.95466666666657,
+      "contextTimeAtStart": 38.602666666666664,
+      "startedMs": 41039,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44396
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 41.95466666666657,
+      "scheduledEnd": 42.03466666666657,
+      "contextTimeAtStart": 38.602666666666664,
+      "startedMs": 41045,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44477
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 42.03466666666657,
+      "scheduledEnd": 42.154666666666564,
+      "contextTimeAtStart": 38.672,
+      "startedMs": 41111,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44586
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.154666666666564,
+      "scheduledEnd": 42.19466666666656,
+      "contextTimeAtStart": 38.672,
+      "startedMs": 41112,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44637
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.19466666666656,
+      "scheduledEnd": 42.23466666666656,
+      "contextTimeAtStart": 38.672,
+      "startedMs": 41114,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44667
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.23466666666656,
+      "scheduledEnd": 42.27466666666656,
+      "contextTimeAtStart": 38.672,
+      "startedMs": 41115,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44716
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 42.27466666666656,
+      "scheduledEnd": 42.35466666666656,
+      "contextTimeAtStart": 38.693333333333335,
+      "startedMs": 41134,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44796
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.35466666666656,
+      "scheduledEnd": 42.39466666666656,
+      "contextTimeAtStart": 38.693333333333335,
+      "startedMs": 41135,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44828
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 42.39466666666656,
+      "scheduledEnd": 42.51466666666656,
+      "contextTimeAtStart": 38.72,
+      "startedMs": 41165,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 44957
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 42.51466666666656,
+      "scheduledEnd": 42.594666666666555,
+      "contextTimeAtStart": 38.752,
+      "startedMs": 41189,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45038
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 42.594666666666555,
+      "scheduledEnd": 42.67466666666655,
+      "contextTimeAtStart": 38.76266666666667,
+      "startedMs": 41201,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45116
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.67466666666655,
+      "scheduledEnd": 42.71466666666655,
+      "contextTimeAtStart": 38.76266666666667,
+      "startedMs": 41202,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45147
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.71466666666655,
+      "scheduledEnd": 42.75466666666655,
+      "contextTimeAtStart": 38.77333333333333,
+      "startedMs": 41209,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45196
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 42.75466666666655,
+      "scheduledEnd": 42.79466666666655,
+      "contextTimeAtStart": 38.81066666666667,
+      "startedMs": 41252,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45227
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 42.79466666666655,
+      "scheduledEnd": 42.91466666666655,
+      "contextTimeAtStart": 38.85333333333333,
+      "startedMs": 41290,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45357
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 42.91466666666655,
+      "scheduledEnd": 43.034666666666546,
+      "contextTimeAtStart": 38.88,
+      "startedMs": 41317,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45467
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.034666666666546,
+      "scheduledEnd": 43.074666666666545,
+      "contextTimeAtStart": 38.88,
+      "startedMs": 41317,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45517
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.074666666666545,
+      "scheduledEnd": 43.114666666666544,
+      "contextTimeAtStart": 38.88,
+      "startedMs": 41318,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45547
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.114666666666544,
+      "scheduledEnd": 43.15466666666654,
+      "contextTimeAtStart": 38.922666666666665,
+      "startedMs": 41358,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45597
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 43.15466666666654,
+      "scheduledEnd": 43.23466666666654,
+      "contextTimeAtStart": 38.93333333333333,
+      "startedMs": 41369,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45676
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.23466666666654,
+      "scheduledEnd": 43.27466666666654,
+      "contextTimeAtStart": 38.96,
+      "startedMs": 41400,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45707
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.27466666666654,
+      "scheduledEnd": 43.31466666666654,
+      "contextTimeAtStart": 38.96,
+      "startedMs": 41400,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45756
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 43.31466666666654,
+      "scheduledEnd": 43.43466666666654,
+      "contextTimeAtStart": 38.992,
+      "startedMs": 41427,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45866
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.43466666666654,
+      "scheduledEnd": 43.474666666666536,
+      "contextTimeAtStart": 38.992,
+      "startedMs": 41429,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45916
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.474666666666536,
+      "scheduledEnd": 43.514666666666535,
+      "contextTimeAtStart": 39.024,
+      "startedMs": 41462,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45947
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.514666666666535,
+      "scheduledEnd": 43.554666666666535,
+      "contextTimeAtStart": 39.024,
+      "startedMs": 41464,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 45996
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.554666666666535,
+      "scheduledEnd": 43.594666666666534,
+      "contextTimeAtStart": 39.034666666666666,
+      "startedMs": 41476,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46027
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 43.594666666666534,
+      "scheduledEnd": 43.71466666666653,
+      "contextTimeAtStart": 39.04,
+      "startedMs": 41482,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46156
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.71466666666653,
+      "scheduledEnd": 43.75466666666653,
+      "contextTimeAtStart": 39.050666666666665,
+      "startedMs": 41489,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46187
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 43.75466666666653,
+      "scheduledEnd": 43.83466666666653,
+      "contextTimeAtStart": 39.050666666666665,
+      "startedMs": 41492,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46267
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 43.83466666666653,
+      "scheduledEnd": 43.87466666666653,
+      "contextTimeAtStart": 39.12,
+      "startedMs": 41558,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46316
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 43.87466666666653,
+      "scheduledEnd": 43.994666666666525,
+      "contextTimeAtStart": 39.13066666666667,
+      "startedMs": 41573,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46427
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 43.994666666666525,
+      "scheduledEnd": 44.07466666666652,
+      "contextTimeAtStart": 39.141333333333336,
+      "startedMs": 41578,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46507
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.07466666666652,
+      "scheduledEnd": 44.11466666666652,
+      "contextTimeAtStart": 39.17333333333333,
+      "startedMs": 41610,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46556
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.11466666666652,
+      "scheduledEnd": 44.15466666666652,
+      "contextTimeAtStart": 39.17333333333333,
+      "startedMs": 41611,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46588
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 44.15466666666652,
+      "scheduledEnd": 44.23466666666652,
+      "contextTimeAtStart": 39.221333333333334,
+      "startedMs": 41661,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46667
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 44.23466666666652,
+      "scheduledEnd": 44.31466666666652,
+      "contextTimeAtStart": 39.221333333333334,
+      "startedMs": 41664,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46746
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.31466666666652,
+      "scheduledEnd": 44.35466666666652,
+      "contextTimeAtStart": 39.221333333333334,
+      "startedMs": 41664,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46797
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.35466666666652,
+      "scheduledEnd": 44.39466666666652,
+      "contextTimeAtStart": 39.221333333333334,
+      "startedMs": 41666,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46827
+    },
+    {
+      "turn": 3,
+      "samples": 1920,
+      "duration": 0.08,
+      "sampleRate": 24000,
+      "scheduledAt": 44.39466666666652,
+      "scheduledEnd": 44.474666666666515,
+      "contextTimeAtStart": 39.25333333333333,
+      "startedMs": 41690,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46907
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.474666666666515,
+      "scheduledEnd": 44.514666666666514,
+      "contextTimeAtStart": 39.25333333333333,
+      "startedMs": 41690,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 46956
+    },
+    {
+      "turn": 3,
+      "samples": 2880,
+      "duration": 0.12,
+      "sampleRate": 24000,
+      "scheduledAt": 44.514666666666514,
+      "scheduledEnd": 44.63466666666651,
+      "contextTimeAtStart": 39.25333333333333,
+      "startedMs": 41693,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 47067
+    },
+    {
+      "turn": 3,
+      "samples": 960,
+      "duration": 0.04,
+      "sampleRate": 24000,
+      "scheduledAt": 44.63466666666651,
+      "scheduledEnd": 44.67466666666651,
+      "contextTimeAtStart": 39.25333333333333,
+      "startedMs": 41694,
+      "ended": true,
+      "stopCalls": 0,
+      "endedMs": 47117
+    }
+  ],
+  "captureCalls": 1,
+  "status": "passed"
+}

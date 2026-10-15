@@ -27,12 +27,23 @@ async function emit(messages, index) {
   await page.evaluate(({ messages, index }) => messages.forEach(message => (index === undefined ? window.deviceSockets.at(-1) : window.deviceSockets[index]).emit(message)), { messages, index });
 }
 async function newVoice() {
+  stage='new-voice:wait-confirmation-exit';
+  // The text view is mounted before the animated end-call overlay is removed.
+  // A human cannot click the conversation controls until that overlay is gone.
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).some(element=>element.textContent.trim()==='Sim, encerrar'&&element.getClientRects().length),{timeout:10000});
   await page.waitForSelector('[title="Iniciar uma nova conversa"]');
+  stage='new-voice:reset-conversation';
   await page.click('[title="Iniciar uma nova conversa"]');
-  await page.waitForSelector('textarea');
+  stage='new-voice:wait-visible-reset';
+  await page.waitForFunction(()=>{
+    const messages=Array.from(document.querySelectorAll('p.learning-copy')).filter(element=>element.getClientRects().length);
+    return !!document.querySelector('textarea')&&messages.length===1&&messages[0].textContent.trim()==='Conversa com a Vigia reiniciada! Qual dúvida sobre prevenção você gostaria de tirar agora?';
+  },{timeout:10000});
   const count = await page.evaluate(() => window.deviceSockets.length);
   await page.waitForSelector('[aria-label="Conversa por voz"]', { visible: true, timeout: 30000 });
+  stage='new-voice:select-voice';
   await page.click('[aria-label="Conversa por voz"]');
+  stage='new-voice:wait-capture';
   await page.waitForFunction(count => window.deviceSockets.length === count + 1 && window.deviceTracks.some(track => track.readyState === 'live' && track.enabled), { timeout: 10000 }, count);
   return count;
 }
@@ -150,7 +161,7 @@ function passed(name) { report.results.push({ name: label + ': ' + name, status:
             setTimeout(() => { this.onopen?.(); this.emit({ type: 'open', mode: 'streamed-speech' }); }, 20);
           }
           emit(message) { this.oldHandler = this.onmessage || this.oldHandler; this.oldHandler?.({ data: JSON.stringify(message) }); }
-          send(data) { const message = JSON.parse(data); this.sent.push(message); if (message.type === 'realtime_audio') window.deviceFrames++; if (message.type === 'speech_output') setTimeout(() => this.emit({ type: 'speech_output', mode: message.mode }), 0); }
+          send(data) { const message = JSON.parse(data); this.sent.push(message); if (message.type === 'realtime_audio') window.deviceFrames++; if (message.type === 'speech_output') setTimeout(() => this.emit({ type: 'speech_output', mode: message.mode }), 0); if (message.type === 'interrupt') setTimeout(() => this.emit({ type: 'interrupted' }), 0); }
           close() { this.readyState = 3; this.onclose?.(); }
         };
         Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: class { constructor(text) { this.text = text; } } });

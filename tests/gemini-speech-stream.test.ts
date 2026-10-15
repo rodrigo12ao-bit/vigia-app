@@ -6,7 +6,25 @@ function sse(events:any[]){const b=new TextEncoder().encode(events.map(packet).j
 async function collect(ai:GeminiAi,signal?:AbortSignal){const chunks:Buffer[]=[];for await(const p of ai.speechStream('Guarde a lanterna na mochila.',signal))chunks.push(p);return chunks;}
 test('TTS por partes usa modelo gratuito, texto literal verificado, Aoede e store false',async()=>{let sent:any,headers:any;const ai=new GeminiAi(env,async(_u,o)=>{sent=JSON.parse(o!.body as string);headers=o!.headers;return sse([audio(),audio(),done]);});assert.equal((await collect(ai)).length,2);assert.equal(sent.store,false);assert.equal(sent.stream,true);assert.equal(sent.model,'gemini-3.8-flash-lite-tts');assert.equal(sent.input[0].content[0].text,'Guarde a lanterna na mochila.');assert.equal(sent.generation_config.speech_config[0].voice,'Aoede');assert.equal(headers['x-goog-api-key'],key);});
 test('streaming rejeita projeto não verificado, taxa inválida, WAV, bytes ímpares e conclusão ausente',async()=>{let calls=0;const blocked=new GeminiAi({...env,GEMINI_FREE_KEY_SHA256:''},async()=>{calls++;return sse([]);});await assert.rejects(collect(blocked));assert.equal(calls,0);for(const events of [[audio('AQ=='),done],[{...audio(),delta:{...audio().delta,sample_rate:16000}},done],[audio(Buffer.from('RIFFAA').toString('base64')),done],[audio()],[{event_type:'interaction.failed'}]]){await assert.rejects(collect(new GeminiAi(env,async()=>sse(events))));}});
-test('cota e cancelamento não disparam repetição nem serviço pago',async()=>{let calls=0;await assert.rejects(collect(new GeminiAi(env,async()=>{calls++;return new Response('{}',{status:429});})));assert.equal(calls,1);const c=new AbortController();const ai=new GeminiAi(env,async(_u,o)=>{assert.ok(o?.signal);c.abort();throw Error('abort');});await assert.rejects(collect(ai,c.signal));});
+test('cota percorre somente dois TTS gratuitos; cancelamento não repete nem ativa serviço pago',async()=>{let calls=0;await assert.rejects(collect(new GeminiAi(env,async()=>{calls++;return new Response('{}',{status:429});})));assert.equal(calls,2);const c=new AbortController();const ai=new GeminiAi(env,async(_u,o)=>{assert.ok(o?.signal);c.abort();throw Error('abort');});await assert.rejects(collect(ai,c.signal));});
+test('cota do Lite usa TTS Flash literal com Aoede; cooldown é individual e não abre Live',async()=>{
+ const requests:any[]=[];let reads=0;
+ const ai=new GeminiAi(env,async(_url,options)=>{const request=JSON.parse(options!.body as string);requests.push(request);return request.model==='gemini-3.8-flash-lite-tts'?new Response('{}',{status:429,headers:{'Retry-After':'60'}}):sse([audio(),done]);},async()=>{reads++;throw Error('Live must not open');});
+ assert.equal((await collect(ai)).length,1);assert.equal((await collect(ai)).length,1);
+ assert.deepEqual(requests.map(r=>r.model),['gemini-3.8-flash-lite-tts','gemini-3.8-flash-tts','gemini-3.8-flash-tts']);assert.equal(reads,0);
+ for(const request of requests){assert.equal(request.store,false);assert.equal(request.stream,true);assert.equal(request.input[0].content[0].text,'Guarde a lanterna na mochila.');assert.equal(request.generation_config.speech_config[0].voice,'Aoede');assert.deepEqual(request.response_format,{type:'audio',mime_type:'audio/l16',sample_rate:24000});}
+});
+test('dois TTS em cota só então usam Live, com o mesmo sinal e texto e sem renovar prazo',async()=>{
+ const models:string[]=[],signals:AbortSignal[]=[];const controller=new AbortController();let reads=0;
+ const ai=new GeminiAi(env,async(_url,options)=>{models.push(JSON.parse(options!.body as string).model);signals.push(options!.signal as AbortSignal);return new Response('{}',{status:429});},async(text,signal,config)=>{reads++;assert.deepEqual(models,['gemini-3.8-flash-lite-tts','gemini-3.8-flash-tts']);assert.equal(signal,signals[0]);assert.equal(signals[0],signals[1]);assert.equal(text,'Guarde a lanterna na mochila.');assert.equal(config?.GEMINI_API_KEY,key);return{pcm:Buffer.alloc(200),sampleRate:24000};});
+ assert.equal((await collect(ai,controller.signal)).length,1);assert.equal(reads,1);
+ controller.abort();assert.equal(signals[0].aborted,true);assert.equal(signals[1].aborted,true);
+});
+test('segurança, erro HTTP, desconexão e falha incompleta não selecionam outro TTS nem Live',async()=>{
+ const failures=[async()=>new Response('{}',{status:403}),async()=>new Response('{}',{status:500}),async()=>{throw Error('network');},async()=>sse([{event_type:'interaction.failed',error:{code:422,status:'SAFETY'}}]),async()=>sse([audio()])];
+ for(const failure of failures){let calls=0,reads=0;const ai=new GeminiAi(env,async()=>{calls++;return failure();},async()=>{reads++;throw Error('Live must not open');});await assert.rejects(collect(ai));assert.equal(calls,1);assert.equal(reads,0);}
+ let calls=0,reads=0;const secondFails=new GeminiAi(env,async()=>++calls===1?new Response('{}',{status:429}):new Response('{}',{status:503}),async()=>{reads++;throw Error('Live must not open');});await assert.rejects(collect(secondFails));assert.equal(calls,2);assert.equal(reads,0);
+});
 class Socket extends EventEmitter{OPEN=1;readyState=1;sent:any[]=[];send(s:string){this.sent.push(JSON.parse(s));}close(){this.readyState=3;this.emit('close');}message(p:any){this.emit('message',Buffer.from(JSON.stringify(p)));}}
 const wait=()=>new Promise(r=>setTimeout(r,20));
 function fixture(change:any={},options:any={}){const socket=new Socket(),calls:string[]=[];const ai={provider:'gemini',models:{generateContent:async()=>{calls.push('checked-text');return{text:'Guarde a lanterna na mochila.'};}},transcribe:async()=>({text:'Onde guardo a lanterna?',status:'ok',provider:'gemini'}),speech:async()=>{throw Error('No unary fallback');},speechStream:async function*(){calls.push('speech-stream');yield Buffer.alloc(200);},...change};connectRealVoice(socket as any,ai,'Instrução educativa.',{streamSpeech:true,...options});return {socket,calls};}
@@ -19,8 +37,8 @@ test('nova fala interrompe também áudio ainda em reprodução depois da sínte
 test('429 respeita Retry-After e pausa somente TTS sem repetir chamadas nem expor metadados',async()=>{
  let calls=0;const ai=new GeminiAi(env,async url=>{calls++;return String(url).endsWith('/interactions')?new Response(JSON.stringify({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'7s'}],message:'PRIVATE_PROJECT_INFO'}}),{status:429,headers:{'Retry-After':'2'}}):Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'Confira as pilhas.'}]}}]});});
  await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs===2000&&!e.message.includes('PRIVATE'));
- await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs!>0);assert.equal(calls,1);
- assert.equal((await ai.models.generateContent({contents:'Pilhas'})).text,'Confira as pilhas.');assert.equal(calls,2);
+ await assert.rejects(collect(ai),(e:AiUnavailable)=>e.code==='quota_unavailable'&&e.retryAfterMs!>0);assert.equal(calls,2);
+ assert.equal((await ai.models.generateContent({contents:'Pilhas'})).text,'Confira as pilhas.');assert.equal(calls,3);
 });
 test('RetryInfo e falha429 dentro do fluxo mantêm cooldown sem repetição automática',async()=>{
  const ai=new GeminiAi(env,async()=>sse([{event_type:'interaction.failed',error:{status:'RESOURCE_EXHAUSTED',details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'3s'}]}}]));
@@ -45,12 +63,16 @@ test('emergência digitada fornece entrada e orientação para salvar uma vez, s
 test('cota antes de áudio usa uma leitura gratuita do mesmo texto; cooldown evita repetir TTS',async()=>{
  let requests=0;const reads:string[]=[];
  const ai=new GeminiAi(env,async()=>{requests++;return new Response('{}',{status:429});},async(text,signal,config)=>{assert.equal(config?.GEMINI_API_KEY,key);assert.ok(!signal?.aborted);reads.push(text);return{pcm:Buffer.alloc(200),sampleRate:24000};});
- assert.equal((await collect(ai)).length,1);assert.equal((await collect(ai)).length,1);assert.equal(requests,1);assert.deepEqual(reads,['Guarde a lanterna na mochila.','Guarde a lanterna na mochila.']);
+ assert.equal((await collect(ai)).length,1);assert.equal((await collect(ai)).length,1);assert.equal(requests,2);assert.deepEqual(reads,['Guarde a lanterna na mochila.','Guarde a lanterna na mochila.']);
 });
 test('cota depois de áudio parcial e cancelamento não disparam outra voz nem repetem a fala',async()=>{
  let reads=0;const literal=async()=>{reads++;return{pcm:Buffer.alloc(200),sampleRate:24000};};
- const ai=new GeminiAi(env,async()=>sse([audio(),{event_type:'interaction.failed',error:{code:429}}]),literal);await assert.rejects(collect(ai));assert.equal(reads,0);
- const c=new AbortController(),cancelled=new GeminiAi(env,async()=>{c.abort();return new Response('{}',{status:429});},literal);await assert.rejects(collect(cancelled,c.signal));assert.equal(reads,0);
+ for(const liteQuota of [false,true]){
+  const models:string[]=[];
+  const ai=new GeminiAi(env,async(_url,options)=>{const model=JSON.parse(options!.body as string).model;models.push(model);return liteQuota&&model==='gemini-3.8-flash-lite-tts'?new Response('{}',{status:429}):sse([audio(),{event_type:'interaction.failed',error:{code:429}}]);},literal);
+  await assert.rejects(collect(ai));assert.equal(reads,0);assert.deepEqual(models,liteQuota?['gemini-3.8-flash-lite-tts','gemini-3.8-flash-tts']:['gemini-3.8-flash-lite-tts']);
+ }
+ let calls=0;const c=new AbortController(),cancelled=new GeminiAi(env,async()=>{calls++;c.abort();return new Response('{}',{status:429});},literal);await assert.rejects(collect(cancelled,c.signal));assert.equal(reads,0);assert.equal(calls,1);
 });
 test('falha de correspondência na alternativa gratuita mantém indisponibilidade sem resposta pronta',async()=>{
  let reads=0;const ai=new GeminiAi(env,async()=>new Response('{}',{status:429}),async()=>{reads++;throw new AiUnavailable('literal_mismatch','A voz divergiu.');});

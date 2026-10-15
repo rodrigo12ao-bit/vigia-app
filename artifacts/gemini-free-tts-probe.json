@@ -1,0 +1,26 @@
+{
+  "scope": "Modelos TTS com modalidade gratuita documentada, mesmo projeto gratuito, fala fictícia adulta.",
+  "results": [
+    {
+      "model": "gemini-3.8-flash-tts",
+      "httpStatus": 200,
+      "finishReason": "STOP",
+      "audioBytes": 184672,
+      "durationMs": 4217
+    },
+    {
+      "model": "gemini-3.1-flash-tts-preview",
+      "httpStatus": 200,
+      "finishReason": "STOP",
+      "audioBytes": 209280,
+      "durationMs": 3812
+    },
+    {
+      "model": "gemini-2.5-flash-preview-tts",
+      "httpStatus": 200,
+      "finishReason": "STOP",
+      "audioBytes": 188686,
+      "durationMs": 3336
+    }
+  ]
+}

@@ -1,0 +1,323 @@
+{
+  "url": "https://vigia-app.onrender.com",
+  "scope": "Chrome isolado, duas falas sintéticas adultas pelo microfone simulado; transcrição, respostas e áudio Gemini reais gratuitos. Sem microfone físico ou dados pessoais.",
+  "turns": [
+    {
+      "input": "onde devo guardar a lanterna da mochila de emergência",
+      "reply": "Guarde a lanterna com pilhas reservas na mochila de emergência. \n\nQuer revisar outros itens essenciais para essa bolsa?",
+      "audioChunks": 46,
+      "processingToAudioMs": 16935
+    },
+    {
+      "input": "E as pilhas dela?",
+      "reply": "Guarde as pilhas reservas junto com a lanterna na mochila. \n\nQuer verificar mais itens recomendados para esse kit?",
+      "audioChunks": 16,
+      "processingToAudioMs": 8892
+    }
+  ],
+  "events": [
+    {
+      "type": "open",
+      "mode": "streamed-speech",
+      "ms": 6190
+    },
+    {
+      "type": "processing",
+      "ms": 26269
+    },
+    {
+      "type": "input_transcription",
+      "text": "onde devo guardar a lanterna da mochila de emergência",
+      "ms": 31073
+    },
+    {
+      "type": "output_transcription",
+      "text": "Guarde a lanterna com pilhas reservas na mochila de emergência. \n\nQuer revisar outros itens essenciais para essa bolsa?",
+      "ms": 38880
+    },
+    {
+      "type": "reply_ready",
+      "ms": 38886
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43204
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43387
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43407
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43568
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43569
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43570
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43743
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43744
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43747
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43751
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43757
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43759
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43767
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43921
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43922
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43923
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43930
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43932
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43933
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43937
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43938
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43941
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43941
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43943
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43944
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43945
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 43945
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44101
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44106
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44107
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44107
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44108
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44110
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44110
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44112
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44113
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44113
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44118
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44119
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44120
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44121
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44122
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44123
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44123
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44124
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 44124
+    },
+    {
+      "type": "turn_complete",
+      "ms": 44125
+    },
+    {
+      "type": "interrupted",
+      "ms": 52194
+    },
+    {
+      "type": "processing",
+      "ms": 53593
+    },
+    {
+      "type": "input_transcription",
+      "text": "E as pilhas dela?",
+      "ms": 57724
+    },
+    {
+      "type": "output_transcription",
+      "text": "Guarde as pilhas reservas junto com a lanterna na mochila. \n\nQuer verificar mais itens recomendados para esse kit?",
+      "ms": 60247
+    },
+    {
+      "type": "reply_ready",
+      "ms": 60248
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62485
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62659
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62661
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62839
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62840
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 62841
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63022
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63024
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63026
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63028
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63030
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63031
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63033
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63201
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63203
+    },
+    {
+      "type": "audio_chunk",
+      "ms": 63205
+    },
+    {
+      "type": "turn_complete",
+      "ms": 63205
+    }
+  ],
+  "microphoneCaptureCalls": 1,
+  "status": "passed"
+}

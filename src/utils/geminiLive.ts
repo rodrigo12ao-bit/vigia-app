@@ -83,6 +83,7 @@ export interface GeminiLiveCallbacks {
   onTurnComplete?: () => void;
   onInterrupted?: () => void;
   onInputLevel?: (rms: number) => void;
+  onMicrophoneActivityChange?: (active: boolean) => void;
   onError?: (errorMsg: string) => void;
   onSpeechUnavailable?: (message: string, retryAfterMs?: number) => void;
   onDeviceSpeech?: (text: string) => void;
@@ -127,6 +128,14 @@ export class GeminiLiveSession {
   private lastInputLevelEmit = 0;
   private speechOutput:'cloud'|'device'='cloud';
   private devicePlaybackPending=false;
+  private inputSuppressed=false;
+  private lastCaptureActive=false;
+  private awaitingInterruptAck=false;
+  private playbackFailure=false;
+  private playbackChunkCount=0;
+  private pendingAudioChunks=0;
+  private outputResumePromise:Promise<void>|null=null;
+  private interruptAckTimer:ReturnType<typeof globalThis.setTimeout>|null=null;
 
   constructor(callbacks: GeminiLiveCallbacks) {
     this.callbacks = callbacks;
@@ -165,6 +174,8 @@ export class GeminiLiveSession {
       this.outputContextTracked = true;
       Telemetry.trackResource('outputContexts', 1);
       this.nextPlayTime = outputCtx.currentTime;
+      await this.resumeOutputContext();
+      if(!this.isCurrent(token))return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const contextParam = this.callbacks.context
@@ -213,10 +224,13 @@ export class GeminiLiveSession {
       socket.onclose = () => {
         if (socket !== this.ws) return;
         console.log('[GeminiLive] WebSocket proxy fechado');
+        const notify=!this.stopped;
+        this.stopped=true;++this.sessionToken;++this.generation;
+        this.pendingAudioChunks=0;this.clearInterruptAck();this.synchronizeCapture();
         this.ws = null;
         this.releaseWebSocketTelemetry();
         void this.cleanupResources();
-        if (!this.stopped) this.callbacks.onClose?.();
+        if (notify) this.callbacks.onClose?.();
       };
     } catch (error) {
       if (!this.isCurrent(token)) return;
@@ -240,6 +254,7 @@ export class GeminiLiveSession {
   }
 
   private handleServerPayload(payload: any): void {
+    if(this.awaitingInterruptAck&&['processing','input_transcription','output_transcription','audio_chunk','reply_ready','turn_complete','speech_unavailable','speech_on_device'].includes(payload.type))return;
     switch (payload.type) {
       case 'open':
         this.streamedSpeech=payload.mode==='streamed-speech';
@@ -250,8 +265,10 @@ export class GeminiLiveSession {
 
       case 'input_transcription':
         if (payload.text) {
+          this.playbackFailure=false;
           this.callbacks.onInputTranscription?.(payload.text);
           if (this.state !== 'assistantSpeaking') {
+            if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
             this.setState('processing');
             this.callbacks.onAvatarStateChange?.('thinking');
           }
@@ -259,6 +276,8 @@ export class GeminiLiveSession {
         return;
 
       case 'processing':
+        this.playbackFailure=false;
+        if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
         this.setState('processing');
         this.callbacks.onAvatarStateChange?.('thinking');
         return;
@@ -268,6 +287,7 @@ export class GeminiLiveSession {
         return;
 
       case 'interrupted':
+        this.clearInterruptAck();
         this.handleServerInterruption();
         this.callbacks.onInterrupted?.();
         return;
@@ -291,7 +311,9 @@ export class GeminiLiveSession {
         this.stopAudioPlayback();
         this.hasReceivedFirstAudioChunk = false;
         this.serverTurnComplete = false;
+        this.pendingAudioChunks=0;
         this.pauseMicrophone(true);
+        this.setInputSuppressed(false);
         this.setState('idle');
         this.callbacks.onAvatarStateChange?.('serious');
         const retryAfterMs=typeof payload.retryAfterMs==='number'&&Number.isFinite(payload.retryAfterMs)
@@ -352,6 +374,7 @@ export class GeminiLiveSession {
 
       this.mediaStream = stream;
       this.microphonePaused=false;
+      this.synchronizeCapture();
       stream.getAudioTracks().forEach(track=>{track.onended=()=>{if(!this.isCurrent(token))return;this.callbacks.onError?.('O microfone foi desconectado. Verifique o aparelho e tente novamente.');this.stop();this.callbacks.onClose?.();};});
       this.streamTracked = true;
       Telemetry.trackResource('streams', 1);
@@ -409,8 +432,8 @@ export class GeminiLiveSession {
 
       console.log('[GeminiLive] Captura de áudio iniciada');
       await inputCtx.resume();
-      await this.outputAudioCtx?.resume();
-      if(this.isCurrent(token)){this.setState('listening');this.callbacks.onAvatarStateChange?.('listening');}
+      await this.resumeOutputContext();
+      if(this.isCurrent(token)&&this.state==='connecting'){this.setState('listening');this.callbacks.onAvatarStateChange?.('listening');}
     } catch (error) {
       if (!this.isCurrent(token)) return;
       console.error('[GeminiLive] Falha ao acessar microfone:', error);
@@ -424,7 +447,7 @@ export class GeminiLiveSession {
 
   private processInputPCM(float32Array: Float32Array): void {
     const socket = this.ws;
-    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped || this.microphonePaused || (!this.nativeAudio&&(this.state==='processing' || this.state==='assistantSpeaking'))) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.stopped || this.microphonePaused || this.inputSuppressed || (!this.nativeAudio&&(this.state==='processing' || this.state==='assistantSpeaking'))) return;
     if(socket.bufferedAmount>128000){this.callbacks.onError?.('A conexão ficou lenta. Tente iniciar a voz novamente.');this.stop();this.callbacks.onClose?.();return;}
 
     Telemetry.record('T1', 'Primeiro frame processado localmente');
@@ -503,25 +526,34 @@ export class GeminiLiveSession {
   }
 
   private handleAudioChunk(base64Data: string): void {
+    if(this.playbackFailure)return;
     Telemetry.record('T4', 'Primeiro audio_chunk recebido');
     if (!this.hasReceivedFirstAudioChunk) {
       this.hasReceivedFirstAudioChunk = true;
       this.serverTurnComplete = false;
       this.generation += 1;
+      this.playbackChunkCount=0;
+      if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
       this.setState('assistantSpeaking');
       this.callbacks.onAvatarStateChange?.('speaking');
     }
-    this.playPCMChunk(base64Data, this.generation);
+    const generation=this.generation;
+    this.pendingAudioChunks++;
+    void this.playPCMChunk(base64Data,generation).finally(()=>{
+      if(generation!==this.generation)return;
+      this.pendingAudioChunks=Math.max(0,this.pendingAudioChunks-1);
+      this.finishTurnWhenPlaybackEnds();
+    });
   }
 
-  private playPCMChunk(base64Data: string, generation: number): void {
+  private async playPCMChunk(base64Data: string, generation: number): Promise<void> {
     const context = this.outputAudioCtx;
     if (!context || context.state === 'closed' || generation !== this.generation) return;
 
     try {
-      if (context.state === 'suspended') void context.resume();
-
+      if(typeof base64Data!=='string'||!base64Data.length||base64Data.length>3200000)throw new Error('invalid_pcm');
       const binary = atob(base64Data);
+      if(!binary.length||binary.length%2)throw new Error('invalid_pcm');
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -531,6 +563,8 @@ export class GeminiLiveSession {
         const sample = view.getInt16(index * 2, true);
         float32[index] = sample / (sample < 0 ? 32768 : 32767);
       }
+      await this.resumeOutputContext();
+      if(context!==this.outputAudioCtx||this.stopped||generation!==this.generation)return;
 
       const audioBuffer = context.createBuffer(1, float32.length, 24000);
       audioBuffer.getChannelData(0).set(float32);
@@ -538,9 +572,13 @@ export class GeminiLiveSession {
       source.buffer = audioBuffer;
       source.connect(this.outputGain||context.destination);
 
-      const startAt = Math.max(context.currentTime, this.nextPlayTime);
+      const now=context.currentTime;
+      const lead=this.playbackChunkCount===0?0.08:0.008;
+      if(this.playbackChunkCount>0&&this.nextPlayTime<now)Telemetry.log('AUDIO_BUFFER_UNDERRUN',{gapMs:Math.round((now-this.nextPlayTime)*1000)});
+      const startAt = this.playbackChunkCount===0?now+lead:Math.max(now+lead,this.nextPlayTime);
       source.start(startAt);
       this.nextPlayTime = startAt + audioBuffer.duration;
+      this.playbackChunkCount++;
       Telemetry.record('T5', 'Primeiro áudio agendado para reprodução');
 
       const entry: ActiveSource = { source, generation };
@@ -552,7 +590,44 @@ export class GeminiLiveSession {
       };
     } catch (error) {
       console.error('[GeminiLive] Erro ao reproduzir PCM:', error);
+      if(!this.stopped&&generation===this.generation)this.reportPlaybackUnavailable();
     }
+  }
+
+  private resumeOutputContext():Promise<void>{
+    const context=this.outputAudioCtx;
+    if(!context||context.state==='closed')return Promise.reject(new Error('O som está indisponível. Toque em voz novamente ou continue por texto.'));
+    if(context.state==='running')return Promise.resolve();
+    if(this.outputResumePromise)return this.outputResumePromise;
+    let timer:ReturnType<typeof globalThis.setTimeout>;
+    this.outputResumePromise=Promise.race([
+      context.resume(),
+      new Promise<never>((_,reject)=>{timer=globalThis.setTimeout(()=>reject(new Error('O navegador não ativou o som. Toque em voz novamente ou continue por texto.')),3000);}),
+    ]).then(()=>{if(context!==this.outputAudioCtx||context.state!=='running')throw new Error('O navegador não ativou o som. Toque em voz novamente ou continue por texto.');})
+      .finally(()=>{globalThis.clearTimeout(timer);this.outputResumePromise=null;});
+    return this.outputResumePromise;
+  }
+
+  private reportPlaybackUnavailable():void{
+    if(this.playbackFailure)return;
+    this.playbackFailure=true;
+    this.pauseMicrophone(true);
+    if(this.streamedSpeech)this.interruptPlayback();
+    else {this.generation++;this.stopAudioPlayback();this.hasReceivedFirstAudioChunk=false;this.serverTurnComplete=false;this.setInputSuppressed(false);this.setState('idle');}
+    this.callbacks.onSpeechUnavailable?.('Não foi possível reproduzir o áudio. A resposta continua disponível por texto.');
+  }
+
+  private synchronizeCapture():void{
+    const active=!!this.mediaStream&&!this.stopped&&!this.microphonePaused&&!this.inputSuppressed;
+    for(const track of this.mediaStream?.getAudioTracks()||[])track.enabled=active;
+    if(this.lastCaptureActive!==active){this.lastCaptureActive=active;this.callbacks.onMicrophoneActivityChange?.(active);}
+    if(!active)this.callbacks.onInputLevel?.(0);
+  }
+
+  private setInputSuppressed(suppressed:boolean):void{
+    this.inputSuppressed=suppressed;
+    if(suppressed)this.pcmBuffer=[];
+    this.synchronizeCapture();
   }
 
   private handleServerInterruption(): void {
@@ -562,18 +637,21 @@ export class GeminiLiveSession {
     this.stopAudioPlayback();
     this.hasReceivedFirstAudioChunk = false;
     this.serverTurnComplete = false;
+    this.pendingAudioChunks=0;
+    this.setInputSuppressed(false);
     this.setState(this.microphonePaused?'idle':'userSpeaking');
     this.callbacks.onAvatarStateChange?.(this.microphonePaused?'idle':'listening');
   }
 
   private finishTurnWhenPlaybackEnds(): void {
-    if (!this.serverTurnComplete || this.activeSources.length > 0 || this.devicePlaybackPending) return;
+    if (this.stopped || !this.serverTurnComplete || this.activeSources.length > 0 || this.pendingAudioChunks>0 || this.devicePlaybackPending) return;
 
     console.log('[GeminiLive] Geração e reprodução concluídas');
     if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'playback_ended'}));
     Telemetry.record('T6', 'Resposta completamente reproduzida');
     this.hasReceivedFirstAudioChunk = false;
     this.serverTurnComplete = false;
+    this.setInputSuppressed(false);
     Telemetry.currentInteraction = {};
     if (!this.stopped) {
       this.setState(this.microphonePaused?'idle':'listening');
@@ -610,10 +688,11 @@ export class GeminiLiveSession {
 
   public pauseMicrophone(paused:boolean):void{
     if(!this.mediaStream||this.stopped)return;
+    const wasCapturing=!this.microphonePaused&&!this.inputSuppressed;
     if(!paused&&this.microphonePaused&&this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'resume_input'}));
     this.microphonePaused=paused;this.pcmBuffer=[];
-    for(const track of this.mediaStream.getAudioTracks())track.enabled=!paused;
-    if(paused&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));
+    this.synchronizeCapture();
+    if(paused&&wasCapturing&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));
     if(this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
   }
 
@@ -631,6 +710,7 @@ export class GeminiLiveSession {
 
   public finishDevicePlayback(resumeInput:boolean):void{
     this.devicePlaybackPending=false;
+    this.pendingAudioChunks=0;
     this.serverTurnComplete=false;
     if(this.stopped)return;
     if(resumeInput)this.pauseMicrophone(false);
@@ -639,9 +719,22 @@ export class GeminiLiveSession {
   }
 
   public interruptPlayback():void{
-    if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'interrupt'}));
+    if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN){
+      this.clearInterruptAck();this.awaitingInterruptAck=true;
+      this.ws.send(JSON.stringify({type:'interrupt'}));
+      this.interruptAckTimer=globalThis.setTimeout(()=>{
+        if(this.stopped||!this.awaitingInterruptAck)return;
+        this.callbacks.onError?.('A conexão não confirmou a interrupção. Você pode continuar por texto ou iniciar a voz novamente.');
+        this.stop();this.callbacks.onClose?.();
+      },3000);
+    }
     this.handleServerInterruption();
     this.setState(this.microphonePaused?'idle':'listening');
+  }
+
+  private clearInterruptAck():void{
+    if(this.interruptAckTimer)globalThis.clearTimeout(this.interruptAckTimer);
+    this.interruptAckTimer=null;this.awaitingInterruptAck=false;
   }
 
   public sendContextUpdate(contextText: string): void {
@@ -654,6 +747,8 @@ export class GeminiLiveSession {
     if (this.stopped && this.cleanupDone) return;
     console.log('[GeminiLive] Parando sessão Live');
     this.stopped = true;
+    this.clearInterruptAck();
+    this.synchronizeCapture();
     this.sessionToken += 1;
     this.setState('stopping');
 
@@ -690,7 +785,11 @@ export class GeminiLiveSession {
   private async cleanupResources(): Promise<void> {
     if (this.cleanupDone) return;
     this.cleanupDone = true;
+    this.clearInterruptAck();
     this.devicePlaybackPending=false;
+    this.pendingAudioChunks=0;
+    this.inputSuppressed=false;
+    this.awaitingInterruptAck=false;
     this.stopAudioPlayback();
     this.pcmBuffer = [];
 

@@ -345,6 +345,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [liveAvatarState, setLiveAvatarState] = useState<AvatarState | null>(null);
   const [liveIsSpeaking, setLiveIsSpeaking] = useState(false);
   const [livePaused,setLivePaused]=useState(false);
+  const [liveCaptureActive,setLiveCaptureActive]=useState(false);
   const [liveUnavailable,setLiveUnavailable]=useState(false);
   const [liveRetryAt,setLiveRetryAt]=useState(0);
   const [liveRetrySeconds,setLiveRetrySeconds]=useState(0);
@@ -502,6 +503,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setSpeechFeedbackMsg(null);
     setInteractionState('CONNECTING');
     setLivePaused(false);
+    setLiveCaptureActive(false);
     setLiveUnavailable(false);
     setLiveRetryAt(0);
     setMicPermissionError(false);
@@ -551,6 +553,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         if (disposed || liveSessionRef.current !== session) return;
         setMicVolume(Math.min(1, rms * 12));
       },
+      onMicrophoneActivityChange:active=>{
+        if(disposed||liveSessionRef.current!==session)return;
+        setLiveCaptureActive(active);if(!active)setMicVolume(0);
+      },
       onInputTranscription: (text) => {
         if (disposed || liveSessionRef.current !== session) return;
         cancelDeviceReading(false);
@@ -575,7 +581,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         }
         if(!readWithDevice(text)){session.finishDevicePlayback(false);setLivePaused(true);}
       },
-      onInterrupted:()=>{if(disposed||liveSessionRef.current!==session)return;voiceInput.current='';voiceOutput.current='';setInterimSpeech('');setLiveSubtitle('');},
+      onInterrupted:()=>{if(disposed||liveSessionRef.current!==session)return;voiceInput.current='';voiceOutput.current='';setInterimSpeech('');setLiveSubtitle(previous=>liveCheckedReplyRef.current===previous?previous:'');},
       onSpeechUnavailable:(message,retryAfterMs)=>{
         if(disposed||liveSessionRef.current!==session)return;
         setSpeechFeedbackMsg(message);
@@ -598,6 +604,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         liveSessionRef.current = null;
         setLiveAvatarState(null);
         setLiveIsSpeaking(false);
+        setLiveCaptureActive(false);
         setMicVolume(0);
         setInteractionState('IDLE');
       },
@@ -1051,7 +1058,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     liveSessionRef.current=null;
     session?.stop();
     voiceInput.current='';voiceOutput.current='';
-    setLiveIsSpeaking(false);setLivePaused(false);setMicVolume(0);
+    setLiveIsSpeaking(false);setLivePaused(false);setLiveCaptureActive(false);setMicVolume(0);
     setLiveRetryAt(0);setLiveUnavailable(false);setLiveSubtitle('');setLiveCheckedReply('');setInterimSpeech('');
     liveCheckedReplyRef.current='';deviceModeRef.current=false;setDeviceMode(false);setDeviceReading(false);
     if(chatMode==='live')setChatMode('text');
@@ -1160,7 +1167,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
     if (currentIsSpeaking) {
       return {
-        text: deviceMode?'Interrompa pelo botão':chatMode==='live'&&!livePaused?'Pode me interromper falando':'A Vigia está falando…',
+        text: chatMode==='live'?'Interrompa pelo botão':'A Vigia está falando…',
         color: 'bg-sky-500/20 text-sky-300 border-sky-400/40',
         icon: <Volume2 className="w-3.5 h-3.5 text-sky-400 animate-pulse shrink-0" />,
       };
@@ -1192,7 +1199,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const statusBadge = getAvatarStatusBadge();
-  const liveMicrophoneActive=chatMode==='live'&&!!liveSessionRef.current&&!livePaused&&interactionState!=='CONNECTING';
+  const liveMicrophoneActive=chatMode==='live'&&!!liveSessionRef.current&&liveCaptureActive;
+  const liveAutomaticPause=chatMode==='live'&&!livePaused&&(interactionState==='PROCESSING'||interactionState==='SPEAKING');
   const liveRetryWaiting=liveRetryAt>Date.now();
 
   // Filter sessions by search query
@@ -1866,8 +1874,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           : 'bg-slate-700 hover:bg-slate-600 text-emerald-400 shadow-slate-900/50'
                       }`}
                       disabled={interactionState==='CONNECTING'||liveRetryWaiting}
-                      title={deviceReading||liveMicrophoneActive ? 'Pausar Conversa' : 'Ativar Conversa'}
-                      aria-label={interactionState==='CONNECTING'?'Conectando microfone':deviceReading?'Pausar conversa e interromper leitura':liveMicrophoneActive?'Pausar microfone':liveUnavailable?'Tentar voz novamente':'Ativar microfone'}
+                      title={deviceReading||liveMicrophoneActive||liveAutomaticPause ? 'Pausar Conversa' : 'Ativar Conversa'}
+                      aria-label={interactionState==='CONNECTING'?'Conectando microfone':deviceReading?'Pausar conversa e interromper leitura':liveAutomaticPause?'Manter microfone pausado após resposta':liveMicrophoneActive?'Pausar microfone':liveUnavailable?'Tentar voz novamente':'Ativar microfone'}
                       aria-pressed={liveMicrophoneActive}
                     >
                       {liveMicrophoneActive ? <Mic className="w-5 h-5 sm:w-6 sm:h-6" /> : <MicOff className="w-5 h-5 sm:w-6 sm:h-6" />}

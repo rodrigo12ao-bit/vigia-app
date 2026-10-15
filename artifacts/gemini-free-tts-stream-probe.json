@@ -1,0 +1,16 @@
+{
+  "scope": "TTS3.8Flash gratuito no projeto verificado, frase fictícia adulta, Interactionsstore:false",
+  "httpStatus": 200,
+  "firstAudioMs": 1787,
+  "bytes": 174720,
+  "complete": true,
+  "durationMs": 2667,
+  "eventTypes": [
+    "interaction.created",
+    "interaction.status_update",
+    "step.start",
+    "step.delta",
+    "step.stop",
+    "interaction.completed"
+  ]
+}
