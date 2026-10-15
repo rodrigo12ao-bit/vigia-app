@@ -1,6 +1,6 @@
 import {MODULES_DATA} from '../data/learningJourneyData';
 import {useEffect,useRef,useState} from 'react';
-import {auth,db,doc,onSnapshot} from '../lib/firebase';
+import {auth} from '../lib/firebaseAuth';
 import {learningRequest} from '../lib/learningApi';
 import {ACTIVITY_LABELS,activityKey,advanceAdventure,adventureKey,emptyAdventure,earnedAdventureBadges,normalizeAdventure,type ActivityClaim,type AdventureCache} from '../lib/adventureModel';
 import {announceReward,stopActivityFeedback} from '../lib/activityFeedback';
@@ -16,7 +16,11 @@ export function useAdventure(uid:string|undefined,stars:number,onGuestPoints:(n:
   const v=++generation.current;busy.current=false;blocked.current=false;setState(emptyAdventure());setPending(0);setNotice('');stopActivityFeedback();
   try{const raw=localStorage.getItem(adventureKey(uid));const saved=raw?JSON.parse(raw):{state:emptyAdventure(),earned:[],pending:[]};normalizeAdventure(saved.state);if(!Array.isArray(saved.earned)||!Array.isArray(saved.pending)||saved.pending.length>100)throw Error();for(const p of saved.pending)activityKey(p.claim);cache.current=saved;setState(saved.state);setPending(saved.pending.length);}catch{blocked.current=true;cache.current={state:emptyAdventure(),earned:[],pending:[]};setNotice('O registro anterior da aventura foi preservado e precisa de revisão.');return ()=>{++generation.current;};}
   let unsubscribe=()=>{};
-  if(uid){unsubscribe=onSnapshot(doc(db,'users',uid,'adventure','main'),snapshot=>{if(v!==generation.current)return;if(snapshot.exists())try{write({...cache.current,state:normalizeAdventure(snapshot.data())});}catch{setNotice('Não foi possível ler o progresso da aventura.');}},()=>setNotice('Aventura disponível neste aparelho. A sincronização está sem conexão.'));void learningRequest('/api/learning/adventure').then(()=>sync()).catch(()=>{});}
+  if(uid){void import('../lib/firebase').then(({db,doc,onSnapshot})=>{
+   if(v!==generation.current||auth.currentUser?.uid!==uid)return;
+   unsubscribe=onSnapshot(doc(db,'users',uid,'adventure','main'),snapshot=>{if(v!==generation.current||auth.currentUser?.uid!==uid)return;if(snapshot.exists())try{write({...cache.current,state:normalizeAdventure(snapshot.data())});}catch{setNotice('Não foi possível ler o progresso da aventura.');}},()=>{if(v===generation.current)setNotice('Aventura disponível neste aparelho. A sincronização está sem conexão.');});
+   void learningRequest('/api/learning/adventure').then(()=>{if(v===generation.current&&auth.currentUser?.uid===uid)return sync();}).catch(()=>{});
+  }).catch(()=>{if(v===generation.current)setNotice('Aventura disponível neste aparelho. A sincronização está sem conexão.');});}
   else {try{const learning=JSON.parse(localStorage.getItem('vigia_learning_v2:guest')||'null')?.progress;for(const id of Object.keys(learning?.lessons||{})){if(cache.current.earned.includes('lesson_'+id))continue;cache.current.state=advanceAdventure(cache.current.state,'lesson',learning.lessons[id].completedAt.slice(0,10));cache.current.earned.push('lesson_'+id);}const journey=JSON.parse(localStorage.getItem('vigia_journey:guest')||'null');for(const level of MODULES_DATA.flatMap(m=>m.levels)){if(journey?.levelProgress?.[level.id]?.completed&&!cache.current.earned.includes('trail_'+level.id)){cache.current.earned.push('trail_'+level.id);cache.current.state={...cache.current.state,completed:cache.current.state.completed+1,counts:{...cache.current.state.counts,trail:(cache.current.state.counts.trail||0)+1}};}}write(cache.current);}catch{}}
   const online=()=>void sync();window.addEventListener('online',online);return()=>{++generation.current;unsubscribe();window.removeEventListener('online',online);stopActivityFeedback();};
  },[uid]);

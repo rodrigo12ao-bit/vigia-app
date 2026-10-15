@@ -1,7 +1,6 @@
 import {AvatarGenderContext} from './lib/avatarSettings';
 import { FeatureBoundary } from './components/FeatureBoundary';
 import { apiFetch,getAiStatus } from './lib/api';
-import { fetchOrCreateUserProfile } from './lib/salaSeguraService';
 import {adultAudience} from './lib/audience';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence,MotionConfig } from 'motion/react';
@@ -12,45 +11,52 @@ import {useAdventure} from './hooks/useAdventure';
 import type {ActivityClaim} from './lib/adventureModel';
 import {RewardCelebration} from './components/learning/RewardCelebration';
 import { Navbar,type AppTab } from './components/Navbar';
+import {useDialog} from './hooks/useDialog';
 const HomeTab=React.lazy(()=>import('./components/HomeTab'));
 const LearningCenter=React.lazy(()=>import('./components/learning/LearningCenter'));
 const SchoolDashboard=React.lazy(()=>import('./components/SchoolDashboard'));
 const HelpTab=React.lazy(()=>import('./components/HelpTab'));
-import { ChatTab } from './components/ChatTab';
+const ChatTab=React.lazy(()=>import('./components/ChatTab').then(m=>({default:m.ChatTab})));
 // Lazy loading das abas secundárias e módulos 3D pesados para carregamento instantâneo
 const GameHubTab = React.lazy(() => import('./components/games/hub/GameHubTab'));
 const TopicsTab = React.lazy(() => import('./components/TopicsTab').then((m) => ({ default: m.TopicsTab })));
 const EmergencyNumbersCard = React.lazy(() => import('./components/EmergencyNumbersCard').then((m) => ({ default: m.EmergencyNumbersCard })));
 const SalaSeguraTab = React.lazy(() => import('./components/salasegura/SalaSeguraTab').then((m) => ({ default: m.SalaSeguraTab })));
 
-import { LearningTrailMap } from './components/learning/LearningTrailMap';
-import { BadgesModal } from './components/BadgesModal';
-import { DailyMissionModal } from './components/DailyMissionModal';
-import { ScenarioAnalyzerModal } from './components/ScenarioAnalyzerModal';
-import { DynamicAIQuizModal } from './components/DynamicAIQuizModal';
+const BadgesModal=React.lazy(()=>import('./components/BadgesModal').then(m=>({default:m.BadgesModal})));
+const DailyMissionModal=React.lazy(()=>import('./components/DailyMissionModal').then(m=>({default:m.DailyMissionModal})));
+const ScenarioAnalyzerModal=React.lazy(()=>import('./components/ScenarioAnalyzerModal').then(m=>({default:m.ScenarioAnalyzerModal})));
+const DynamicAIQuizModal=React.lazy(()=>import('./components/DynamicAIQuizModal').then(m=>({default:m.DynamicAIQuizModal})));
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { AuthModal } from './components/AuthModal';
-import { ProfileModal } from './components/ProfileModal';
-import { LegalModals } from './components/LegalModals';
+const AuthModal=React.lazy(()=>import('./components/AuthModal').then(m=>({default:m.AuthModal})));
+const ProfileModal=React.lazy(()=>import('./components/ProfileModal').then(m=>({default:m.ProfileModal})));
+const LegalModals=React.lazy(()=>import('./components/LegalModals').then(m=>({default:m.LegalModals})));
 import { PWAPrompt } from './components/PWAPrompt';
 import { OfflineWarning } from './components/OfflineWarning';
 import {
   auth,
   onAuthStateChanged,
   signOut,
-  db,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  increment,
-  arrayUnion,
-  onSnapshot,
-  User as FirebaseUser,
-} from './lib/firebase';
+  type User as FirebaseUser,
+} from './lib/firebaseAuth';
+
+function ModalLoading({label,onClose}:{label:string;onClose:()=>void}) {
+  const dialogRef=useDialog(true,onClose);
+  return <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md"><div ref={dialogRef} role="dialog" aria-modal="true" aria-label={label} className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 text-center"><p role="status">{label}</p><button className="vigia-secondary" onClick={onClose}>Cancelar</button></div></div>;
+}
+
+// Load each modal once it is requested, then retain its state between openings.
+function DeferredModal({open,label,onClose,children}:{open:boolean;label:string;onClose:()=>void;children:React.ReactNode}) {
+  const [opened,setOpened]=useState(open);
+  useEffect(()=>{if(open)setOpened(true);},[open]);
+  if(!open&&!opened)return null;
+  return <div hidden={!open}><FeatureBoundary onReset={onClose}><React.Suspense fallback={open?<ModalLoading label={label} onClose={onClose}/>:null}>{children}</React.Suspense></FeatureBoundary></div>;
+}
 
 export default function App() {
   const [profileReady,setProfileReady]=useState(false);
+  const [profileError,setProfileError]=useState('');
+  const [profileRetry,setProfileRetry]=useState(0);
   const accountVersion=useRef(0);
   const conversationVersion=useRef(0);
   const renderedAccountVersion=accountVersion.current;
@@ -181,30 +187,41 @@ export default function App() {
     let disposed=false;let stopProfile:(()=>void)|undefined;
     const unsubscribe=onAuthStateChanged(auth,async user=>{
       const version=++accountVersion.current;stopProfile?.();stopProfile=undefined;setUserRole('infantil');setInitialMission(null);
+      const isCurrent=()=>!disposed&&version===accountVersion.current&&auth.currentUser?.uid===user?.uid;
       chatAbortRef.current?.abort(); sendingRef.current=false;chatAbortRef.current=null;
       stopSpeaking();setIsSpeaking(false);setIsLoading(false);setChatMode('text');
       setIsProfileModalOpen(false);setIsScenarioAnalyzerOpen(false);setIsDynamicQuizOpen(false);setIsDailyMissionOpen(false);
-      setProfileReady(false);setCurrentUser(user);setStarsScore(0);setBadges(INITIAL_BADGES);setNickname('Super Protetor');setAvatarGender('female');setActiveTab('home');handleResetChat(true);
+      setProfileError('');setProfileReady(false);setCurrentUser(user);setStarsScore(0);setBadges(INITIAL_BADGES);setNickname('Super Protetor');setAvatarGender('female');setActiveTab('home');handleResetChat(true);
       if(user){
         setIsGuest(false);localStorage.setItem('dc_is_guest','false');setIsWelcomeOpen(false);
         try{
+          const [{fetchOrCreateUserProfile},{db,doc,getDoc,onSnapshot}]=await Promise.all([import('./lib/salaSeguraService'),import('./lib/firebase')]);
+          if(!isCurrent())return;
           await fetchOrCreateUserProfile(user.uid,user.email,sessionStorage.getItem('vigia_pending_nickname') || 'Super Protetor');
+          if(!isCurrent())return;
           const snapshot=await getDoc(doc(db,'users',user.uid));
-          if(disposed || version!==accountVersion.current)return;
-          const data=snapshot.data() || {};
+          if(!isCurrent())return;
+          if(!snapshot.exists())throw new Error('Perfil indisponível.');
+          const data=snapshot.data();
           setNickname(data.nickname || 'Super Protetor');setStarsScore(data.starsScore ?? 0);setAvatarGender(data.avatarGender==='male'?'male':'female');
           setBadges(hydrateBadges(data.badges));
           setUserRole(['educador','responsavel'].includes(data.role)?data.role:'infantil');
           setProfileReady(true);
-          stopProfile=onSnapshot(doc(db,'users',user.uid),snap=>{if(disposed||version!==accountVersion.current||!snap.exists())return;const p=snap.data();setStarsScore(p.starsScore||0);setBadges(hydrateBadges(p.badges));setNickname(p.nickname||'Super Protetor');},()=>setNotice('Não foi possível atualizar seu perfil. Verifique a conexão.'));
-        }catch{if(!disposed&&version===accountVersion.current){try{const cached=JSON.parse(localStorage.getItem('vigia_progress:'+user.uid)||'null');if(cached){setNickname(cached.nickname||'Super Protetor');setStarsScore(cached.starsScore||0);setBadges(cached.badges||INITIAL_BADGES);setProfileReady(true);}}catch{}setNotice('Seu perfil está sem conexão. As atividades salvas continuam disponíveis; o acompanhamento requer conexão.');}}
+          stopProfile=onSnapshot(doc(db,'users',user.uid),snap=>{if(!isCurrent()||!snap.exists())return;const p=snap.data();setStarsScore(p.starsScore||0);setBadges(hydrateBadges(p.badges));setNickname(p.nickname||'Super Protetor');},()=>{if(isCurrent())setNotice('Não foi possível atualizar seu perfil. Verifique a conexão.');});
+        }catch{
+          if(!isCurrent())return;
+          let restored=false;
+          try{const cached=JSON.parse(localStorage.getItem('vigia_progress:'+user.uid)||'null');if(cached){setNickname(cached.nickname||'Super Protetor');setStarsScore(cached.starsScore||0);setBadges(cached.badges||INITIAL_BADGES);setProfileReady(true);restored=true;}}catch{}
+          if(restored)setNotice('Seu perfil está sem conexão. As atividades salvas continuam disponíveis; o acompanhamento requer conexão.');
+          else setProfileError('Não foi possível carregar seu perfil. Verifique a conexão e tente novamente. Seus dados foram preservados.');
+        }
       }else{
         try{const data=JSON.parse(localStorage.getItem('vigia_progress:guest') || '{}');setNickname(data.nickname||'Super Protetor');setStarsScore(data.starsScore||0);setBadges(data.badges||INITIAL_BADGES);setAvatarGender(data.avatarGender==='male'?'male':'female');}catch{}
         setProfileReady(true);setIsWelcomeOpen(localStorage.getItem('dc_is_guest')!=='true');
       }
     });
     return ()=>{disposed=true;++accountVersion.current;chatAbortRef.current?.abort();stopProfile?.();unsubscribe();};
-  },[]);
+  },[profileRetry]);
   useEffect(()=>{
     if(!profileReady)return;
     const uid=currentUser?.uid;
@@ -233,34 +250,52 @@ export default function App() {
   const handleResetProgress = async () => {
     if(renderedAccountVersion!==accountVersion.current)return;
     const version=accountVersion.current;
+    const uid=currentUser?.uid;
+    const isCurrent=()=>version===accountVersion.current&&auth.currentUser?.uid===uid;
+    if(!isCurrent())return;
     try {
-      if(currentUser)await updateDoc(doc(db,'users',currentUser.uid),{starsScore:0,badges:[],updatedAt:new Date().toISOString()});
+      if(uid){
+        const {db,doc,updateDoc}=await import('./lib/firebase');
+        if(!isCurrent())return;
+        await updateDoc(doc(db,'users',uid),{starsScore:0,badges:[],updatedAt:new Date().toISOString()});
+      }
       else localStorage.setItem('vigia_progress:guest',JSON.stringify({starsScore:0,badges:INITIAL_BADGES,nickname,avatarGender}));
-      if(version!==accountVersion.current)return;
+      if(!isCurrent())return;
       setStarsScore(0);setBadges(INITIAL_BADGES);
-    }catch{setNotice('Não foi possível reiniciar o progresso. Seus dados anteriores foram preservados.');}
+    }catch{if(isCurrent())setNotice('Não foi possível reiniciar o progresso. Seus dados anteriores foram preservados.');}
   };
   const handleUpdateNickname = async (newNick:string) => {
     if(renderedAccountVersion!==accountVersion.current)return;
     const version=accountVersion.current;
+    const uid=currentUser?.uid;
+    const isCurrent=()=>version===accountVersion.current&&auth.currentUser?.uid===uid;
+    if(!isCurrent())return;
     try {
-      if(currentUser)await updateDoc(doc(db,'users',currentUser.uid),{nickname:newNick.slice(0,80),updatedAt:new Date().toISOString()});
-      if(version!==accountVersion.current)return;
+      if(uid){
+        const {db,doc,updateDoc}=await import('./lib/firebase');
+        if(!isCurrent())return;
+        await updateDoc(doc(db,'users',uid),{nickname:newNick.slice(0,80),updatedAt:new Date().toISOString()});
+      }
+      if(!isCurrent())return;
       setNickname(newNick.slice(0,80));
-    }catch{setNotice('Não foi possível salvar o apelido. Verifique a conexão.');}
+    }catch{if(isCurrent())setNotice('Não foi possível salvar o apelido. Verifique a conexão.');}
   };
 
   const handleAddStars = (points: number) => {
     if(renderedAccountVersion!==accountVersion.current)return;
     if(currentUser?.uid!==auth.currentUser?.uid)return;
     setStarsScore((prev) => prev + points);
-    if(currentUser)updateDoc(doc(db,'users',currentUser.uid),{starsScore:increment(points),updatedAt:new Date().toISOString()}).catch(()=>setNotice('Pontos ainda não sincronizados. Verifique a conexão.'));
+    const uid=currentUser?.uid,version=accountVersion.current;
+    const isCurrent=()=>version===accountVersion.current&&auth.currentUser?.uid===uid;
+    if(uid)void import('./lib/firebase').then(async({db,doc,updateDoc,increment})=>{if(!isCurrent())return;await updateDoc(doc(db,'users',uid),{starsScore:increment(points),updatedAt:new Date().toISOString()});}).catch(()=>{if(isCurrent())setNotice('Pontos ainda não sincronizados. Verifique a conexão.');});
   };
 
   const handleUnlockBadge = (badgeId: string) => {
     if(renderedAccountVersion!==accountVersion.current)return;
     if(currentUser?.uid!==auth.currentUser?.uid)return;
-    if(currentUser)updateDoc(doc(db,'users',currentUser.uid),{badges:arrayUnion(badgeId)}).catch(()=>setNotice('Conquista ainda não sincronizada.'));
+    const uid=currentUser?.uid,version=accountVersion.current;
+    const isCurrent=()=>version===accountVersion.current&&auth.currentUser?.uid===uid;
+    if(uid)void import('./lib/firebase').then(async({db,doc,updateDoc,arrayUnion})=>{if(!isCurrent())return;await updateDoc(doc(db,'users',uid),{badges:arrayUnion(badgeId)});}).catch(()=>{if(isCurrent())setNotice('Conquista ainda não sincronizada.');});
     setBadges((prevBadges) =>
       (prevBadges.some(b=>b.id===badgeId)?prevBadges:[...prevBadges,{id:badgeId,title:'Conquista',description:'Nova conquista de aprendizagem.',icon:'🛡️',unlocked:false,category:'general' as const}]).map((b) => {
         if (b.id === badgeId && !b.unlocked) {
@@ -550,7 +585,7 @@ export default function App() {
         }}
       />
 
-      {!profileReady && <div role="status" className="p-4 text-center">Carregando seu perfil com segurança…</div>}
+      {!profileReady && (profileError?<div role="alert" className="p-4 text-center"><p>{profileError}</p><button className="vigia-primary" onClick={()=>{setProfileError('');setProfileRetry(value=>value+1);}}>Tentar carregar perfil novamente</button></div>:<div role="status" className="p-4 text-center">Carregando seu perfil com segurança…</div>)}
       {/* Main View Area */}
       <main className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
         <FeatureBoundary key={activeTab+':'+(currentUser?.uid||'guest')} onReset={()=>setActiveTab('chat')}><AnimatePresence mode="wait">
@@ -568,6 +603,7 @@ export default function App() {
               {activeTab==='school'&&<SchoolDashboard uid={currentUser?.uid} onLearn={()=>openLearning()}/>}
             </React.Suspense>}
             {activeTab === 'chat' && profileReady && (
+              <React.Suspense fallback={<div role="status" className="learn-shell">Preparando sua conversa com a Vigia…</div>}>
               <ChatTab
                 messages={messages}
                 onSendMessage={handleSendMessage}
@@ -601,6 +637,7 @@ export default function App() {
                   }
                 }}
               />
+              </React.Suspense>
             )}
 
             {activeTab === 'games' && (
@@ -676,14 +713,17 @@ export default function App() {
       )}
 
       {/* Badges Modal */}
+      <DeferredModal open={isBadgesModalOpen} label="Preparando suas conquistas…" onClose={()=>setIsBadgesModalOpen(false)}>
       <BadgesModal
         isOpen={isBadgesModalOpen}
         onClose={() => setIsBadgesModalOpen(false)}
         badges={badges}
         starsScore={starsScore}
       />
+      </DeferredModal>
 
       {/* Daily Mission Modal */}
+      <DeferredModal key={'daily:'+(currentUser?.uid||'guest')} open={isDailyMissionOpen} label="Preparando a missão do dia…" onClose={()=>setIsDailyMissionOpen(false)}>
       <DailyMissionModal onReward={rewardActivity} key={'daily:'+(currentUser?.uid || 'guest')}
         isOpen={isDailyMissionOpen}
         onClose={() => setIsDailyMissionOpen(false)}
@@ -691,22 +731,27 @@ export default function App() {
         onUnlockBadge={handleUnlockBadge}
         starsScore={starsScore}
       />
+      </DeferredModal>
 
       {/* AI Scenario Risk Analyzer Modal */}
+      <DeferredModal key={'scenario:'+(currentUser?.uid||'guest')} open={isScenarioAnalyzerOpen} label="Preparando a análise de cenário…" onClose={()=>setIsScenarioAnalyzerOpen(false)}>
       <ScenarioAnalyzerModal onReward={rewardActivity} key={'scenario:'+(currentUser?.uid || 'guest')}
         isOpen={isScenarioAnalyzerOpen}
         onClose={() => setIsScenarioAnalyzerOpen(false)}
         onAddStars={handleAddStars}
         onSpeak={speakMessage}
       />
+      </DeferredModal>
 
       {/* AI Dynamic Quiz Generator Modal */}
+      <DeferredModal key={'quiz:'+(currentUser?.uid||'guest')} open={isDynamicQuizOpen} label="Preparando o desafio…" onClose={()=>setIsDynamicQuizOpen(false)}>
       <DynamicAIQuizModal onReward={rewardActivity} key={'quiz:'+(currentUser?.uid || 'guest')}
         isOpen={isDynamicQuizOpen}
         onClose={() => setIsDynamicQuizOpen(false)}
         onAddStars={handleAddStars}
         onSpeak={speakMessage}
       />
+      </DeferredModal>
 
       {/* Professional Welcome Screen */}
       {isWelcomeOpen && (
@@ -726,14 +771,17 @@ export default function App() {
       )}
 
       {/* Authentication Modal */}
+      <DeferredModal open={isAuthModalOpen} label="Preparando o acesso à sua conta…" onClose={()=>setIsAuthModalOpen(false)}>
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onContinueAsGuest={handleContinueAsGuest}
         onOpenLegal={(type) => setLegalModalType(type)}
       />
+      </DeferredModal>
 
       {/* User Profile & Progress Modal */}
+      <DeferredModal key={'profile:'+(currentUser?.uid||'guest')} open={isProfileModalOpen} label="Preparando seu perfil…" onClose={()=>setIsProfileModalOpen(false)}>
       <ProfileModal key={'profile:'+(currentUser?.uid || 'guest')} userId={currentUser?.uid} userRole={userRole}
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
@@ -748,12 +796,15 @@ export default function App() {
         onResetProgress={handleResetProgress}
         onOpenBadges={()=>{setIsProfileModalOpen(false);setIsBadgesModalOpen(true);}}
       />
+      </DeferredModal>
 
       {/* Terms and Privacy Legal Modals */}
+      <DeferredModal open={!!legalModalType} label="Preparando as informações…" onClose={()=>setLegalModalType(null)}>
       <LegalModals
         type={legalModalType}
         onClose={() => setLegalModalType(null)}
       />
+      </DeferredModal>
 
       {/* PWA Components */}
       <RewardCelebration key={'reward:'+(currentUser?.uid||'guest')} uid={currentUser?.uid}/>

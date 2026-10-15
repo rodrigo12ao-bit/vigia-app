@@ -43,7 +43,7 @@ import {
   unblockUser,
   submitReport,
 } from '../../lib/salaSeguraService';
-import { User as FirebaseUser } from '../../lib/firebase';
+import type { User as FirebaseUser } from '../../lib/firebaseAuth';
 import { Avatar } from '../Avatar';
 import {adultAudience} from '../../lib/audience';
 

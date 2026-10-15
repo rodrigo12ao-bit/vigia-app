@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {auth} from '../lib/firebase';
+import {auth} from '../lib/firebaseAuth';
 import {announceReward} from '../lib/activityFeedback';
 import {learningRequest} from '../lib/learningApi';
 import {emptyLearning,evaluateMission,learningStorageKey,missionById,normalizeLearning,readLearningCache,type LearningCache,type MissionAnswers,type LearningProgress} from '../lib/learningModel';

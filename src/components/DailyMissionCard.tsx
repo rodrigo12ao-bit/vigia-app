@@ -1,4 +1,4 @@
-import {auth} from '../lib/firebase';
+import {auth} from '../lib/firebaseAuth';
 import React, { useState, useEffect } from 'react';
 import { Target, Star, Flame, CheckCircle, ArrowRight, Shield, Sparkles } from 'lucide-react';
 import { getTodayMission, DailyMission } from '../data/dailyMissionsData';

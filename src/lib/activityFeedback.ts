@@ -1,4 +1,4 @@
-import {auth} from './firebase';
+import {auth} from './firebaseAuth';
 import confetti from 'canvas-confetti';
 export interface FeedbackPreferences {sounds:boolean;vibration:boolean;animations:boolean;}
 export const feedbackKey=(uid?:string)=>'vigia_feedback_v1:'+(uid||'guest');

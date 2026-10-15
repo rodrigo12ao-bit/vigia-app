@@ -1,6 +1,6 @@
 import React from 'react';
 import {Home,BookOpen,MessageCircle,Shield,User,Volume2,VolumeX,LifeBuoy} from 'lucide-react';
-import type {User as FirebaseUser} from '../lib/firebase';
+import type {User as FirebaseUser} from '../lib/firebaseAuth';
 export type AppTab='home'|'learn'|'school'|'chat'|'games'|'topics'|'phones'|'sala_segura';
 interface NavbarProps {
  activeTab:AppTab;setActiveTab:(tab:AppTab)=>void;starsScore:number;unlockedBadgesCount:number;totalBadgesCount:number;

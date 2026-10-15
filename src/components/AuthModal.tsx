@@ -25,12 +25,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   sendPasswordResetEmail,
-  db,
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-} from '../lib/firebase';
+} from '../lib/firebaseAuth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -91,8 +86,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleCreateUserDocument = async (uid: string, userEmail: string | null, userNickname: string, isAdult: boolean, updateNickname = true) => {
+    const requireCurrentAccount=()=>{if(auth.currentUser?.uid!==uid)throw new Error('A conta mudou. Entre novamente para concluir.');};
+    requireCurrentAccount();
     await salaRequest('profile',{nickname:userNickname});
+    requireCurrentAccount();
+    const {db,doc,updateDoc}=await import('../lib/firebase');
+    requireCurrentAccount();
     await updateDoc(doc(db,'users',uid),{...(updateNickname?{nickname:userNickname||'Super Protetor'}:{}),isAdultConfirmed:isAdult,consentVersion:'2026-10-12',consentAt:new Date().toISOString()});
+    requireCurrentAccount();
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {

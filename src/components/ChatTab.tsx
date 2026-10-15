@@ -238,14 +238,29 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   isGuest = true,
 }) => {
   const [onlinePreview,setOnlinePreview]=useState(publishedBuild);
-  useEffect(()=>{let active=true;getAiStatus().then(s=>{if(active)setOnlinePreview(publishedBuild&&s.demo);}).catch(()=>{});return ()=>{active=false;};},[]);
+  const [aiConnection,setAiConnection]=useState<'checking'|'ready'|'error'>('checking');
+  const [connectionAttempt,setConnectionAttempt]=useState(0);
+  useEffect(()=>{
+    let active=true;
+    getAiStatus().then(s=>{if(active){setOnlinePreview(publishedBuild&&s.demo);setAiConnection('ready');}}).catch(()=>{if(active){setAiConnection('error');setSpeechFeedbackMsg('Não foi possível verificar a conexão. Toque em Verificar conexão para tentar novamente.');}});
+    return ()=>{active=false;};
+  },[connectionAttempt]);
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
   const chatModeRef=useRef(chatMode);chatModeRef.current=chatMode;
+  const verifyConnection=()=>{
+    if(chatModeRef.current==='live'||aiConnection==='checking')return;
+    setAiConnection('checking');setSpeechFeedbackMsg(null);setConnectionAttempt(value=>value+1);
+  };
+  const voiceConnectionReady=()=>{
+    if(aiConnection==='ready')return true;
+    if(aiConnection==='error')verifyConnection();
+    return false;
+  };
   const voiceInput=useRef(''),voiceOutput=useRef('');
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
   const voiceStartLock=useRef(false);
-  const switchToVoice=async()=>{if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
+  const switchToVoice=async()=>{if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
   useEffect(()=>{voiceStartLock.current=false;},[chatMode]);
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
   const [historyReady,setHistoryReady]=useState(false);
@@ -490,7 +505,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
   useEffect(() => {
-    if (chatMode !== 'live' || onlinePreview) return;
+    if (chatMode !== 'live' || onlinePreview || aiConnection!=='ready') return;
 
     stopListening();
     stopSpeaking();
@@ -747,6 +762,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if(!legacyMode())return;
     const captureVersion=++legacyCaptureVersion.current;
     const captureCurrent=()=>captureVersion===legacyCaptureVersion.current&&legacyMode();
+    if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!await voiceAllowed())return;
     const useProviderTranscription=['adult-synthetic','local-synthetic','adult-gemini'].includes((await getAiStatus()).ai?.mode||'');
@@ -1019,6 +1035,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if(!next&&liveUnavailable){setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);}
       return;
     }
+    if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!isListening&&!await voiceAllowed())return;
     if (isSpeaking) {
@@ -1039,6 +1056,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const handleConfirmMicPermission = () => {
+    if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     localStorage.setItem('vigia_mic_explained:'+(userId||'guest'), 'true');
     setShowPermissionPrompt(false);
@@ -1297,16 +1315,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               </button>
               <button
                 onClick={() => void switchToVoice()}
-                title={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
-                aria-label={onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
+                disabled={aiConnection==='checking'}
+                title={aiConnection==='checking'?'Verificando conexão':aiConnection==='error'?'Verificar conexão':onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
+                aria-label={aiConnection==='checking'?'Verificando conexão':aiConnection==='error'?'Verificar conexão':onlinePreview?'Voz indisponível nesta prévia':'Conversa por voz'}
+                aria-busy={aiConnection==='checking'}
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
                   chatMode === 'live'
                     ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Mic className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{onlinePreview?'Voz indisponível':'Voz'}</span>
+                {aiConnection==='ready'?<Mic className="w-3.5 h-3.5"/>:<RefreshCw className={`w-3.5 h-3.5 ${aiConnection==='checking'?'animate-spin':''}`}/>}
+                <span className="hidden sm:inline">{aiConnection==='checking'?'Verificando conexão':aiConnection==='error'?'Verificar conexão':onlinePreview?'Voz indisponível':'Voz'}</span>
               </button>
             </div>
 
@@ -2118,13 +2138,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     <button
                       type="button"
                       onClick={toggleMicListening}
+                      disabled={aiConnection==='checking'}
                       className={`p-2.5 sm:p-3 rounded-2xl font-bold transition-all active:scale-95 cursor-pointer shrink-0 ${
                         isListening
                           ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                       }`}
-                      title={onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
-                      aria-label={onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
+                      title={aiConnection==='checking'?'Verificando conexão':aiConnection==='error'?'Verificar conexão':onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
+                      aria-label={aiConnection==='checking'?'Verificando conexão':aiConnection==='error'?'Verificar conexão':onlinePreview?'Microfone indisponível nesta prévia':isListening ? 'Desativar microfone' : 'Falar pelo microfone'}
+                      aria-busy={aiConnection==='checking'}
                     >
                       {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5 text-slate-400" />}
                     </button>

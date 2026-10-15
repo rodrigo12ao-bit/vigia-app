@@ -52,7 +52,9 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
     setOfflineReady(false);
   };
 
-  if(!visible)return null;
+  // A new release must remain discoverable even outside Help. Applying it is
+  // still explicit so an open conversation or activity is never reloaded here.
+  if(!visible&&!needRefresh)return null;
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 items-end">
       <AnimatePresence>
@@ -84,7 +86,7 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
         )}
 
         {/* Offline Ready */}
-        {offlineReady && (
+        {visible && offlineReady && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -105,7 +107,7 @@ export const PWAPrompt: React.FC<{visible?:boolean}> = ({visible=true}) => {
         )}
 
         {/* Botão de Instalar (PWA) */}
-        {isInstallable && (
+        {visible && isInstallable && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

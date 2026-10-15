@@ -1,5 +1,5 @@
 import {apiFetch} from './api';
-import {auth} from './firebase';
+import {auth} from './firebaseAuth';
 export async function learningRequest(path:string,data:Record<string,unknown>={}){
  const uid=auth.currentUser?.uid;if(!uid)throw Error('Entre na sua conta para continuar.');
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);

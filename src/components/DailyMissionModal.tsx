@@ -1,7 +1,7 @@
 import {learningDay} from '../lib/adventureModel';
 import type {ActivityClaim} from '../lib/adventureModel';
 import {playActivityFeedback} from '../lib/activityFeedback';
-import {auth} from '../lib/firebase';
+import {auth} from '../lib/firebaseAuth';
 import {useDialog} from '../hooks/useDialog';
 import React, { useState, useEffect } from 'react';
 import { Target, Star, Flame, CheckCircle, Clock, Award, Shield, Sparkles, X, ArrowRight, RotateCcw } from 'lucide-react';

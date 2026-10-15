@@ -2,13 +2,23 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
+import fs from 'node:fs';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({mode}) => {
+  const shellFiles=new Set(['index.html','icons/icon.svg','manifest.webmanifest']);
+  const report:{mode:string;chunks:any[];precache:string[]}={mode,chunks:[],precache:[]};
+  const writeReport=()=>{fs.mkdirSync('.tools/build',{recursive:true});fs.writeFileSync(`.tools/build/graph-${mode}.json`,JSON.stringify(report,null,2));};
   return {
     plugins: [
       react(), 
       tailwindcss(),
+      {name:'vigia-loading-graph',generateBundle(_options,bundle){
+        report.chunks=Object.values(bundle).filter(item=>item.type==='chunk').map(item=>({fileName:item.fileName,name:item.name,isEntry:item.isEntry,imports:item.imports,dynamicImports:item.dynamicImports,modules:Object.keys(item.modules).map(id=>id.replace(/\\/g,'/').replace(process.cwd().replace(/\\/g,'/')+'/',''))}));
+        const collect=(name:string)=>{if(shellFiles.has(name))return;shellFiles.add(name);const item=bundle[name];if(item?.type==='chunk'){for(const dependency of item.imports)collect(dependency);for(const css of (item as any).viteMetadata?.importedCss||[])shellFiles.add(css);}};
+        for(const item of Object.values(bundle))if(item.type==='chunk'&&item.isEntry)collect(item.fileName);
+        writeReport();
+      }},
       VitePWA({
         registerType: 'prompt', // Solicita atualização quando há nova versão
         includeAssets: ['icons/icon.svg', 'robots.txt'], // Assets estáticos para cache
@@ -36,7 +46,26 @@ export default defineConfig(() => {
           globIgnores: ['**/vendor-three-*.js', '**/graphics-*.js', '**/Avatar3D-*.js', '**/EscapeGame-*.js'],
           // Permite cachear o modelo 3D pesado
           maximumFileSizeToCacheInBytes: 2 * 1024 * 1024, // 15MB limite
+          // Install only the entry's static dependency graph. Features are saved
+          // when visited, rather than all competing with the first screen.
+          manifestTransforms:[async entries=>{
+            const manifest=entries.filter(entry=>shellFiles.has(entry.url));
+            report.precache=manifest.map(entry=>entry.url);writeReport();
+            return {manifest,warnings:[]};
+          }],
+          navigateFallback:'index.html',
+          navigateFallbackDenylist:[/^\/api(?:\/|$)/],
           runtimeCaching: [
+            {
+              urlPattern:({url,sameOrigin})=>sameOrigin&&url.pathname.startsWith('/assets/')&&!url.pathname.includes('/graphics-')&&/\.(?:js|css)$/.test(url.pathname),
+              handler:'CacheFirst',
+              options:{cacheName:'vigia-public-assets-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:80,maxAgeSeconds:60*60*24*30}},
+            },
+            {
+              urlPattern:({url,sameOrigin})=>sameOrigin&&/^\/model\/avatar-preview-(?:female|male)\.png$/.test(url.pathname),
+              handler:'StaleWhileRevalidate',
+              options:{cacheName:'vigia-avatar-previews-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:2,maxAgeSeconds:60*60*24*30}},
+            },
             {
               // Não cachear as rotas da API Gemini ou Firebase Firestore para garantir dados frescos/segurança
               urlPattern: /^https:\/\/(firestore\.googleapis\.com|generativelanguage\.googleapis\.com)\/.*/i,
@@ -79,7 +108,7 @@ export default defineConfig(() => {
           manualChunks(id) {
             if (id.includes('commonjsHelpers')) return 'vendor-utils';
             if (id.includes('node_modules')) {
-              if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+              if (/node_modules\/(react|react-dom|scheduler)\//.test(id) && !id.includes('/node_modules/@react-three/')) return 'vendor-react';
 
               if (id.includes('lucide-react')) {
                 return 'vendor-lucide';
@@ -88,7 +117,9 @@ export default defineConfig(() => {
                 return 'vendor-motion';
               }
               if (id.includes('firebase')) {
-                return 'vendor-firebase';
+                if(/(?:@firebase|firebase)\/auth(?:\/|\b)/.test(id))return 'vendor-firebase-auth';
+                if(/(?:@firebase|firebase)\/firestore(?:\/|\b)/.test(id)||id.includes('@firebase/webchannel-wrapper'))return 'vendor-firebase-store';
+                return 'vendor-firebase-core';
               }
             }
           },

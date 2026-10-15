@@ -1,12 +1,16 @@
-import { auth } from './firebase';
+import { auth } from './firebaseAuth';
 import {isEmergency} from '../../server/safety';
 import {adultAccessVersion,adultAudience} from './audience';
 let guestSession: Promise<void> | undefined;
 export interface AiStatus {demo:boolean;realAI:boolean;localDemo?:boolean;audience?:string;ai?:{mode:string;provider:string|null;blocked:string|null;consentVersion:string;voice:boolean};}
 const adultSessions=new Map<string,Promise<void>>();
-let statusPromise:Promise<AiStatus>|undefined;let statusReadAt=0;
+let statusPromise:Promise<AiStatus>|undefined;let statusReadAt=0,statusPending=false;
 export function getAiStatus():Promise<AiStatus>{
-  if(!statusPromise||Date.now()-statusReadAt>3000){statusReadAt=Date.now();statusPromise=fetch('/api/status',{cache:'no-store',credentials:'same-origin'}).then(async r=>{if(!r.ok)throw Error('Não foi possível verificar a IA.');return r.json();}).catch(error=>{statusPromise=undefined;throw error;});}
+  if(!statusPromise||(!statusPending&&Date.now()-statusReadAt>3000)){
+    statusPending=true;
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
+    statusPromise=fetch('/api/status',{cache:'no-store',credentials:'same-origin',signal:controller.signal}).then(async r=>{if(!r.ok)throw Error('Não foi possível verificar a IA.');const status=await r.json();statusReadAt=Date.now();return status;}).catch(error=>{statusPromise=undefined;throw error;}).finally(()=>{clearTimeout(timer);statusPending=false;});
+  }
   return statusPromise;
 }
 export async function getAiAccess(){const r=await apiFetch('/api/ai-access');const body=await r.json();if(!r.ok)throw Error(body.blocked||'Não foi possível verificar a voz.');return body as {allowed:boolean;voice:boolean;blocked:string|null};}
