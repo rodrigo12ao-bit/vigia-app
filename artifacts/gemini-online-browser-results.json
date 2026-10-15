@@ -1,0 +1,87 @@
+{
+  "url": "https://vigia-app.onrender.com",
+  "scope": "Isolated Chrome, desktop and mobile emulation, random fictitious adults, real Gemini and Firebase. Network and microphone-denial failures simulated.",
+  "checks": [
+    {
+      "name": "desktop: acesso 18+ e menores declarados bloqueados",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: cadastro/login adulto próprio e consentimento na publicação",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: chat real e envio repetido não duplicam a pergunta",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: histórico cloud persiste ao recarregar e não é sobrescrito",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: imagem fictícia recebe análise real",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: falha de rede informa indisponibilidade sem inventar resposta ou XP",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: recusa do microfone limpa captura e conexão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: oito atividades diretas, missão, XP e efeitos preservados",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: logout e troca de conta isolam o histórico privado",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Sala Segura lê e envia mensagem cloud a contato aprovado",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: acesso 18+ e menores declarados bloqueados",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: cadastro/login adulto próprio e consentimento na publicação",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: chat real e envio repetido não duplicam a pergunta",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: histórico cloud persiste ao recarregar e não é sobrescrito",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: imagem fictícia recebe análise real",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: falha de rede informa indisponibilidade sem inventar resposta ou XP",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: recusa do microfone limpa captura e conexão",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: oito atividades diretas, missão, XP e efeitos preservados",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: logout e troca de conta isolam o histórico privado",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Sala Segura lê e envia mensagem cloud a contato aprovado",
+      "status": "passed"
+    }
+  ],
+  "pageErrors": []
+}

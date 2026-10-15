@@ -1,0 +1,14 @@
+{
+  "scope": "Primeira navegação HTTP observada nesta rodada, sem aquecimento prévio intencional; não força suspensão do Render.",
+  "url": "https://vigia-app.onrender.com/",
+  "httpStatus": 200,
+  "headersMs": 902,
+  "totalMs": 906,
+  "bytes": 978,
+  "contentEncoding": "br",
+  "cacheControl": "public, max-age=0, must-revalidate",
+  "title": "Vigia",
+  "scripts": [
+    "/assets/index-BXx0o0j2.js"
+  ]
+}

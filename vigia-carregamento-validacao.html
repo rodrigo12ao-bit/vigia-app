@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vigia — validação do carregamento</title>
+<style>
+body{font:16px/1.65 system-ui,sans-serif;color:#20304a;background:#eef2ff;margin:0}
+main{max-width:1040px;margin:auto;padding:24px}section{background:#fff;border:1px solid #dce3f1;padding:24px;border-radius:20px;margin:18px 0}
+h1{color:#253b87;line-height:1.2}h2{font-size:22px;line-height:1.35}h3{font-size:18px}a{color:#2850a0}code{overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+.table-scroll{overflow:auto}.pass{color:#166534}.pending{color:#92400e}.small{font-size:14px;color:#52627c}.callout{padding:14px 18px;border-left:4px solid #ed9b29;background:#fffbeb;border-radius:8px}img{max-width:100%;border-radius:16px;border:1px solid #dce3f1}
+@media(max-width:600px){main{padding:12px}section{padding:16px}td,th{padding:7px;font-size:14px}h1{font-size:28px}}
+</style>
+</head>
+<body><main>
+<h1>Carregamento mais leve e telas disponíveis sem esperar pela IA</h1>
+<p>15 de outubro de 2026 • Vigia 18+ • medição e regressão online concluídas • fluxos reais e três turnos de voz aprovados</p>
+
+<section>
+<h2>O que foi ajustado</h2>
+<ul>
+<li>A primeira tela carrega as dependências essenciais. Conversa, acesso à conta, perfil, conquistas e outros painéis passam a carregar quando solicitados. O módulo é reutilizado nas próximas aberturas; o perfil mantém o rascunho ao fechar e reabrir. O acesso à conta limpa suas credenciais ao reabrir, como previsto pelo próprio formulário.</li>
+<li>As dependências Firebase foram separadas. O grafo final confirma que o carregamento de Home, Chat e Auth não puxa o módulo Firestore como dependência estática. Operações autenticadas continuam exigindo suas verificações e conexão.</li>
+<li>Home e atividades de visitante continuam utilizáveis enquanto o servidor responde à verificação da IA. Em Conversa, voz e microfone mostram “Verificando conexão”; uma falha oferece “Verificar conexão”. Tentar novamente consulta o estado e não liga o microfone automaticamente.</li>
+<li>O PWA instala apenas o conjunto inicial de arquivos públicos. Módulos de funcionalidades são guardados quando visitados, sem disputar todo o download inicial. Páginas visitadas e uma atividade educativa abriram sem internet após nova navegação controlada pelo service worker.</li>
+<li>O CacheStorage contém arquivos públicos do aplicativo. APIs, dados de conta, conversas e respostas Firebase não entram nesse cache. IA, contas e Sala Segura continuam dependendo de conexão; a interface informa essas limitações.</li>
+</ul>
+<p>Identidade visual, melhorias anteriores e controles de segurança foram preservados. Nenhum plano pago, faturamento ou novo fornecedor foi ativado nesta rodada.</p>
+</section>
+
+<section>
+<h2>Verificações realizadas</h2>
+<div class="table-scroll"><table>
+<thead><tr><th>Verificação</th><th>Resultado</th></tr></thead>
+<tbody>
+<tr><td>Testes automatizados existentes</td><td class="pass">132 testes passaram. Incluem os conjuntos de segurança/dados/aprendizado, IA e voz com fornecedores simulados, configuração de publicação e cliente de voz.</td></tr>
+<tr><td>Grafo de dependências</td><td class="pass">15 verificações passaram no build final, incluindo a ausência de importação estática de Firestore nos fluxos Home, Chat e Auth.</td></tr>
+<tr><td>Regressão no navegador — build final de apresentação</td><td class="pass">32 de 32 passaram: 16 em desktop e 16 com tela de celular emulada. <a href="artifacts/loading-regression-local-final.json">JSON final</a>.</td></tr>
+<tr><td>Regressão no navegador — versão publicada</td><td class="pass">32 de 32 passaram: 16 em desktop e 16 com tela de celular emulada. Conexão e bootstrap de visitante simulados explicitamente; arquivos, interface e service worker da versão online reais. <a href="artifacts/loading-regression-online-final.json">JSON online</a>.</td></tr>
+<tr><td>Fluxos reais com Gemini e Firebase</td><td id="real-online-checks" class="pass">20 de 20 verificações passaram: 10 desktop e 10 celular emulado, com contas adultas fictícias preexistentes. Login, chat Gemini, imagem fictícia, histórico cloud, missão/XP, logout/troca de conta e mensagem na Sala Segura funcionaram. Recusa do microfone e falha de rede foram simuladas; não comprovam conversa por voz. <a href="artifacts/gemini-online-browser-results.json">JSON dos fluxos reais</a>.</td></tr>
+<tr><td>Três turnos de voz Google — versão publicada, celular emulado</td><td id="real-voice-checks" class="pass">3 de 3 turnos passaram, com transcrição, respostas e voz Google reais da cota gratuita. As falas adultas de entrada são sintéticas e a captura é virtual, sem acesso ao microfone físico. Cada áudio terminou integralmente e a escuta voltou; contexto, histórico sem duplicação, captura única e limpeza passaram. <a href="artifacts/gemini-google-continuity-online-mobile-loading-final.json">JSON da prova real de voz</a>.</td></tr>
+<tr><td>Regressão dos controles de voz</td><td class="pass">14 de 14 verificações locais passaram, com fornecedor e captura simulados. Nenhuma chamada de IA real foi usada para essa bateria.</td></tr>
+<tr><td>Conexão pendente, HTTP 503 e recuperação</td><td class="pass">Home disponível; Chat mostra o estado correto; os dois controles refazem apenas a verificação. Rascunho preservado. Nenhuma captura, WebSocket, confirmação de envio ou chamada de IA.</td></tr>
+<tr><td>Painéis carregados sob demanda</td><td class="pass">Auth, Profile e Badges abriram e reabriram sem novo download do respectivo módulo. Credenciais limpas no Auth; rascunho do perfil e conquistas preservados.</td></tr>
+<tr><td>PWA e navegação offline</td><td class="pass">Service worker instalado, ativado e controlando nova navegação. Sem rede, reload abriu Home, a atividade visitada aceitou uma resposta e mostrou sua explicação, e Chat abriu texto com falha de conexão informada.</td></tr>
+<tr><td>Cache público e privacidade</td><td class="pass">Nos dois tamanhos de tela, local e online: 7 arquivos no precache, 13 no cache de assets e 1 imagem pública de avatar. Nenhuma URL de API ou Firebase no CacheStorage; nenhum acesso a conta ou IA foi solicitado nessa bateria simulada de visitante.</td></tr>
+<tr><td>Tipos e builds finais</td><td class="pass">Checagem de tipos e builds de apresentação e publicação passaram. Avisos dos módulos 3D grandes continuam separados do caminho inicial.</td></tr>
+<tr><td>Medição anterior na versão online</td><td class="pass">8 marcos visíveis passaram em rede normal e outros 8 com rede/CPU limitadas. Valores abaixo; são duas amostras, não uma distribuição estatística.</td></tr>
+<tr><td>Regras Firebase e aparelhos físicos</td><td class="pending">Testes de regras Firebase não foram repetidos nesta rodada. Não houve validação em microfone físico, Android, iPhone ou Safari; a tela de celular é emulada no Chrome.</td></tr>
+</tbody></table></div>
+<p>Na prova de voz publicada, o primeiro áudio chegou 11.188, 3.039 e 6.570 ms após o início do processamento de cada turno, incluindo transcrição e geração da resposta. As 230 fontes de áudio terminaram naturalmente; os 846.720 bytes PCM foram reproduzidos uma vez e sem lacuna programada entre os trechos. Não houve interrupção espúria nem falha de síntese. A reprodução Web Audio foi real, com a saída silenciada pelo teste; isso não avalia audição humana nem eco físico. Reduzir o carregamento da interface não elimina a espera variável da IA.</p>
+<p class="small">A primeira bateria local também passou 32 verificações no build intermediário. Antes disso, dois erros do próprio teste foram corrigidos: reabrir Auth pela navegação após o fechamento das boas-vindas e aguardar a limpeza de credenciais feita pelo efeito de abertura. As evidências negativas foram preservadas. Essas correções não exigiram mudanças no aplicativo.</p>
+</section>
+
+<section>
+<h2>Antes: medições na versão online</h2>
+<p>Chrome novo com tela de 390 × 844. “Rede limitada” usa latência adicional de 150 ms, download de 200.000 bytes/s, upload de 93.750 bytes/s e CPU 4 vezes mais lenta. É uma simulação, não um celular físico. O teste aguarda um elemento visível e utilizável, depois observa uma janela fixa de 350 ms; não usa silêncio de rede como sinal de prontidão.</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Marco visível</th><th>Rede normal</th><th>Rede/CPU limitadas</th></tr></thead>
+<tbody>
+<tr><td>Primeiro visitante: tela 18+</td><td>1,084 s</td><td>2,245 s</td></tr>
+<tr><td>Aceitar 18+ → boas-vindas</td><td>1,398 s</td><td>2,682 s</td></tr>
+<tr><td>Explorar como visitante → Home</td><td>0,020 s</td><td>0,083 s</td></tr>
+<tr><td>Abrir Chat pela primeira vez</td><td>0,150 s</td><td>0,272 s</td></tr>
+<tr><td>Reabrir Home na mesma sessão/cache</td><td>0,367 s</td><td>0,848 s</td></tr>
+<tr><td>Reabrir Chat na mesma sessão/cache</td><td>0,049 s</td><td>0,222 s</td></tr>
+<tr><td>Outro Chrome novo: adulto aceito e visitante → Home</td><td>3,126 s</td><td>4,670 s</td></tr>
+<tr><td>Abrir Chat nesse outro Chrome</td><td>0,125 s</td><td>0,291 s</td></tr>
+</tbody></table></div>
+<p>Os tempos de clique acima são medidos a partir da ação; não devem ser somados como se fossem um único carregamento. No primeiro acesso 18+, o tempo até o primeiro byte da navegação foi 629,5 ms na amostra normal e 602,9 ms na limitada. Isso inclui rede, proxy e espera do servidor. Não houve consulta prévia para aquecer o serviço; o estado anterior de suspensão é desconhecido.</p>
+<p>Antes das mudanças, a primeira tela observou 191.231 bytes de JavaScript descompactado. Ao chegar a Home/Chat, o total observado foi 1.271.336 bytes de JavaScript descompactado. Todos os recursos da página somaram 396.092 bytes transferidos após a entrada no aplicativo, com compressão Brotli observada nas respostas online. Tráfego de precache feito fora da página pode não aparecer nessa soma.</p>
+<p>FCP/LCP são métricas da navegação, não de cada troca de aba. Na amostra normal, o FCP ainda estava ausente no primeiro snapshot e apareceu posteriormente em 1,492 s. Na amostra limitada, FCP/LCP observados foram 2,528 s. Ausência é registrada como indisponível, nunca como zero.</p>
+<p>Fontes dos valores: <a href="artifacts/loading-performance-before-online-mobile.json">baseline normal</a> e <a href="artifacts/loading-performance-before-online-mobile-slow.json">baseline com rede/CPU limitadas</a>. Não houve erro HTTP/rede ou erro de página nesses dois registros.</p>
+</section>
+
+<section>
+<h2>O que a medição local permite concluir</h2>
+<p>A medição intermediária local confirmou que parte do código foi adiada para a primeira abertura de Conversa. Essa amostra não serve para afirmar uma redução do tempo online: o servidor local não usa a mesma compressão, rede, região ou latência da publicação. O build final também recebeu ajustes posteriores nessa separação de dependências.</p>
+<p class="callout">A comparação válida desta rodada usa somente as amostras online antes/depois abaixo. Mesmos perfis, janela de observação e parâmetros de rede/CPU; ainda assim, são execuções únicas e o tempo do servidor variou. Os ganhos observados não são uma garantia para qualquer rede ou aparelho.</p>
+<p class="small">Registro intermediário, mantido para transparência: <a href="artifacts/loading-performance-after-local-mobile-slow.json">medição local intermediária</a>. Ele não deve ser usado como comparação direta de velocidade com o Render.</p>
+</section>
+
+<section id="after-publication-results">
+<h2>Depois da publicação — carga menor, primeira abertura de Chat sob demanda</h2>
+<p id="publication-results" class="pass">O pacote novo foi confirmado no endereço público: entrada <code>/assets/index-ByO5164l.js</code>, 1.485 bytes, com o novo bootstrap identificado. <a href="artifacts/loading-public-clean-revision-proof.json">Prova pública do pacote</a>. As duas medições online passaram seus 8 marcos cada, sem falha HTTP/rede nem erro de página, e a regressão online passou 32 de 32 verificações.</p>
+<div id="after-publication-metrics">
+<div class="table-scroll"><table>
+<thead><tr><th>Marco</th><th>Normal: antes → depois</th><th>Limitada: antes → depois</th></tr></thead>
+<tbody>
+<tr><td>Primeira tela 18+</td><td>1,084 → 0,758 s</td><td>2,245 → 2,138 s</td></tr>
+<tr><td>Aceitar 18+ → boas-vindas</td><td>1,398 → 0,732 s</td><td>2,682 → 2,091 s</td></tr>
+<tr><td>Explorar como visitante → Home</td><td>0,020 → 0,016 s</td><td>0,083 → 0,028 s</td></tr>
+<tr><td>Primeira abertura de Chat</td><td>0,150 → 0,462 s</td><td>0,272 → 0,849 s</td></tr>
+<tr><td>Reabrir Home na mesma sessão/cache</td><td>0,367 → 0,199 s</td><td>0,848 → 0,443 s</td></tr>
+<tr><td>Reabrir Chat na mesma sessão/cache</td><td>0,049 → 0,055 s</td><td>0,222 → 0,177 s</td></tr>
+<tr><td>Adulto aceito, Chrome novo → Home</td><td>3,126 → 1,782 s</td><td>4,670 → 3,400 s</td></tr>
+<tr><td>Primeiro Chat nesse Chrome novo</td><td>0,125 → 0,455 s</td><td>0,291 → 0,921 s</td></tr>
+</tbody></table></div>
+<p>A Home recebe 609.961 bytes de JavaScript descompactado, contra 1.271.336 antes: redução observada de 52,0%. A primeira tela 18+ recebe 151.852 bytes de JavaScript, contra 191.231 antes. Após abrir Chat, o total é 689.467 bytes, ainda abaixo dos 1.271.336 anteriores. São bytes observados na página até os snapshots, não uma soma de todo o tráfego de precache do worker.</p>
+<p>O total transferido observado até Home caiu de 396.092 para 222.551 bytes, com compressão online. Ao abrir Chat, chega a 246.847 bytes. O primeiro Chat agora espera o módulo que foi adiado: essa etapa ficou mais lenta nas amostras, em troca de reduzir a entrada no aplicativo. O segundo acesso reutiliza o módulo, sem prometer que todo clique será mais rápido.</p>
+<p>O TTFB inicial variou de 629,5 para 205,8 ms na rede normal e de 602,9 para 581,2 ms na limitada. Parte da diferença normal decorre dessa variação de servidor/rede; não pode ser atribuída apenas ao código. Não foi medido um despertar controlado após 15 minutos de inatividade.</p>
+<p>Fontes: <a href="artifacts/loading-performance-after-online-mobile.json">depois, rede normal</a> e <a href="artifacts/loading-performance-after-online-mobile-slow.json">depois, rede/CPU limitadas</a>. Os parâmetros são os mesmos descritos na linha de base.</p>
+</div>
+<p class="small">Incidente de publicação resolvido: a primeira tentativa de medição após o deploy ainda recebia o pacote anterior. Essa amostra foi preservada como “after-old-runtime” e excluída da comparação. Após limpar o cache de build e reconstruir, o pacote público novo foi conferido antes de repetir as medições. Isso não apaga a falha anterior nem a conta como ganho de desempenho.</p>
+<p>Abra a versão conferida em <a href="https://vigia-app.onrender.com/">Vigia</a>. Quem já utilizou o aplicativo deve aplicar a atualização oferecida pelo PWA.</p>
+</section>
+
+<section>
+<h2>Conferir a experiência</h2>
+<ol>
+<li>Abra o aplicativo. Se já o utilizou e aparecer uma atualização, escolha “Atualizar Agora”.</li>
+<li>Confirme o acesso 18+ e entre como visitante. Home deve permitir navegação mesmo enquanto o servidor verifica a conexão.</li>
+<li>Abra Conversar. Durante a verificação, aguarde o estado do servidor; a voz não deve iniciar sozinha após a recuperação.</li>
+<li>Visite Aprender, abra uma missão e depois Conversar. Para testar offline, primeiro é necessário que o PWA tenha sido ativado e os arquivos dessas telas estejam guardados.</li>
+<li>Sem rede, confira as atividades já visitadas. IA, login e Sala Segura exigem internet; o modo offline não fabrica respostas.</li>
+</ol>
+<p><a href="artifacts/loading-regression-online-final-desktop-offline-home.png">Home publicada offline no desktop</a> • <a href="artifacts/loading-regression-online-final-mobile-offline-activity.png">atividade publicada offline no celular emulado</a> • <a href="artifacts/loading-regression-online-final-mobile-offline-chat.png">Chat publicado offline no celular emulado</a> • <a href="artifacts/gemini-google-continuity-online-mobile-loading-final.png">três turnos de voz Google reais</a></p>
+<img src="artifacts/loading-regression-online-final-mobile-offline-activity.png" alt="PWA publicado em celular emulado: atividade educativa visitada funciona sem internet e exibe a explicação após a escolha; status da IA simulado somente pelo teste">
+</section>
+
+<section>
+<h2>Limites do plano gratuito e da validação</h2>
+<p>O Render Free suspende o serviço após 15 minutos sem tráfego e informa que o despertar pode levar cerca de um minuto. Reduzir o JavaScript não elimina essa espera quando o servidor está adormecido. A documentação oficial foi conferida em 15/10/2026: <a href="https://render.com/docs/free#spinning-down-on-idle">Render — suspensão por inatividade</a>.</p>
+<p>Não foram contratados serviços, ativado faturamento ou utilizadas contas e informações reais de crianças. Nas baterias de 32 verificações de carregamento, os status “pendente”, “503” e “disponível” são simulações explícitas, sem IA. As 20 verificações de integração e os três turnos de voz posteriores usaram Gemini real gratuito; as contas de integração são adultas e fictícias, já existentes.</p>
+<p>Os aparelhos físicos e o comportamento de suspensão no celular continuam sem validação nesta rodada. O teste com PWA comprova service worker registrado e controlando a navegação, sem equivaler à instalação real no sistema. Uma experiência consistentemente rápida ainda depende do dispositivo, rede, cache, servidor e cota gratuita disponível.</p>
+<p>Referência da rodada de voz: <a href="vigia-voz-google-validacao.html">validação anterior da voz Google</a>.</p>
+</section>
+</main></body></html>

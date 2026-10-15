@@ -1,0 +1,1175 @@
+{
+  "url": "http://localhost:3122",
+  "startedAt": "2026-10-15T16:00:15.496Z",
+  "scope": "Regressão de carregamento desktop/celular emulado. /api/status e sessão guest simulados explicitamente; nenhum serviço de IA, conta real, escrita Firebase ou microfone. Assets e service worker reais. Offline não equivale à instalação em aparelho físico.",
+  "results": [
+    {
+      "name": "desktop: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    }
+  ],
+  "contexts": [
+    {
+      "id": "desktop-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "setup",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "http://localhost:3122/assets/AuthModal-DCt6qkEV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "http://localhost:3122/assets/ProfileModal-DAHUjiPV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "http://localhost:3122/assets/BadgesModal-CHvpOFBt.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "desktop-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "http://localhost:3122/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "http://localhost:3122/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "http://localhost:3122/assets/index-BR2kni4u.js",
+        "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+        "http://localhost:3122/assets/index-CMkAA6GM.css",
+        "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+        "http://localhost:3122/assets/App-CpLgvwEF.js",
+        "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+        "http://localhost:3122/assets/index-BXWtuYvb.js",
+        "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+        "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+        "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+        "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+        "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+        "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+        "http://localhost:3122/assets/topics-DAmBaSGq.js",
+        "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+        "http://localhost:3122/assets/geminiLive--C22dAwm.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-http://localhost:3122/",
+          "urls": [
+            "http://localhost:3122/index.html",
+            "http://localhost:3122/icons/icon.svg",
+            "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+            "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+            "http://localhost:3122/assets/index-CMkAA6GM.css",
+            "http://localhost:3122/assets/index-BR2kni4u.js",
+            "http://localhost:3122/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+            "http://localhost:3122/assets/index-BXWtuYvb.js",
+            "http://localhost:3122/assets/App-CpLgvwEF.js",
+            "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+            "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+            "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+            "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+            "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+            "http://localhost:3122/assets/topics-DAmBaSGq.js",
+            "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+            "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+            "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "http://localhost:3122/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-http://localhost:3122/",
+          "urls": [
+            "http://localhost:3122/index.html",
+            "http://localhost:3122/icons/icon.svg",
+            "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+            "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+            "http://localhost:3122/assets/index-CMkAA6GM.css",
+            "http://localhost:3122/assets/index-BR2kni4u.js",
+            "http://localhost:3122/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+            "http://localhost:3122/assets/index-BXWtuYvb.js",
+            "http://localhost:3122/assets/App-CpLgvwEF.js",
+            "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+            "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+            "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+            "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+            "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+            "http://localhost:3122/assets/topics-DAmBaSGq.js",
+            "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+            "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+            "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "http://localhost:3122/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mobile-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "http://localhost:3122/assets/AuthModal-DCt6qkEV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "http://localhost:3122/assets/ProfileModal-DAHUjiPV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "http://localhost:3122/assets/BadgesModal-CHvpOFBt.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "mobile-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "http://localhost:3122/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-BR2kni4u.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-CMkAA6GM.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/App-CpLgvwEF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "http://localhost:3122/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/assets/geminiLive--C22dAwm.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "http://localhost:3122/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "http://localhost:3122/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "http://localhost:3122/assets/index-BR2kni4u.js",
+        "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+        "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+        "http://localhost:3122/assets/index-CMkAA6GM.css",
+        "http://localhost:3122/assets/App-CpLgvwEF.js",
+        "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+        "http://localhost:3122/assets/index-BXWtuYvb.js",
+        "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+        "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+        "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+        "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+        "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+        "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+        "http://localhost:3122/assets/topics-DAmBaSGq.js",
+        "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+        "http://localhost:3122/assets/geminiLive--C22dAwm.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-http://localhost:3122/",
+          "urls": [
+            "http://localhost:3122/index.html",
+            "http://localhost:3122/icons/icon.svg",
+            "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+            "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+            "http://localhost:3122/assets/index-CMkAA6GM.css",
+            "http://localhost:3122/assets/index-BR2kni4u.js",
+            "http://localhost:3122/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "http://localhost:3122/assets/App-CpLgvwEF.js",
+            "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+            "http://localhost:3122/assets/index-BXWtuYvb.js",
+            "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+            "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+            "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+            "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+            "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+            "http://localhost:3122/assets/topics-DAmBaSGq.js",
+            "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+            "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+            "http://localhost:3122/assets/geminiLive--C22dAwm.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "http://localhost:3122/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-http://localhost:3122/",
+          "urls": [
+            "http://localhost:3122/index.html",
+            "http://localhost:3122/icons/icon.svg",
+            "http://localhost:3122/assets/vendor-utils-CqkleIqs.js",
+            "http://localhost:3122/assets/vendor-react-7kqsRsp0.js",
+            "http://localhost:3122/assets/index-CMkAA6GM.css",
+            "http://localhost:3122/assets/index-BR2kni4u.js",
+            "http://localhost:3122/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "http://localhost:3122/assets/App-CpLgvwEF.js",
+            "http://localhost:3122/assets/vendor-firebase-core-DJmjVBRA.js",
+            "http://localhost:3122/assets/index-BXWtuYvb.js",
+            "http://localhost:3122/assets/vendor-lucide-DCMoqzQM.js",
+            "http://localhost:3122/assets/vendor-firebase-auth-Dg50lHlF.js",
+            "http://localhost:3122/assets/vendor-motion-C3FpTz4j.js",
+            "http://localhost:3122/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "http://localhost:3122/assets/HomeTab-CXM5w55I.js",
+            "http://localhost:3122/assets/useLearning-CKi72RMf.js",
+            "http://localhost:3122/assets/topics-DAmBaSGq.js",
+            "http://localhost:3122/assets/LearningCenter-BrOtJRAd.js",
+            "http://localhost:3122/assets/ChatTab-DDRY-Xo0.js",
+            "http://localhost:3122/assets/geminiLive--C22dAwm.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "http://localhost:3122/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "passed",
+  "finishedAt": "2026-10-15T16:00:31.782Z"
+}

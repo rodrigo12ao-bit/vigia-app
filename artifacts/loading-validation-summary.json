@@ -1,0 +1,295 @@
+{
+  "checkedAt": "2026-10-15T16:21:01.280Z",
+  "url": "https://vigia-app.onrender.com/",
+  "sourceRevision": "89659c9acb9facd4a735c17b6e16cfce531f7b89",
+  "deployment": "dep-db8fmr8473hc73ai3ehg",
+  "publicRevision": {
+    "checkedAt": "2026-10-15T16:14:18.180Z",
+    "status": 200,
+    "entry": "/assets/index-ByO5164l.js",
+    "boot": true,
+    "decodedBytes": 1485
+  },
+  "cost": "Sem plano pago/faturamento ou novo fornecedor. IA da cota gratuita existente; dados fictícios adultos.",
+  "builds": {
+    "types": "passed",
+    "publication": "passed",
+    "presentation": "passed",
+    "graph": {
+      "passed": 15,
+      "failed": 0
+    }
+  },
+  "tests": {
+    "existingAutomated": {
+      "passed": 132,
+      "failed": 0
+    },
+    "voiceControlsLocal": {
+      "passed": 14,
+      "failed": 0
+    },
+    "loadingLocal": {
+      "passed": 32,
+      "status": "passed"
+    },
+    "loadingOnline": {
+      "passed": 32,
+      "status": "passed"
+    },
+    "realOnlineUi": {
+      "passed": 20,
+      "failed": 0,
+      "pageErrors": 0
+    },
+    "realGoogleVoice": {
+      "passedTurns": 3,
+      "processingToFirstAudioMs": [
+        11188,
+        3039,
+        6570
+      ],
+      "scope": "Três falas adultas sintéticas locais, captura virtual MediaStreamDestination sem acesso ao microfone físico; transcrição, respostas e voz Google reais da cota gratuita; reprodução Web Audio real, saída silenciada no teste. Não avalia qualidade por audição humana nem eco de alto-falante físico.",
+      "pageErrors": [],
+      "maxScheduledGapMs": 0
+    }
+  },
+  "metrics": {
+    "mobile": [
+      {
+        "profile": "first-visitor",
+        "phase": "adult-gate",
+        "beforeMs": 1084.1,
+        "afterMs": 758.4,
+        "beforeDecodedBytes": 360306,
+        "afterDecodedBytes": 321696,
+        "beforeEncodedBytes": 83134,
+        "afterEncodedBytes": 76041,
+        "beforeTtfbMs": 629.5,
+        "afterTtfbMs": 205.80000001192093,
+        "beforeFcpMs": null,
+        "afterFcpMs": 748
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "accept-to-welcome",
+        "beforeMs": 1397.8,
+        "afterMs": 731.6,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 629.5,
+        "afterTtfbMs": 205.80000001192093,
+        "beforeFcpMs": 1492,
+        "afterFcpMs": 748
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "guest-to-home",
+        "beforeMs": 20.3,
+        "afterMs": 15.6,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 629.5,
+        "afterTtfbMs": 205.80000001192093,
+        "beforeFcpMs": 1492,
+        "afterFcpMs": 748
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "open-chat",
+        "beforeMs": 149.7,
+        "afterMs": 462.3,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 241222,
+        "beforeTtfbMs": 629.5,
+        "afterTtfbMs": 205.80000001192093,
+        "beforeFcpMs": 1492,
+        "afterFcpMs": 748
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "return-home-same-cache",
+        "beforeMs": 366.5,
+        "afterMs": 198.6,
+        "beforeDecodedBytes": 1442109,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 381420,
+        "afterEncodedBytes": 790645,
+        "beforeTtfbMs": 228.69999998807907,
+        "afterTtfbMs": 2.9000000059604645,
+        "beforeFcpMs": 308,
+        "afterFcpMs": 52
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "return-open-chat",
+        "beforeMs": 49,
+        "afterMs": 54.5,
+        "beforeDecodedBytes": 1442109,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 381420,
+        "afterEncodedBytes": 870151,
+        "beforeTtfbMs": 228.69999998807907,
+        "afterTtfbMs": 2.9000000059604645,
+        "beforeFcpMs": 308,
+        "afterFcpMs": 52
+      },
+      {
+        "profile": "accepted-guest-fresh-browser",
+        "phase": "direct-home",
+        "beforeMs": 3125.9,
+        "afterMs": 1782.1,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 615.5,
+        "afterTtfbMs": 230.40000000596046,
+        "beforeFcpMs": 1668,
+        "afterFcpMs": 672
+      },
+      {
+        "profile": "accepted-guest-fresh-browser",
+        "phase": "open-chat",
+        "beforeMs": 124.9,
+        "afterMs": 455.1,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 241222,
+        "beforeTtfbMs": 615.5,
+        "afterTtfbMs": 230.40000000596046,
+        "beforeFcpMs": 1668,
+        "afterFcpMs": 672
+      }
+    ],
+    "mobile-slow": [
+      {
+        "profile": "first-visitor",
+        "phase": "adult-gate",
+        "beforeMs": 2245.1,
+        "afterMs": 2137.5,
+        "beforeDecodedBytes": 361048,
+        "afterDecodedBytes": 320954,
+        "beforeEncodedBytes": 83509,
+        "afterEncodedBytes": 75666,
+        "beforeTtfbMs": 602.9000000059605,
+        "afterTtfbMs": 581.1999999880791,
+        "beforeFcpMs": 2528,
+        "afterFcpMs": 1492
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "accept-to-welcome",
+        "beforeMs": 2682.3,
+        "afterMs": 2091.2,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 602.9000000059605,
+        "afterTtfbMs": 581.1999999880791,
+        "beforeFcpMs": 2528,
+        "afterFcpMs": 1492
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "guest-to-home",
+        "beforeMs": 83.4,
+        "afterMs": 27.9,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 602.9000000059605,
+        "afterTtfbMs": 581.1999999880791,
+        "beforeFcpMs": 2528,
+        "afterFcpMs": 1492
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "open-chat",
+        "beforeMs": 272,
+        "afterMs": 848.8,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 241222,
+        "beforeTtfbMs": 602.9000000059605,
+        "afterTtfbMs": 581.1999999880791,
+        "beforeFcpMs": 2528,
+        "afterFcpMs": 1492
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "return-home-same-cache",
+        "beforeMs": 847.5,
+        "afterMs": 443,
+        "beforeDecodedBytes": 1442109,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 381420,
+        "afterEncodedBytes": 790645,
+        "beforeTtfbMs": 226.5,
+        "afterTtfbMs": 4.199999988079071,
+        "beforeFcpMs": 404,
+        "afterFcpMs": 108
+      },
+      {
+        "profile": "first-visitor",
+        "phase": "return-open-chat",
+        "beforeMs": 222,
+        "afterMs": 176.8,
+        "beforeDecodedBytes": 1442109,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 381420,
+        "afterEncodedBytes": 870151,
+        "beforeTtfbMs": 226.5,
+        "afterTtfbMs": 4.199999988079071,
+        "beforeFcpMs": 404,
+        "afterFcpMs": 108
+      },
+      {
+        "profile": "accepted-guest-fresh-browser",
+        "phase": "direct-home",
+        "beforeMs": 4670.3,
+        "afterMs": 3399.8,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 790708,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 217526,
+        "beforeTtfbMs": 216,
+        "afterTtfbMs": 206.39999997615814,
+        "beforeFcpMs": 2100,
+        "afterFcpMs": 1012
+      },
+      {
+        "profile": "accepted-guest-fresh-browser",
+        "phase": "open-chat",
+        "beforeMs": 291.2,
+        "afterMs": 920.7,
+        "beforeDecodedBytes": 1452056,
+        "afterDecodedBytes": 870214,
+        "beforeEncodedBytes": 391367,
+        "afterEncodedBytes": 241222,
+        "beforeTtfbMs": 216,
+        "afterTtfbMs": 206.39999997615814,
+        "beforeFcpMs": 2100,
+        "afterFcpMs": 1012
+      }
+    ]
+  },
+  "limitations": [
+    "Uma amostra antes/depois por condição de rede/CPU. Não é garantia de tempo em aparelho físico.",
+    "Render Free pode suspender após 15 minutos sem tráfego e levar cerca de um minuto para despertar. Não foi forçada uma suspensão neste benchmark.",
+    "Primeira abertura de Chat passou a baixar 79,5 KB separados; medição inicial dessa aba ficou mais lenta.",
+    "Dados de conta e APIs não são guardados pelo service worker. IA, login e Sala Segura requerem conexão.",
+    "A voz foi completa nos 3 turnos, mas a espera do provedor variou de 3,0 a 11,2 segundos; esta etapa otimizou abertura do aplicativo, não garante resposta instantânea da IA."
+  ],
+  "publicationIncident": "Primeira publicação indicava Live mas HTTP público ainda entregava pacote antigo. Reinicialização não resolveu; nova publicação com cache de compilação limpo entregou index-ByO5164l.js. A medição after-old-runtime foi excluída da comparação."
+}

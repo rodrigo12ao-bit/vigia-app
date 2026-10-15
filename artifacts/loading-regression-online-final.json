@@ -1,0 +1,1175 @@
+{
+  "url": "https://vigia-app.onrender.com",
+  "startedAt": "2026-10-15T16:15:35.490Z",
+  "scope": "Regressão de carregamento desktop/celular emulado. /api/status e sessão guest simulados explicitamente; nenhum serviço de IA, conta real, escrita Firebase ou microfone. Assets e service worker reais. Offline não equivale à instalação em aparelho físico.",
+  "results": [
+    {
+      "name": "desktop: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: painéis lazy ausentes antes de sua primeira abertura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Home utilizável enquanto /api/status permanece pendente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: status 503 oferece nova verificação honesta e texto preservado",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: service worker instala e controla uma nova navegação",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: páginas visitadas e atividade pública ficam no cache do PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: reload sem rede abre Home pelo PWA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: atividade visitada abre e responde sem rede nem IA",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: Chat offline abre texto e informa falha de conexão",
+      "status": "passed"
+    },
+    {
+      "name": "mobile: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+      "status": "passed"
+    }
+  ],
+  "contexts": [
+    {
+      "id": "desktop-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "setup",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "setup",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-app.onrender.com/assets/AuthModal-xjvZ28La.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "https://vigia-app.onrender.com/assets/ProfileModal-CKdbi3wC.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "https://vigia-app.onrender.com/assets/BadgesModal-fmtZk3YY.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "desktop-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: service worker instala e controla uma nova navegação",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "https://vigia-app.onrender.com/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+        "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+        "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+        "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+        "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+        "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+        "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+        "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+        "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+        "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+        "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+        "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+        "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+        "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+        "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+        "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-app.onrender.com/",
+          "urls": [
+            "https://vigia-app.onrender.com/index.html",
+            "https://vigia-app.onrender.com/icons/icon.svg",
+            "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+            "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+            "https://vigia-app.onrender.com/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+            "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+            "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+            "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+            "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+            "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+            "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+            "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+            "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-app.onrender.com/",
+          "urls": [
+            "https://vigia-app.onrender.com/index.html",
+            "https://vigia-app.onrender.com/icons/icon.svg",
+            "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+            "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+            "https://vigia-app.onrender.com/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+            "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+            "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+            "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+            "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+            "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+            "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+            "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+            "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mobile-status-lazy",
+      "statusRequests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "mode": "hold",
+          "offline": false
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "mode": "hold",
+          "offline": false
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "desktop: CacheStorage contém só assets públicos, sem API ou dados Firebase",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Auth abre, fecha e reabre sem enviar ou reter credenciais",
+          "url": "https://vigia-app.onrender.com/assets/AuthModal-xjvZ28La.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat pendente desabilita voz e microfone sem abrir captura",
+          "url": "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: botão de voz refaz somente GET/status e pode falhar novamente",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: botão do microfone recupera status sem iniciar voz automaticamente",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: Profile lazy mantém rascunho ao fechar e reabrir",
+          "url": "https://vigia-app.onrender.com/assets/ProfileModal-CKdbi3wC.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Badges lazy abre e reabre com as mesmas conquistas",
+          "url": "https://vigia-app.onrender.com/assets/BadgesModal-fmtZk3YY.js",
+          "method": "GET",
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "id": "mobile-offline-pwa",
+      "statusRequests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "mode": "ready",
+          "offline": false
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "mode": "ready",
+          "offline": true
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "mode": "ready",
+          "offline": true
+        }
+      ],
+      "forbidden": [],
+      "pageErrors": [],
+      "requests": [
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/",
+          "method": "GET",
+          "type": "document"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/icons/icon.svg",
+          "method": "GET",
+          "type": "other"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: nenhuma conta, IA, captura ou sessão de voz acionada",
+          "url": "https://vigia-app.onrender.com/model/avatar-preview-female.png",
+          "method": "GET",
+          "type": "image"
+        },
+        {
+          "stage": "mobile: service worker instala e controla uma nova navegação",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+          "method": "GET",
+          "type": "stylesheet"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: reload sem rede abre Home pelo PWA",
+          "url": "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: atividade visitada abre e responde sem rede nem IA",
+          "url": "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+          "method": "GET",
+          "type": "script"
+        },
+        {
+          "stage": "mobile: Chat offline abre texto e informa falha de conexão",
+          "url": "https://vigia-app.onrender.com/api/status",
+          "method": "GET",
+          "type": "fetch"
+        }
+      ],
+      "controllingWorker": {
+        "scriptURL": "https://vigia-app.onrender.com/sw.js",
+        "state": "activated"
+      },
+      "visitedPublicAssets": [
+        "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+        "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+        "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+        "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+        "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+        "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+        "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+        "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+        "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+        "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+        "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+        "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+        "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+        "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+        "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+        "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js",
+        "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js"
+      ],
+      "cacheBeforeOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-app.onrender.com/",
+          "urls": [
+            "https://vigia-app.onrender.com/index.html",
+            "https://vigia-app.onrender.com/icons/icon.svg",
+            "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+            "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+            "https://vigia-app.onrender.com/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+            "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+            "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+            "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+            "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+            "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+            "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+            "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+            "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/model/avatar-preview-female.png"
+          ]
+        }
+      ],
+      "cacheAfterOffline": [
+        {
+          "name": "workbox-precache-v2-https://vigia-app.onrender.com/",
+          "urls": [
+            "https://vigia-app.onrender.com/index.html",
+            "https://vigia-app.onrender.com/icons/icon.svg",
+            "https://vigia-app.onrender.com/assets/vendor-utils-CqkleIqs.js",
+            "https://vigia-app.onrender.com/assets/vendor-react-7kqsRsp0.js",
+            "https://vigia-app.onrender.com/assets/index-DWHbLPtu.css",
+            "https://vigia-app.onrender.com/assets/index-ByO5164l.js",
+            "https://vigia-app.onrender.com/manifest.webmanifest"
+          ]
+        },
+        {
+          "name": "vigia-public-assets-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/assets/App-LGCdreB7.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-core-BFD_6fQE.js",
+            "https://vigia-app.onrender.com/assets/index-BXWtuYvb.js",
+            "https://vigia-app.onrender.com/assets/vendor-lucide-DCMoqzQM.js",
+            "https://vigia-app.onrender.com/assets/vendor-firebase-auth-DUenq9Dv.js",
+            "https://vigia-app.onrender.com/assets/vendor-motion-C3FpTz4j.js",
+            "https://vigia-app.onrender.com/assets/workbox-window.prod.es5-BBnX5xw4.js",
+            "https://vigia-app.onrender.com/assets/HomeTab-Cc7c1BJT.js",
+            "https://vigia-app.onrender.com/assets/useLearning-DARonYyo.js",
+            "https://vigia-app.onrender.com/assets/topics-DAmBaSGq.js",
+            "https://vigia-app.onrender.com/assets/LearningCenter-BTdgMwpY.js",
+            "https://vigia-app.onrender.com/assets/geminiLive-Cf6JGtzq.js",
+            "https://vigia-app.onrender.com/assets/ChatTab-D3qce-qV.js"
+          ]
+        },
+        {
+          "name": "vigia-avatar-previews-v1",
+          "urls": [
+            "https://vigia-app.onrender.com/model/avatar-preview-female.png"
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "passed",
+  "finishedAt": "2026-10-15T16:16:00.792Z"
+}
