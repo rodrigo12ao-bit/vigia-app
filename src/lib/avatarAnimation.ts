@@ -1,13 +1,65 @@
 import type { AvatarGender, AvatarState } from '../types';
 
 export function avatarModelPath(gender: AvatarGender = 'female'): string {
-  return gender === 'male' ? '/model/avatar_2.glb' : '/model/vigia-original.glb';
+  return gender === 'male' ? '/model/vigia-original-male.glb' : '/model/vigia-original.glb';
 }
 
 export function avatarPreviewPath(gender: AvatarGender = 'female', size?: 'sm' | 'md' | 'lg'): string {
   return gender === 'male'
-    ? '/model/avatar-preview-male.png'
+    ? size === 'sm' ? '/model/vigia-original-male-head.png' : '/model/vigia-original-male-preview.png'
     : size === 'sm' ? '/model/vigia-original-head.png' : '/model/vigia-original-preview.png';
+}
+
+// Conversation canvases animate automatically; repeated small avatars in lists
+// keep an inexpensive preview unless their caller explicitly opts in.
+export function canAnimateAvatar(size: 'sm' | 'md' | 'lg' = 'lg', interactive3D?: boolean): boolean {
+  return interactive3D !== false && (size !== 'sm' || interactive3D === true);
+}
+
+// Playback drives this cadence. Gesture clips must not make a silent character
+// look as if it were speaking. This is a speech activity cue, not phoneme sync.
+export function avatarMouthScale(seconds: number, speaking: boolean, reducedMotion = false): number {
+  if (!speaking || reducedMotion || !Number.isFinite(seconds)) return 1;
+  const phase = seconds * Math.PI * 2;
+  const syllable = Math.max(0, Math.sin(phase * 4.8));
+  const variation = 0.72 + 0.28 * (0.5 + 0.5 * Math.sin(phase * 1.35));
+  return 1 + 2.7 * syllable * variation;
+}
+
+export function isAvatarMouthTrack(name: string): boolean {
+  return /^Mouth\.(?:scale|position|quaternion)$/.test(name);
+}
+
+function avatarMotionQuery(): MediaQueryList | undefined {
+  try {
+    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)') : undefined;
+  } catch { return undefined; }
+}
+
+export function avatarPrefersReducedMotion(): boolean {
+  return !!avatarMotionQuery()?.matches;
+}
+
+// Subscribe to the device setting instead of sampling a motion-library hook
+// once. An already mounted conversation must stop when the setting changes.
+export function bindAvatarReducedMotion(onChange: (reduce: boolean) => void): () => void {
+  const query = avatarMotionQuery();
+  const changed = () => onChange(!!query?.matches);
+  if (!query) { changed(); return () => {}; }
+  if (typeof query.addEventListener === 'function') {
+    query.addEventListener('change', changed);
+    changed();
+    return () => query.removeEventListener('change', changed);
+  }
+  // Older Safari exposes only the legacy media-query listener methods.
+  if (typeof query.addListener === 'function') {
+    query.addListener(changed);
+    changed();
+    return () => query.removeListener(changed);
+  }
+  changed();
+  return () => {};
 }
 
 export function avatarCameraFrame(size: 'sm' | 'md' | 'lg', aspect = 1) {

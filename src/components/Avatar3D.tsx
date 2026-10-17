@@ -1,10 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, Sparkles, useGLTF, useAnimations } from '@react-three/drei';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { AvatarState, AvatarGender } from '../types';
-import { avatarCameraFrame, avatarModelPath, avatarStaticPoseTime, bindAvatarContextLoss, resolveAvatarState, selectAvatarAnimation } from '../lib/avatarAnimation';
+import { avatarCameraFrame, avatarModelPath, avatarMouthScale, avatarPrefersReducedMotion, avatarStaticPoseTime, bindAvatarContextLoss, bindAvatarReducedMotion, isAvatarMouthTrack, resolveAvatarState, selectAvatarAnimation } from '../lib/avatarAnimation';
 import * as THREE from 'three';
 
 interface AvatarProps {
@@ -16,6 +16,8 @@ interface AvatarProps {
   showSubtitle?: boolean;
   onStateChange?: (state: AvatarState) => void;
   gender?: AvatarGender;
+  animationEnabled?: boolean;
+  onModelReady?: () => void;
 }
 
 interface ModelProps extends Pick<AvatarProps, 'state' | 'isSpeaking' | 'isListening' | 'gender'> {
@@ -23,14 +25,16 @@ interface ModelProps extends Pick<AvatarProps, 'state' | 'isSpeaking' | 'isListe
   modelUrl?: string;
   reducedMotion?: boolean;
   normalize?: boolean;
+  onModelReady?: () => void;
 }
 
 export const PremiumAvatarModel: React.FC<ModelProps> = ({
   state = 'idle', isSpeaking = false, isListening = false, emotionProp,
-  modelUrl, gender = 'female', reducedMotion = false, normalize = false,
+  modelUrl, gender = 'female', reducedMotion = false, normalize = false, onModelReady,
 }) => {
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(modelUrl || avatarModelPath(gender));
+  useEffect(() => { onModelReady?.(); }, [scene, onModelReady]);
   const clonedScene = useMemo(() => {
     // SkeletonUtils also isolates bones when a user supplies a skinned model.
     // Cached geometries/materials remain shared and are not disposed per canvas.
@@ -56,7 +60,23 @@ export const PremiumAvatarModel: React.FC<ModelProps> = ({
       position: [-center.x * scale, -1.6 - box.min.y * scale, -center.z * scale] as [number, number, number],
     };
   }, [clonedScene, normalize]);
-  const { actions, names, mixer } = useAnimations(animations, group);
+  const mouth = useMemo(() => normalize ? clonedScene.getObjectByName('Mouth') : undefined, [clonedScene, normalize]);
+  const gestureClips = useMemo(() => mouth ? animations.map(clip => {
+    const copy = clip.clone();
+    copy.tracks = copy.tracks.filter(track => !isAvatarMouthTrack(track.name));
+    return copy;
+  }) : animations, [animations, mouth]);
+  const { actions, names, mixer } = useAnimations(gestureClips, group);
+  const invalidate = useThree(frame => frame.invalidate);
+  const speakingTime = useRef(0);
+  useFrame((_frame, delta) => {
+    if (!mouth) return;
+    speakingTime.current = isSpeaking && !reducedMotion ? speakingTime.current + Math.min(delta, 0.1) : 0;
+    mouth.scale.y = avatarMouthScale(speakingTime.current, isSpeaking, reducedMotion);
+  });
+  useEffect(() => {
+    if (mouth && (!isSpeaking || reducedMotion)) { speakingTime.current = 0; mouth.scale.y = 1; invalidate(); }
+  }, [mouth, isSpeaking, reducedMotion, invalidate]);
   const currentState = resolveAvatarState(state, isSpeaking, isListening);
   const animationName = selectAvatarAnimation(currentState, names, emotionProp);
 
@@ -71,15 +91,15 @@ export const PremiumAvatarModel: React.FC<ModelProps> = ({
       action.time = avatarStaticPoseTime(action.getClip().duration);
       mixer.update(0);
       action.paused = true;
+      invalidate();
     } else {
       action.paused = false;
       action.fadeIn(0.3).play();
     }
     return () => { reducedMotion ? action.stop() : action.fadeOut(0.3); };
-  }, [animationName, actions, mixer, reducedMotion]);
+  }, [animationName, actions, mixer, reducedMotion, invalidate]);
 
-  // Clip tracks own head, neck and mouth movement. Applying another look-at
-  // rotation here would overwrite the listening/thinking/facial animation.
+  // Gesture clips own head and neck movement; playback alone owns the mouth.
   return (
     <group ref={group} dispose={null}>
       <group scale={framing.scale} position={framing.position}>
@@ -94,20 +114,32 @@ interface CoreProps extends ModelProps {
   size: 'sm' | 'md' | 'lg';
 }
 
-const HolographicCore: React.FC<CoreProps> = ({ state, isSpeaking, isListening, onClick, gender, size, reducedMotion }) => {
+const HolographicCore: React.FC<CoreProps> = ({ state, isSpeaking, isListening, onClick, gender, size, reducedMotion, onModelReady }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const floatRef = useRef<THREE.Group>(null);
+  const invalidate = useThree(frame => frame.invalidate);
+  useLayoutEffect(() => {
+    if (!reducedMotion) return;
+    // Demand rendering cannot gradually damp a previous pointer tilt. Reset
+    // both the outer tilt and Drei's last floating matrix before the next draw.
+    groupRef.current?.rotation.set(0, 0, 0);
+    floatRef.current?.rotation.set(0, 0, 0);
+    floatRef.current?.position.set(0, 0, 0);
+    floatRef.current?.updateMatrix();
+    invalidate();
+  }, [reducedMotion, invalidate]);
   useFrame((frame, delta) => {
-    if (!groupRef.current) return;
-    const x = reducedMotion ? 0 : frame.pointer.x * Math.PI / 24;
-    const y = reducedMotion ? 0 : -frame.pointer.y * Math.PI / 32;
+    if (!groupRef.current || reducedMotion) return;
+    const x = frame.pointer.x * Math.PI / 24;
+    const y = -frame.pointer.y * Math.PI / 32;
     groupRef.current.rotation.y = THREE.MathUtils.damp(groupRef.current.rotation.y, x, 3, delta);
     groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, y, 3, delta);
   });
   const glowColor = gender === 'male' ? '#0984e3' : '#f59e0b';
   return (
     <group ref={groupRef} onClick={onClick}>
-      <Float speed={reducedMotion ? 0 : 1.5} rotationIntensity={0} floatIntensity={reducedMotion ? 0 : 0.08}>
-        <PremiumAvatarModel state={state} isSpeaking={isSpeaking} isListening={isListening} gender={gender} reducedMotion={reducedMotion} normalize />
+      <Float ref={floatRef} speed={reducedMotion ? 0 : 1.5} rotationIntensity={0} floatIntensity={reducedMotion ? 0 : 0.08}>
+        <PremiumAvatarModel state={state} isSpeaking={isSpeaking} isListening={isListening} gender={gender} reducedMotion={reducedMotion} onModelReady={onModelReady} normalize />
         {!reducedMotion && size !== 'sm' && <Sparkles count={20} scale={4} size={1.5} speed={0.1} color={glowColor} opacity={0.3} />}
         {!reducedMotion && size !== 'sm' && (state === 'speaking' || state === 'listening') && (
           <Sparkles count={14} scale={3.6} size={2.5} speed={0.3} color={glowColor} opacity={0.5} />
@@ -135,10 +167,11 @@ const AvatarCamera: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
 
 export const AvatarComponent: React.FC<AvatarProps> = ({
   state = 'idle', isSpeaking = false, isListening = false, size = 'lg',
-  onClick, showSubtitle = true, onStateChange, gender = 'female',
+  onClick, showSubtitle = true, onStateChange, gender = 'female', animationEnabled = true, onModelReady,
 }) => {
   const currentState = resolveAvatarState(state, isSpeaking, isListening);
-  const reducedMotion = !!useReducedMotion();
+  const [reducedMotion, setReducedMotion] = useState(avatarPrefersReducedMotion);
+  useEffect(() => bindAvatarReducedMotion(setReducedMotion), []);
   const [contextCanvas, setContextCanvas] = useState<HTMLCanvasElement | null>(null);
   const [contextLost, setContextLost] = useState(false);
   useEffect(() => {
@@ -175,8 +208,11 @@ export const AvatarComponent: React.FC<AvatarProps> = ({
   const initialFrame = avatarCameraFrame(size);
 
   return (
-    <div className="absolute inset-0 w-full h-full flex items-center justify-center select-none">
+    <div data-avatar-framing={size === 'sm' ? 'head' : 'bust'} data-avatar-speaking={String(isSpeaking)} className="absolute inset-0 w-full h-full flex items-center justify-center select-none">
       <Canvas
+        role="img"
+        aria-label={gender === 'male' ? 'Vigia, tutor de prevenção animado' : 'Vigia, tutora de prevenção animada'}
+        frameloop={!animationEnabled ? 'never' : reducedMotion ? 'demand' : 'always'}
         camera={{ position: [0, initialFrame.targetY, initialFrame.distance], fov: 40 }}
         dpr={[1, 1.5]}
         gl={{ powerPreference: 'low-power', antialias: true, alpha: true, failIfMajorPerformanceCaveat: false }}
@@ -187,7 +223,7 @@ export const AvatarComponent: React.FC<AvatarProps> = ({
         <directionalLight position={[3, 5, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={0.6} color="#c7ddff" />
         <React.Suspense fallback={null}>
-          <HolographicCore state={currentState} isSpeaking={isSpeaking} isListening={isListening} onClick={onClick} gender={gender} size={size} reducedMotion={reducedMotion} />
+          <HolographicCore state={currentState} isSpeaking={isSpeaking} isListening={isListening} onClick={onClick} gender={gender} size={size} reducedMotion={reducedMotion} onModelReady={onModelReady} />
         </React.Suspense>
       </Canvas>
       {showSubtitle && (

@@ -8,7 +8,7 @@ import {defineConfig} from 'vite';
 const publicAssets=createRequire(import.meta.url)(path.resolve('scripts/copy-public-assets.cjs'));
 
 export default defineConfig(({mode}) => {
-  const shellFiles=new Set(['index.html','icons/icon.svg','manifest.webmanifest']);
+  const shellFiles=new Set(['index.html','icons/icon.svg','icons/vigia-brand.svg','manifest.webmanifest']);
   const report:{mode:string;chunks:any[];precache:string[]}={mode,chunks:[],precache:[]};
   const writeReport=()=>{fs.mkdirSync('.tools/build',{recursive:true});fs.writeFileSync(`.tools/build/graph-${mode}.json`,JSON.stringify(report,null,2));};
   return {
@@ -26,20 +26,20 @@ export default defineConfig(({mode}) => {
       }},
       VitePWA({
         registerType: 'prompt', // Solicita atualização quando há nova versão
-        includeAssets: ['icons/icon.svg', 'robots.txt'], // Assets estáticos para cache
+        includeAssets: ['icons/icon.svg', 'icons/vigia-brand.svg', 'robots.txt'], // Assets estáticos para cache
         manifest: {
           name: 'Vigia',
           short_name: 'Vigia',
           description: 'Aprendizado e prevenção com a Vigia. Acesso exclusivo para adultos de 18 anos ou mais.',
-          theme_color: '#0f172a',
-          background_color: '#0f172a',
+          theme_color: '#f5f0ff',
+          background_color: '#f5f0ff',
           display: 'standalone',
           orientation: 'portrait-primary',
           start_url: '/',
           scope: '/',
           icons: [
             {
-              src: 'icons/icon.svg',
+              src: 'icons/vigia-brand.svg',
               sizes: '192x192 512x512',
               type: 'image/svg+xml',
               purpose: 'any maskable'
@@ -67,9 +67,9 @@ export default defineConfig(({mode}) => {
               options:{cacheName:'vigia-public-assets-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:80,maxAgeSeconds:60*60*24*30}},
             },
             {
-              urlPattern:({url,sameOrigin})=>sameOrigin&&/^\/model\/(?:avatar-preview-(?:female|male)|vigia-original-(?:preview|head))\.png$/.test(url.pathname),
+              urlPattern:({url,sameOrigin})=>sameOrigin&&/^\/model\/(?:avatar-preview-(?:female|male)|vigia-original-(?:male-)?(?:preview|head))\.png$/.test(url.pathname),
               handler:'StaleWhileRevalidate',
-              options:{cacheName:'vigia-avatar-previews-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:4,maxAgeSeconds:60*60*24*30}},
+              options:{cacheName:'vigia-avatar-previews-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:6,maxAgeSeconds:60*60*24*30}},
             },
             {
               // Não cachear as rotas da API Gemini ou Firebase Firestore para garantir dados frescos/segurança

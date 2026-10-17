@@ -15,3 +15,14 @@ test('unreadable public asset prevents a success report instead of silently drop
   const io={mkdirSync(){},readdirSync(){return[{name:'missing.png',isDirectory:()=>false,isFile:()=>true}];},copyFileSync(){throw Error('Copy denied');},readFileSync(){throw Error('Read denied');},writeFileSync(){assert.fail('Cannot write missing data');}};
   assert.throws(()=>copyPublicAssets('source','destination',io),/Read denied/);
 });
+test('OneDrive directory metadata falls back to lstat without losing the icon bytes',()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'vigia-cloud-kind-'));
+  const source=path.join(directory,'source'),destination=path.join(directory,'destination');
+  fs.mkdirSync(source);const bytes=Buffer.from('<svg/>');fs.writeFileSync(path.join(source,'icon.svg'),bytes);
+  copyPublicAssets(source,destination,{...fs,readdirSync(){return[{name:'icon.svg',isDirectory:()=>false,isFile:()=>false}];}});
+  assert.deepEqual(fs.readFileSync(path.join(destination,'icon.svg')),bytes);
+});
+test('a genuine symbolic link remains unsupported and no target data is read',()=>{
+  const io={mkdirSync(){},readdirSync(){return[{name:'linked.svg',isDirectory:()=>false,isFile:()=>false}];},lstatSync(){return{isDirectory:()=>false,isFile:()=>false};},readFileSync(){assert.fail('Link target must not be read');},copyFileSync(){assert.fail('Link must not be copied');}};
+  assert.throws(()=>copyPublicAssets('source','destination',io),/Unsupported public asset/);
+});

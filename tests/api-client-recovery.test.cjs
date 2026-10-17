@@ -56,6 +56,41 @@ test('a failed status request can be requested again',async t=>{
   await assert.rejects(h.getAiStatus(),/verificar/);await h.getAiStatus();assert.equal(h.count('/api/status'),2);
 });
 
+test('simultaneous voice access checks share one GET without caching the completed decision',async t=>{
+  const pending=deferred();let request=0;
+  const allowed={allowed:true,voice:true,blocked:null},denied={allowed:false,voice:false,blocked:'Synthetic access changed'};
+  const h=await harness(t,{handler:({path})=>path==='/api/ai-access'?(++request===1?pending.promise:response(200,denied)):undefined});
+  const first=h.getAiAccess(),second=h.getAiAccess(),third=h.getAiAccess();await flush();
+  assert.equal(h.count('/api/ai-access'),1);assert.equal(h.count('/api/status'),1);
+  assert.equal(h.count('/api/session'),1);assert.equal(h.count('/api/adult-access'),1);
+  pending.resolve(response(200,allowed));
+  assert.deepEqual(await Promise.all([first,second,third]),[allowed,allowed,allowed]);
+  assert.deepEqual(await h.getAiAccess(),denied);assert.equal(h.count('/api/ai-access'),2);
+});
+
+test('a failed shared access check is evicted so the next action performs a fresh GET',async t=>{
+  const pending=deferred();let request=0;
+  const allowed={allowed:true,voice:true,blocked:null};
+  const h=await harness(t,{handler:({path})=>path==='/api/ai-access'?(++request===1?pending.promise:response(200,allowed)):undefined});
+  const first=h.getAiAccess(),second=h.getAiAccess();await flush();assert.equal(h.count('/api/ai-access'),1);
+  const failed=Promise.allSettled([first,second]);pending.resolve(response(503,{blocked:'Synthetic access outage'}));
+  for(const result of await failed){assert.equal(result.status,'rejected');assert.match(result.reason.message,/Synthetic access outage/);}
+  assert.deepEqual(await h.getAiAccess(),allowed);assert.equal(h.count('/api/ai-access'),2);
+});
+
+test('access checks never share identities and an old result cannot evict the new pending check',async t=>{
+  const a=deferred(),b=deferred();let request=0;
+  const h=await harness(t,{currentUser:user('a'),handler:({path})=>path==='/api/ai-access'?(++request===1?a.promise:b.promise):undefined});
+  const old=h.getAiAccess();await flush();assert.equal(h.count('/api/ai-access'),1);
+  h.auth.currentUser=user('b');const current=h.getAiAccess();await flush();
+  assert.equal(h.count('/api/ai-access'),2);
+  const oldFailure=assert.rejects(old,/conta mudou/);a.resolve(response(200,{allowed:true,voice:true,blocked:null}));await oldFailure;
+  const secondCurrent=h.getAiAccess();await flush();assert.equal(h.count('/api/ai-access'),2);
+  const denied={allowed:false,voice:false,blocked:'Synthetic account b access'};
+  b.resolve(response(200,denied));assert.deepEqual(await Promise.all([current,secondCurrent]),[denied,denied]);
+  assert.deepEqual(h.calls.filter(call=>call.path==='/api/ai-access').map(call=>call.options.headers.get('Authorization')),['Bearer synthetic-token-a','Bearer synthetic-token-b']);
+});
+
 test('cancelling a slow status releases the caller without consent, session or final request',async t=>{
   const pending=deferred(),controller=new AbortController();
   const h=await harness(t,{consent:false,handler:({path})=>path==='/api/status'?pending.promise:undefined});

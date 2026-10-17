@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const embeddedModel = __AVATAR_GLB_BASE64__;
+const assetName = __AVATAR_ASSET_NAME__;
 const container = document.getElementById('stage');
 const status = document.getElementById('status');
 const modeTitle = document.getElementById('mode-title');
@@ -261,10 +262,10 @@ async function start() {
     event.currentTarget.setAttribute('aria-pressed', String(controls.autoRotate));
   });
   document.getElementById('pause').addEventListener('click', () => running ? window.avatarPreview.pause() : window.avatarPreview.play());
-  document.getElementById('download-glb').addEventListener('click', () => download(new Blob([decodeModel()], { type: 'model/gltf-binary' }), 'vigia-original.glb'));
+  document.getElementById('download-glb').addEventListener('click', () => download(new Blob([decodeModel()], { type: 'model/gltf-binary' }), assetName + '.glb'));
   document.getElementById('download-png').addEventListener('click', () => {
     const data = capturePNG({ framing: activeFraming });
-    fetch(data).then(response => response.blob()).then(blob => download(blob, 'vigia-original.png'));
+    fetch(data).then(response => response.blob()).then(blob => download(blob, assetName + '.png'));
   });
   resolveReady(diagnostics());
   function frame(time) {

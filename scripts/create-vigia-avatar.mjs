@@ -6,11 +6,15 @@ import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // An original, texture-free character. Articulated meshes keep the GLB portable
 // and inexpensive to render without a network, external textures or paid tools.
+// --male creates a human tutor with the same rig. Existing game assets and the
+// already approved female model are left untouched when this option is used.
+const male = process.argv.includes('--male');
+const assetName = male ? 'vigia-original-male' : 'vigia-original';
 globalThis.FileReader=class {
   readAsArrayBuffer(blob){blob.arrayBuffer().then(result=>{this.result=result;this.onloadend?.();}).catch(error=>this.onerror?.(error));}
   readAsDataURL(blob){blob.arrayBuffer().then(result=>{this.result=`data:${blob.type||'application/octet-stream'};base64,${Buffer.from(result).toString('base64')}`;this.onloadend?.();}).catch(error=>this.onerror?.(error));}
 };
-const scene=new THREE.Scene();scene.name='VigiaOriginal';
+const scene=new THREE.Scene();scene.name=male?'VigiaOriginalMale':'VigiaOriginal';
 const materials={
   navy:new THREE.MeshStandardMaterial({name:'UniformeAzul',color:0x17354f,roughness:.82}),
   navyLight:new THREE.MeshStandardMaterial({name:'DetalhesAzuis',color:0x294e67,roughness:.82}),
@@ -89,32 +93,34 @@ for(const [side,label] of [[-1,'Left'],[1,'Right']]){
 const neck=joint('Neck',spine,[0,.47,0]);
 capsule(neck,materials.skin,.043,.064,[0,.045,0]);
 const head=joint('Head',neck,[0,.08,0]);
-oval(head,materials.skin,[0,.176,0],[.163,.201,.147]);
+oval(head,materials.skin,[0,.176,0],male?[.174,.199,.151]:[.163,.201,.147]);
 for(const side of [-1,1]){
   oval(head,materials.skin,[side*.160,.17,-.006],[.029,.043,.022]);
   oval(head,materials.skinShadow,[side*.175,.17,.006],[.012,.023,.010]);
-  oval(head,materials.metal,[side*.171,.134,.020],[.007,.007,.007]);
+  if(!male)oval(head,materials.metal,[side*.171,.134,.020],[.007,.007,.007]);
 }
 // A fitted hair surface has a higher front edge so it never covers the eyes.
 const hairPositions=[],hairIndices=[],rows=12,columns=24;
 for(let row=0;row<=rows;row++)for(let column=0;column<=columns;column++){
-  const phi=column/columns*Math.PI*2,maxTheta=1.05+(1-Math.cos(phi))*.57,theta=row/rows*maxTheta;
-  hairPositions.push(Math.sin(phi)*Math.sin(theta)*.173,.177+Math.cos(theta)*.211,Math.cos(phi)*Math.sin(theta)*.157);
+  const phi=column/columns*Math.PI*2,maxTheta=(male?1.13:1.05)+(1-Math.cos(phi))*(male?.37:.57),theta=row/rows*maxTheta;
+  hairPositions.push(Math.sin(phi)*Math.sin(theta)*(male?.181:.173),.177+Math.cos(theta)*.211,Math.cos(phi)*Math.sin(theta)*(male?.161:.157));
 }
 for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){const a=row*(columns+1)+column,b=a+columns+1;hairIndices.push(a,b,a+1,b,b+1,a+1);}
 const hairGeometry=new THREE.BufferGeometry();hairGeometry.setAttribute('position',new THREE.Float32BufferAttribute(hairPositions,3));hairGeometry.setIndex(hairIndices);hairGeometry.computeVertexNormals();
 mesh(head,hairGeometry,materials.hair);
-oval(head,materials.hair,[-.080,.345,.088],[.105,.055,.060]);
-oval(head,materials.hair,[.02,.325,-.190],[.094,.095,.087]);
-oval(head,materials.orange,[.02,.314,-.151],[.086,.022,.022]);
+if(!male){
+  oval(head,materials.hair,[-.080,.345,.088],[.105,.055,.060]);
+  oval(head,materials.hair,[.02,.325,-.190],[.094,.095,.087]);
+  oval(head,materials.orange,[.02,.314,-.151],[.086,.022,.022]);
+}
 for(const [side,label] of [[-1,'Left'],[1,'Right']]){
   const eye=joint('Eye'+label,head,[side*.059,.208,.137]);
   oval(eye,materials.white,[0,0,0],[.030,.023,.012]);
   oval(eye,materials.eyes,[0,-.001,.010],[.013,.016,.006]);
   oval(eye,materials.white,[-.003,.006,.016],[.004,.005,.002]);
   const brow=joint('Brow'+label,head,[side*.058,.251,.145]);
-  stroke(brow,materials.hair,[-.023,-.002,0],[0,.005,.001],.004);
-  stroke(brow,materials.hair,[0,.005,.001],[.022,.001,0],.004);
+  stroke(brow,materials.hair,[-.023,-.002,0],[0,.005,.001],male?.005:.004);
+  stroke(brow,materials.hair,[0,.005,.001],[.022,.001,0],male?.005:.004);
 }
 oval(head,materials.skin,[0,.161,.157],[.024,.025,.027]);
 const mouth=joint('Mouth',head,[0,.104,.143]);
@@ -154,13 +160,13 @@ const animations=[
   clip('LookAround',{Neck:[[0,0,0],[.06,.26,.03],[-.02,-.25,-.035],[.07,.18,.02],[0,0,0]],ShoulderLeft:[[0,0,-.12],[-.13,0,-.2],[-.08,0,-.14],[-.14,0,-.19],[0,0,-.12]],ElbowLeft:[[-.1,0,0],[-.65,0,-.55],[-.62,0,-.58],[-.66,0,-.5],[-.1,0,0]]}),
   clip('Sad',{Neck:[[0,0,0],[.14,0,-.025],[.16,-.04,-.015],[.14,.02,-.025],[0,0,0]],Spine:[[0,0,0],[.04,0,0],[.06,0,0],[.04,0,0],[0,0,0]],BrowLeft:[[0,0,0],[0,0,-.18],[0,0,-.22],[0,0,-.18],[0,0,0]],BrowRight:[[0,0,0],[0,0,.18],[0,0,.22],[0,0,.18],[0,0,0]]},[1,.65,.6,.65,1]),
 ];
-scene.userData={title:'Vigia original',assetVersion:1,creator:'Created for the Vigia project',description:'Adult stylized civil-protection guide; original articulated geometry and five gesture loops.',units:'metres',upAxis:'Y',frontAxis:'+Z',audioLipSync:false,externalAssets:[]};
+scene.userData={title:male?'Vigia original — tutor':'Vigia original',assetVersion:1,creator:'Created for the Vigia project',description:'Adult stylized civil-protection guide; original articulated geometry and five gesture loops.',units:'metres',upAxis:'Y',frontAxis:'+Z',audioLipSync:false,externalAssets:[]};
 scene.updateMatrixWorld(true);
 const bounds=new THREE.Box3().setFromObject(scene),size=bounds.getSize(new THREE.Vector3());
 let triangles=0,draws=0;scene.traverse(node=>{if(node.isMesh){draws++;triangles+=(node.geometry.index?.count||node.geometry.attributes.position.count)/3;}});
 const output=await new GLTFExporter().parseAsync(scene,{binary:true,animations,trs:true,onlyVisible:true});
 if(!(output instanceof ArrayBuffer))throw Error('The exporter did not create a GLB.');
-const destination=path.resolve('public/model/vigia-original.glb');fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,Buffer.from(output));
-const report={file:'public/model/vigia-original.glb',bytes:output.byteLength,triangles:Math.round(triangles),meshDraws:draws,joints:Object.keys(joints),clips:animations.map(animation=>({name:animation.name,duration:animation.duration,tracks:animation.tracks.length})),bounds:{min:bounds.min.toArray(),max:bounds.max.toArray(),size:size.toArray()},externalAssets:[],audioLipSync:false};
-fs.mkdirSync('artifacts',{recursive:true});fs.writeFileSync('artifacts/vigia-original-model.json',JSON.stringify(report,null,2));
+const destination=path.resolve(`public/model/${assetName}.glb`);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,Buffer.from(output));
+const report={file:`public/model/${assetName}.glb`,bytes:output.byteLength,triangles:Math.round(triangles),meshDraws:draws,joints:Object.keys(joints),clips:animations.map(animation=>({name:animation.name,duration:animation.duration,tracks:animation.tracks.length})),bounds:{min:bounds.min.toArray(),max:bounds.max.toArray(),size:size.toArray()},externalAssets:[],audioLipSync:false};
+fs.mkdirSync('artifacts',{recursive:true});fs.writeFileSync(`artifacts/${assetName}-model.json`,JSON.stringify(report,null,2));
 console.log(JSON.stringify(report,null,2));

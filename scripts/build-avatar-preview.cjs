@@ -6,8 +6,9 @@ const { pathToFileURL } = require('node:url');
 const esbuild = require('esbuild');
 
 const root = path.resolve(__dirname, '..');
-const modelPath = path.join(root, 'public/model/vigia-original.glb');
-const htmlPath = path.join(root, 'avatar-vigia-original.html');
+const assetName = process.argv.includes('--male') ? 'vigia-original-male' : 'vigia-original';
+const modelPath = path.join(root, `public/model/${assetName}.glb`);
+const htmlPath = path.join(root, `avatar-${assetName}.html`);
 
 function html(script) {
   const license = fs.readFileSync(path.join(root, 'node_modules/three/LICENSE'), 'utf8').replace(/--/g, '—');
@@ -55,7 +56,7 @@ async function build() {
     entryPoints: [path.join(root, 'scripts/avatar-preview-entry.js')],
     bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020',
     minify: true, legalComments: 'none',
-    define: { __AVATAR_GLB_BASE64__: JSON.stringify(model.toString('base64')), __AVATAR_GLB_BYTES__: String(model.length) },
+    define: { __AVATAR_GLB_BASE64__: JSON.stringify(model.toString('base64')), __AVATAR_GLB_BYTES__: String(model.length), __AVATAR_ASSET_NAME__: JSON.stringify(assetName) },
   });
   fs.writeFileSync(htmlPath, html(result.outputFiles[0].text));
   console.log('Prévia offline criada: ' + htmlPath);
@@ -91,13 +92,13 @@ async function captureAndCheck() {
     for (const check of movement) assert.ok(check.changed, check.mode + ' deve mover o modelo');
     await page.evaluate(() => { window.avatarPreview.setMode('idle', true); window.avatarPreview.advance(0.3); });
     const png = await page.evaluate(() => window.avatarPreview.capturePNG({ width: 1200, height: 1200, transparent: true, view: 'three-quarter' }));
-    const previewPath = path.join(root, 'public/model/vigia-original-preview.png');
+    const previewPath = path.join(root, `public/model/${assetName}-preview.png`);
     fs.writeFileSync(previewPath, Buffer.from(png.split(',')[1], 'base64'));
     const headPNG = await page.evaluate(() => window.avatarPreview.capturePNG({ width: 1200, height: 1200, transparent: true, view: 'front', framing: 'head' }));
-    const headPath = path.join(root, 'public/model/vigia-original-head.png');
+    const headPath = path.join(root, `public/model/${assetName}-head.png`);
     fs.writeFileSync(headPath, Buffer.from(headPNG.split(',')[1], 'base64'));
     assert.equal(await page.evaluate(() => window.avatarPreview.diagnostics().framing), 'bust');
-    await page.screenshot({ path: path.join(root, 'artifacts/vigia-original-viewer-desktop.png'), fullPage: true });
+    await page.screenshot({ path: path.join(root, `artifacts/${assetName}-viewer-desktop.png`), fullPage: true });
     await page.click('[data-mode="speaking"]');
     assert.equal(await page.evaluate(() => window.avatarPreview.diagnostics().clip), 'Happy');
     await page.click('[data-mode="listening"]');
@@ -111,7 +112,7 @@ async function captureAndCheck() {
     await page.click('#spin');
     assert.equal(await page.$eval('#spin', button => button.getAttribute('aria-pressed')), 'true');
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
-    await page.screenshot({ path: path.join(root, 'artifacts/vigia-original-viewer-mobile.png'), fullPage: true });
+    await page.screenshot({ path: path.join(root, `artifacts/${assetName}-viewer-mobile.png`), fullPage: true });
     const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > window.innerWidth, canvasWidth: document.querySelector('canvas').getBoundingClientRect().width }));
     assert.equal(mobile.overflow, false);
     assert.ok(mobile.canvasWidth > 300);
@@ -119,7 +120,7 @@ async function captureAndCheck() {
     assert.deepEqual(external, []);
     const checks = { model: path.relative(root, modelPath), preview: path.relative(root, previewPath), head: path.relative(root, headPath), framing: ['bust', 'head', 'full'], defaultFraming: 'bust', offline: true, errors, external, animations: initial.clips, movement, mobile };
     fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'artifacts/vigia-original-preview-checks.json'), JSON.stringify(checks, null, 2));
+    fs.writeFileSync(path.join(root, `artifacts/${assetName}-preview-checks.json`), JSON.stringify(checks, null, 2));
     console.log(JSON.stringify(checks, null, 2));
   } finally {
     await browser.close();

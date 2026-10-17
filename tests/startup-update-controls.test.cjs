@@ -39,7 +39,7 @@ test('failed persistence leaves the existing application and shows the actual re
 
 test('startup import failure offers only explicit retry without deleting browser storage',async()=>{
   let load,reloads=0,rendered;
-  const source=readFileSync('src/main.tsx','utf8').replace("import('./App.tsx')",'testEnv.loadApp()').replace(/^import '\.\/(?:index|learning)\.css';\r?\n/gm,'');
+  const source=readFileSync('src/main.tsx','utf8').replace("import('./App.tsx')",'testEnv.loadApp()').replace(/^import '\.\/(?:index|learning|section-theme)\.css';\r?\n/gm,'');
   const deps={'react':{StrictMode:'strict',Suspense:'suspense',lazy:loader=>{load=loader;return 'lazy-app';}},'react-dom/client':{createRoot:()=>({render:tree=>{rendered=tree;}})},'react/jsx-runtime':jsxRuntime,'./components/AdultGate':{AdultGate:'adult-gate'}};
   const code=await transform(source,{loader:'tsx',format:'cjs',jsx:'automatic'});
   new Function('require','document','window','testEnv',code.code)(name=>{assert.ok(name in deps,`Unexpected import ${name}`);return deps[name];},{getElementById:()=>({})},{location:{reload:()=>{reloads++;}}},{loadApp:async()=>{throw Error('Synthetic chunk fetch failed');}});

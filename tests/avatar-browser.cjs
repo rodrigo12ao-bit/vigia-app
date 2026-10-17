@@ -20,6 +20,9 @@ const online = process.argv.includes('--online');
 const origin = online ? resolvePublicTestOrigin(process.env.VIGIA_AVATAR_PUBLIC_URL || 'https://vigia-aplicativo-18plus.netlify.app') : 'http://127.0.0.1:3138';
 const headerOnly = process.argv.includes('--header-only');
 const presentationOnly = process.argv.includes('--presentation-only');
+const desktopOnly = process.argv.includes('--desktop-only');
+const testGender = process.env.VIGIA_AVATAR_TEST_GENDER || 'female';
+assert.ok(['female', 'male'].includes(testGender), 'Gênero de teste inválido.');
 const defaultPrefix = online ? 'artifacts/vigia-original-publication' : headerOnly ? 'artifacts/vigia-original-app-headers' : presentationOnly ? 'artifacts/vigia-original-app-presentation' : 'artifacts/vigia-original-app-browser';
 const artifactsDir = path.join(workspaceDir, 'artifacts');
 const prefix = path.resolve(process.env.VIGIA_AVATAR_EVIDENCE_PREFIX || defaultPrefix);
@@ -40,11 +43,13 @@ if (process.env.VIGIA_AVATAR_EVIDENCE_PREFIX) {
   const existingEvidence = fs.existsSync(directory) && fs.readdirSync(directory).some(name => name === basename + '.json' || name.startsWith(basename + '-'));
   assert.ok(!existingEvidence, 'Este prefixo já possui evidências; escolha outro para preservá-las.');
 }
-const headPreviewPath = '/model/vigia-original-head.png';
-const bustPreviewPath = '/model/vigia-original-preview.png';
+const modelBase = testGender === 'male' ? 'vigia-original-male' : 'vigia-original';
+const headPreviewPath = '/model/' + modelBase + '-head.png';
+const bustPreviewPath = '/model/' + modelBase + '-preview.png';
+const modelPath = '/model/' + modelBase + '.glb';
 const adultVersion = fs.readFileSync('src/lib/audience.ts', 'utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];
 const hosting = online ? new URL(origin).hostname.endsWith('.onrender.com') ? 'Render' : 'Netlify' : 'local';
-const report = { scope: 'Selected built app on loopback, desktop and emulated mobile. Every API, voice socket and microphone response is fictitious. External traffic blocked. No real AI, account login, payment, publication or physical microphone.', hosting, buildDir: publicDir, evidencePrefix: prefix, checks: [], profiles: [], status: 'running' };
+const report = { scope: 'Selected built app on loopback, desktop and emulated mobile. Every API, voice socket and microphone response is fictitious. External traffic blocked. No real AI, account login, payment, publication or physical microphone.', hosting, gender: testGender, desktopOnly, buildDir: publicDir, evidencePrefix: prefix, checks: [], profiles: [], status: 'running' };
 if (online) report.scope = 'Published ' + hosting + ' HTML/JS/PNG/GLB and service worker are real. The expected entry must be present in live HTML and load successfully; PNG/GLB assets must match the selected local build exactly. All API requests and voice sockets are mocked before reaching the network. Microphone input is the Chrome fake device. Desktop and mobile emulation, no real AI, login, payment, account change or physical microphone.';
 report.origin = origin;
 const status = { demo: false, realAI: true, localDemo: false, audience: '18plus', ai: { mode: 'adult-gemini', provider: 'gemini', blocked: null, consentVersion: 'avatar-local-fixture', voice: true } };
@@ -80,9 +85,8 @@ async function check(name, action) {
   console.log('PASS ' + label + ': ' + name);
 }
 
-async function activate() {
-  await page.click('[aria-label="Ativar avatar 3D"]');
-  await page.waitForSelector('canvas');
+async function activate(framing = 'head') {
+  await page.waitForSelector('[data-avatar-framing="' + framing + '"] canvas');
   await page.waitForFunction(() => window.avatarReview.drawCalls > 100);
   await wait(850);
 }
@@ -94,12 +98,22 @@ async function emit(messages) {
 async function movingCanvas(name) {
   const canvas = await page.$('canvas');
   assert.ok(canvas);
-  const first = await canvas.screenshot({ path: prefix + '-' + label + '-' + name + '-a.png' });
+  const first = await avatarRegionImage(prefix + '-' + label + '-' + name + '-a.png');
   await wait(1000);
-  const second = await canvas.screenshot({ path: prefix + '-' + label + '-' + name + '-b.png' });
+  const second = await avatarRegionImage(prefix + '-' + label + '-' + name + '-b.png');
   const hashes = [first, second].map(bytes => createHash('sha256').update(bytes).digest('hex'));
   assert.notEqual(hashes[0], hashes[1], 'The rendered avatar must change over time.');
   report.profiles.at(-1).frames.push({ mode: name, hashes });
+}
+
+async function avatarRegionImage(filename) {
+  const canvas = await page.$('[data-avatar-framing="bust"] canvas'), box = await canvas?.boundingBox();
+  assert.ok(box);
+  // The canvas occupies the whole stage, including HTML overlays. Crop its
+  // central character region so microphone meters and controls cannot make a
+  // static avatar look animated (or trigger a false reduced-motion failure).
+  const clip = { x: box.x + box.width * 0.15, y: box.y + box.height * 0.15, width: box.width * 0.7, height: box.height * 0.65 };
+  return page.screenshot({ ...(filename ? { path: filename } : {}), clip, captureBeyondViewport: true });
 }
 
 function fixture(pathname) {
@@ -114,7 +128,7 @@ function fixture(pathname) {
 async function publicationAssetsAndCache(profile, workerSessions) {
   await check('versão publicada e arquivos do avatar correspondem ao build revisado', async() => {
     await Promise.all(profile.assetHashTasks);
-    for (const pathname of [headPreviewPath, bustPreviewPath, '/model/vigia-original.glb']) {
+    for (const pathname of [headPreviewPath, bustPreviewPath, modelPath]) {
       const expected = createHash('sha256').update(fs.readFileSync(path.join(publicDir, pathname))).digest('hex');
       const actual = profile.assetHashes[pathname];
       assert.equal(actual, expected, 'Arquivo publicado desatualizado: ' + pathname);
@@ -196,7 +210,7 @@ async function profile(mobile) {
     const url = new URL(response.url());
     if (url.origin !== origin || url.pathname.startsWith('/api/')) return;
     profile.assetResponses.push({ pathname: url.pathname, status: response.status(), cacheControl: response.headers()['cache-control'] || '' });
-    if ([headPreviewPath, bustPreviewPath, '/model/vigia-original.glb'].includes(url.pathname)) profile.assetHashTasks.push(response.buffer().then(bytes => { profile.assetHashes[url.pathname] = createHash('sha256').update(bytes).digest('hex'); }).catch(error => { profile.errors.push('Leitura de asset público: ' + error.message); }));
+    if ([headPreviewPath, bustPreviewPath, modelPath].includes(url.pathname)) profile.assetHashTasks.push(response.buffer().then(bytes => { profile.assetHashes[url.pathname] = createHash('sha256').update(bytes).digest('hex'); }).catch(error => { profile.errors.push('Leitura de asset público: ' + error.message); }));
   });
   const workerSessions = new Set();
   const attachWorker = async target => {
@@ -220,12 +234,12 @@ async function profile(mobile) {
     await session.send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   };
   browser.on('targetcreated', attachWorker);
-  await page.evaluateOnNewDocument(({ adultVersion }) => {
+  await page.evaluateOnNewDocument(({ adultVersion, testGender }) => {
     sessionStorage.setItem('vigia_adult_access', adultVersion);
     localStorage.setItem('dc_is_guest', 'true');
     localStorage.setItem('vigia_ai_consent:guest', 'avatar-local-fixture');
     localStorage.setItem('vigia_mic_explained:guest', 'true');
-    localStorage.setItem('vigia_progress:guest', JSON.stringify({ avatarGender: 'female' }));
+    localStorage.setItem('vigia_progress:guest', JSON.stringify({ avatarGender: testGender }));
     window.avatarReview = { drawCalls: 0, sockets: [], tracks: [], contexts: [], frames: 0 };
     for (const Context of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
       if (!Context) continue;
@@ -251,7 +265,7 @@ async function profile(mobile) {
       send(data) { const message = JSON.parse(data); this.sent.push(message); if (message.type === 'realtime_audio') window.avatarReview.frames++; if (message.type === 'interrupt') setTimeout(() => this.emit({ type: 'interrupted' }), 0); }
       close() { if (this.readyState === 3) return; this.readyState = 3; this.onclose?.(); }
     };
-  }, { adultVersion });
+  }, { adultVersion, testGender });
   const navigation = await page.goto(origin, { waitUntil: 'domcontentloaded' });
   if (online) {
     assert.equal(navigation.status(), 200);
@@ -259,40 +273,31 @@ async function profile(mobile) {
     assert.ok(published.includes(report.expectedEntry), 'O HTML publicado não referencia a versão esperada do bundle.');
     profile.publishedIndexSha256 = createHash('sha256').update(published).digest('hex');
   }
+  await page.waitForFunction(() => document.body.innerText.includes('Olá,'));
   await page.waitForSelector('[aria-label="Conversa & Voz"]');
   await page.click('[aria-label="Conversa & Voz"]');
   await page.waitForSelector('textarea');
 
-  await check('a nova prévia carrega sem baixar modelos ou gráficos 3D', async() => {
-    await page.waitForSelector('img[src="' + headPreviewPath + '"]');
-    await page.waitForFunction(path => [...document.querySelectorAll('img')].some(image => image.getAttribute('src') === path && image.complete && image.naturalWidth > 0), {}, headPreviewPath);
-    assert.equal(await page.$('canvas'), null);
+  await check('a conversa mostra a cabeça e mantém os controles de animação internos', async() => {
+    await page.waitForFunction(path => [...document.querySelectorAll('img')].some(image => image.getAttribute('src') === path && image.complete && image.naturalWidth > 0) || !!document.querySelector('[data-avatar-framing="head"] canvas'), {}, headPreviewPath);
     assert.ok(profile.assetRequests.includes(headPreviewPath));
-    assert.ok(!profile.assetRequests.some(url => /\.glb$|\/graphics-|\/vendor-three-|\/Avatar3D-/.test(url)), 'The preview must not eagerly request graphics.');
+    assert.equal(await page.$('[aria-label="Ativar avatar 3D"], [aria-label="Usar imagem do avatar"]'), null);
+    assert.ok(!await page.evaluate(() => /\b3D\b/i.test(document.body.innerText)), 'Os controles internos de animação não devem aparecer no produto.');
     if (headerOnly || presentationOnly) {
       await page.screenshot({ path: prefix + '-' + label + '-preview.png', fullPage: true });
-      await (await page.$('img[src="' + headPreviewPath + '"]')).screenshot({ path: prefix + '-' + label + '-portrait-2d.png' });
     }
   });
-  await check('ativar 3D em texto carrega o modelo original e desenha o avatar', async() => {
+  await check('a cabeça anima automaticamente em texto com o modelo original', async() => {
     await activate();
-    assert.ok(profile.assetRequests.includes('/model/vigia-original.glb'));
-    assert.ok(!profile.assetRequests.includes('/model/avatar_1.glb'));
-    assert.equal(await page.$eval('[aria-label="Usar imagem do avatar"]', button => button.getAttribute('aria-pressed')), 'true');
-    if (headerOnly) {
-      profile.headerControl = await page.$eval('[aria-label="Usar imagem do avatar"]', button => {
-        const box = button.getBoundingClientRect();
-        return { width: box.width, height: box.height, fontSize: getComputedStyle(button).fontSize };
-      });
-      assert.ok(profile.headerControl.width <= 22 && profile.headerControl.height <= 14, 'The compact header control must leave the face visible.');
-    }
+    assert.ok(profile.assetRequests.includes(modelPath));
+    assert.ok(!profile.assetRequests.some(path => ['/model/avatar_1.glb', '/model/avatar_2.glb'].includes(path)));
+    assert.equal(await page.$eval('[data-avatar-framing="head"]', element => element.getAttribute('data-avatar-speaking')), 'false');
     await page.screenshot({ path: prefix + '-' + label + '-text.png', fullPage: true });
     if (headerOnly || presentationOnly) await (await page.$('canvas')).screenshot({ path: prefix + '-' + label + '-portrait-3d.png' });
   });
-  await check('voltar ao 2D remove o Canvas e conserva a prévia', async() => {
-    await page.click('[aria-label="Usar imagem do avatar"]');
-    await page.waitForFunction(() => !document.querySelector('canvas'));
-    assert.ok(await page.$('img[src="' + headPreviewPath + '"]'));
+  await check('a cabeça permanece ativa sem botões de modo na conversa', async() => {
+    assert.ok(await page.$('[data-avatar-framing="head"] canvas'));
+    assert.equal(await page.$('[aria-label="Ativar avatar 3D"], [aria-label="Usar imagem do avatar"]'), null);
   });
   if (headerOnly) {
     assert.deepEqual(profile.errors, []);
@@ -305,12 +310,11 @@ async function profile(mobile) {
   await check('a conversa de voz fictícia usa o palco maior e anima a escuta', async() => {
     await page.click('[aria-label="Conversa por voz"]');
     await page.waitForFunction(() => window.avatarReview.sockets.length === 1 && window.avatarReview.tracks.some(track => track.readyState === 'live' && track.enabled));
-    await page.waitForSelector('img[src="' + bustPreviewPath + '"]');
+    await page.waitForFunction(path => !!document.querySelector('img[src="' + path + '"]') || !!document.querySelector('[data-avatar-framing="bust"] canvas'), {}, bustPreviewPath);
     if (presentationOnly) {
       await page.screenshot({ path: prefix + '-' + label + '-voice-preview.png', fullPage: true });
-      await (await page.$('img[src="' + bustPreviewPath + '"]')).screenshot({ path: prefix + '-' + label + '-bust-2d.png' });
     }
-    await activate();
+    await activate('bust');
     await page.waitForSelector('.vigia-avatar-listening canvas');
     const box = await (await page.$('canvas')).boundingBox();
     assert.ok(box.width >= 250 && box.height >= 150, 'Voice mode must provide a large stage.');
@@ -318,12 +322,25 @@ async function profile(mobile) {
     await page.screenshot({ path: prefix + '-' + label + '-voice.png', fullPage: true });
   });
   if (presentationOnly) {
+    await check('a boca acompanha fala fictícia e retorna ao repouso ao terminar ou interromper', async() => {
+      await emit([{ type: 'output_transcription', text: 'Confira a lanterna antes de guardar.' }, { type: 'reply_ready' }, { type: 'audio_chunk', pcmBase64: Buffer.alloc(480000).toString('base64') }, { type: 'turn_complete' }]);
+      await page.waitForSelector('[data-avatar-framing="bust"][data-avatar-speaking="true"] canvas');
+      await movingCanvas('speaking');
+      await page.screenshot({ path: prefix + '-' + label + '-speaking.png', fullPage: true });
+      const interrupted = await page.evaluate(() => {
+        const button = document.querySelector('[title="Interromper fala"]');
+        if (!button || button.disabled) return false;
+        button.click(); return true;
+      });
+      profile.speechCompletion = interrupted ? 'interrupted' : 'natural';
+      await page.waitForSelector('[data-avatar-framing="bust"][data-avatar-speaking="false"] canvas');
+    });
     await check('apresentação final sem erros, volta para cabeça em texto e encerra voz', async() => {
       assert.deepEqual(profile.errors, []);
       assert.deepEqual(profile.graphicsErrors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
       await page.click('[aria-label="Conversa por texto"]');
-      await page.waitForSelector('img[src="' + headPreviewPath + '"]');
+      await activate('head');
       await page.waitForFunction(() => window.avatarReview.tracks.every(track => track.readyState === 'ended') && window.avatarReview.sockets.every(socket => socket.readyState === 3));
     });
     if (online) {
@@ -345,44 +362,46 @@ async function profile(mobile) {
   await check('gestos de fala acompanham a reprodução fictícia', async() => {
     await emit([{ type: 'output_transcription', text: 'Confira a lanterna antes de guardar.' }, { type: 'reply_ready' }, { type: 'audio_chunk', pcmBase64: Buffer.alloc(480000).toString('base64') }, { type: 'turn_complete' }]);
     await page.waitForSelector('.vigia-avatar-speaking canvas');
+    assert.equal(await page.$eval('[data-avatar-framing="bust"]', element => element.getAttribute('data-avatar-speaking')), 'true');
     await movingCanvas('speaking');
     await page.screenshot({ path: prefix + '-' + label + '-speaking.png', fullPage: true });
     await page.click('[title="Interromper fala"]');
     await page.waitForSelector('.vigia-avatar-listening canvas');
+    assert.equal(await page.$eval('[data-avatar-framing="bust"]', element => element.getAttribute('data-avatar-speaking')), 'false');
   });
-  await check('perda de contexto mostra a imagem e permite tentar 3D novamente', async() => {
+  await check('perda de contexto conserva a prévia até remontar o avatar', async() => {
     assert.deepEqual(profile.errors, []);
     assert.deepEqual(profile.graphicsErrors, []);
     inducingContextLoss = true;
     await page.$eval('canvas', canvas => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
-    await page.waitForSelector('img[src="/model/vigia-original-preview.png"]');
+    await page.waitForSelector('img[src="' + bustPreviewPath + '"]');
     await page.waitForFunction(() => !document.querySelector('canvas') && document.body.innerText.includes('A imagem da Vigia continua disponível.'));
-    await page.click('[aria-label="Usar imagem do avatar"]');
-    await activate();
+    assert.equal(await page.$('[aria-label="Ativar avatar 3D"], [aria-label="Usar imagem do avatar"]'), null);
+    await page.click('[aria-label="Conversa por texto"]');
+    await activate('head');
+    await page.click('[aria-label="Conversa por voz"]');
+    await activate('bust');
     inducingContextLoss = false;
     await page.waitForSelector('.vigia-avatar-listening canvas');
   });
   await check('reduzir movimento conserva uma pose estável', async() => {
-    await page.click('[aria-label="Usar imagem do avatar"]');
-    await page.waitForFunction(() => !document.querySelector('canvas'));
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-    await activate();
+    await activate('bust');
     await wait(1200);
-    const canvas = await page.$('canvas');
-    const first = await canvas.screenshot();
+    const first = await avatarRegionImage();
     await wait(700);
-    const second = await canvas.screenshot({ path: prefix + '-' + label + '-reduced-motion.png' });
+    const second = await avatarRegionImage(prefix + '-' + label + '-reduced-motion.png');
     const hashes = [first, second].map(bytes => createHash('sha256').update(bytes).digest('hex'));
     assert.equal(hashes[0], hashes[1], 'A reduced-motion avatar should keep the same rendered pose.');
     profile.reducedMotionHashes = hashes;
+    await page.screenshot({ path: prefix + '-' + label + '-reduced-motion-page.png', fullPage: true });
   });
-  await check('alternar para 2D e encerrar voz libera todos os recursos fictícios', async() => {
-    await page.click('[aria-label="Usar imagem do avatar"]');
-    await page.waitForFunction(() => !document.querySelector('canvas'));
+  await check('encerrar voz libera os recursos fictícios e mantém a cabeça automática', async() => {
     await page.click('[title="Encerrar"]');
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Sim, encerrar'));
     await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Sim, encerrar').click());
     await page.waitForFunction(() => window.avatarReview.tracks.every(track => track.readyState === 'ended') && window.avatarReview.sockets.every(socket => socket.readyState === 3));
+    await activate('head');
     assert.deepEqual(profile.errors, []);
     assert.deepEqual(profile.graphicsErrors, []);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2));
@@ -395,7 +414,7 @@ async function profile(mobile) {
   try {
     fs.mkdirSync(path.dirname(prefix), { recursive: true });
     assert.ok(fs.existsSync(path.join(publicDir, 'index.html')), 'Prepare o build selecionado antes de rodar o teste.');
-    assert.ok(fs.existsSync(path.join(publicDir, 'model/vigia-original.glb')), 'O modelo original precisa fazer parte do build.');
+    assert.ok(fs.existsSync(path.join(publicDir, modelPath)), 'O modelo original precisa fazer parte do build.');
     report.bundleSha256 = createHash('sha256').update(fs.readFileSync(path.join(publicDir, 'index.html'))).digest('hex');
     if (online) {
       const expectedHTML = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
@@ -407,7 +426,7 @@ async function profile(mobile) {
     } else await new Promise((resolve, reject) => { server.once('error', reject); server.listen(3138, '127.0.0.1', resolve); });
     const puppeteer = (await import('puppeteer')).default;
     browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, pipe: true, args: ['--no-sandbox', '--disable-background-networking', '--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'], timeout: 60000 });
-    await profile(false); await profile(true);
+    await profile(false); if (!desktopOnly) await profile(true);
     report.status = 'passed';
     console.log('PASS ' + report.checks.length + ' verificações de avatar no app.');
   } catch (error) {

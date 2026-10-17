@@ -19,7 +19,8 @@ const HomeTab=React.lazy(()=>import('./components/HomeTab'));
 const LearningCenter=React.lazy(()=>import('./components/learning/LearningCenter'));
 const SchoolDashboard=React.lazy(()=>import('./components/SchoolDashboard'));
 const HelpTab=React.lazy(()=>import('./components/HelpTab'));
-const ChatTab=React.lazy(()=>import('./components/ChatTab').then(m=>({default:m.ChatTab})));
+const loadChatTab=()=>import('./components/ChatTab').then(m=>({default:m.ChatTab}));
+const ChatTab=React.lazy(loadChatTab);
 // Lazy loading das abas secundárias e módulos 3D pesados para carregamento instantâneo
 const GameHubTab = React.lazy(() => import('./components/games/hub/GameHubTab'));
 const TopicsTab = React.lazy(() => import('./components/TopicsTab').then((m) => ({ default: m.TopicsTab })));
@@ -665,17 +666,17 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <AvatarGenderContext.Provider value={avatarGender}><div className={`vigia-app bg-gradient-to-b from-orange-50/40 via-slate-100/90 to-blue-50/30 text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
+    <AvatarGenderContext.Provider value={avatarGender}><div data-section={activeTab} className={`vigia-app text-slate-900 font-sans flex flex-col antialiased transition-colors duration-500 ease-in-out px-safe ${
       activeTab === 'chat' ? 'h-dvh max-h-dvh overflow-hidden' : 'min-h-dvh'
     }`}>
       {demo && <div role="status" className="bg-amber-100 text-amber-950 px-3 py-2 text-xs text-center font-bold">{localDemo?'DEMONSTRAÇÃO LOCAL • contas fictícias':'PRÉVIA ONLINE • use apenas dados fictícios'} • respostas da IA simuladas • voz ao vivo indisponível</div>}
       {aiTest&&<div role="status" className="bg-indigo-100 text-indigo-950 px-3 py-2 text-xs text-center font-bold">TESTE LOCAL DE IA REAL • exclusivo para adultos • somente dados fictícios • voz gerada por IA{aiBlocked?' • '+aiBlocked:''}</div>}
       {aiLocal&&<div role="status" className="bg-emerald-100 text-emerald-950 px-3 py-2 text-xs text-center font-bold">IA GRATUITA LOCAL • respostas reais • dados fictícios • supervisão de um adulto{aiBlocked?' • '+aiBlocked:''}</div>}
-      {aiGemini&&<div role="status" className="bg-indigo-100 text-indigo-950 px-3 py-2 text-xs text-center font-bold">VIGIA 18+ • Gemini real • cota gratuita • não envie dados pessoais{aiBlocked?' • '+aiBlocked:''}</div>}
       {notice && <div role="alert" className="bg-rose-100 text-rose-900 p-3 text-sm">{notice} <button onClick={()=>setNotice('')} aria-label="Fechar aviso">×</button></div>}
       {/* Header Navigation */}
       <Navbar
         activeTab={activeTab}
+        onPrepareTab={tab=>{if(tab==='chat')void loadChatTab().catch(()=>{});}}
         setActiveTab={tab=>{if(tab==='learn')setInitialMission(null);setActiveTab(tab);}}
         starsScore={starsScore}
         unlockedBadgesCount={unlockedBadgesCount}

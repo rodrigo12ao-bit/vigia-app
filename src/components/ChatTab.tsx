@@ -1435,10 +1435,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               <div className="w-10 h-10 sm:w-14 sm:h-14 shrink-0 relative flex items-center justify-center bg-slate-800/80 rounded-2xl border border-indigo-500/30 p-1 shadow-inner overflow-hidden">
                 <Avatar
                   state={currentAvatarState}
-                  isSpeaking={currentIsSpeaking}
+                  isSpeaking={currentIsSpeaking&&!isAudioMuted}
                   isListening={isListening}
                   size="sm"
                   showSubtitle={false}
+                  interactive3D={true}
                 />
               </div>
             )}
@@ -1468,7 +1469,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 aria-label="Conversa por texto"
                 className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer ${
                   chatMode === 'text'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -2004,7 +2005,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 {/* O Avatar ocupa 100% dessa zona livremente */}
                 <Avatar
                   state={currentAvatarState}
-                  isSpeaking={currentIsSpeaking}
+                  isSpeaking={currentIsSpeaking&&!isAudioMuted}
                   isListening={isListening}
                   size="lg"
                   showSubtitle={false}
@@ -2141,7 +2142,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                         <div
                           className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-3 sm:p-3.5 text-xs sm:text-sm leading-relaxed shadow-lg backdrop-blur-md relative break-words [overflow-wrap:anywhere] min-w-0 border ${
                             isUser
-                              ? 'bg-gradient-to-br from-orange-500/90 to-amber-600/90 border-amber-400/30 text-white rounded-tr-xs font-medium'
+                              ? 'bg-gradient-to-br from-blue-600/90 to-indigo-600/90 border-blue-400/30 text-white rounded-tr-xs font-medium'
                               : 'bg-slate-800/60 border-slate-700/60 text-slate-100 rounded-tl-xs font-medium'
                           }`}
                         >
@@ -2332,7 +2333,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <button
                     type="submit"
                     disabled={(!inputText.trim()&&!selectedImage)||isLoading||isPreparingImage}
-                    className="p-2.5 sm:p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+                    className="p-2.5 sm:p-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
                     title="Enviar mensagem"
                   >
                     <Send className="w-5 h-5" />

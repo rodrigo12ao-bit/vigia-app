@@ -1,6 +1,6 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AvatarGenderContext } from '../lib/avatarSettings';
-import { avatarPreviewPath, resolveAvatarState } from '../lib/avatarAnimation';
+import { avatarPreviewPath, canAnimateAvatar, resolveAvatarState } from '../lib/avatarAnimation';
 import type { AvatarState, AvatarGender } from '../types';
 
 const Avatar3D = React.lazy(() => import('./Avatar3D').then(module => ({ default: module.Avatar })));
@@ -30,11 +30,45 @@ class AvatarBoundary extends React.Component<
 }
 
 export const Avatar = React.memo((props: Props) => {
-  const [active, setActive] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  const [loadedGender, setLoadedGender] = useState<AvatarGender | null>(null);
+  const [visible, setVisible] = useState(true);
   const contextGender = React.useContext(AvatarGenderContext);
   const gender = props.gender || contextGender;
+  const modelReady = useCallback(() => setLoadedGender(gender), [gender]);
   const currentState = resolveAvatarState(props.state, props.isSpeaking, props.isListening);
-  const use3D = active && props.interactive3D !== false;
+  const animated = canAnimateAvatar(props.size, props.interactive3D);
+  // First paint and the conversation controls remain independent of the model
+  // download. Start a visible avatar during idle time, without an extra click.
+  useEffect(() => {
+    if (!animated || !container.current) return;
+    let onScreen = typeof IntersectionObserver === 'undefined', cancelled = false;
+    let idle: number | undefined, timer: ReturnType<typeof setTimeout> | undefined;
+    const cancelStart = () => {
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      if (timer !== undefined) clearTimeout(timer);
+      idle = undefined; timer = undefined;
+    };
+    const update = () => {
+      const next = onScreen && document.visibilityState !== 'hidden';
+      setVisible(next);
+      if (!next) { cancelStart(); return; }
+      if (ready || idle !== undefined || timer !== undefined) return;
+      const start = () => { idle = undefined; timer = undefined; if (!cancelled) setReady(true); };
+      if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(start, { timeout: 750 });
+      else timer = setTimeout(start, 80);
+    };
+    const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver(entries => {
+      onScreen = entries.some(entry => entry.isIntersecting); update();
+    });
+    observer?.observe(container.current);
+    document.addEventListener('visibilitychange', update);
+    update();
+    return () => { cancelled = true; cancelStart(); observer?.disconnect(); document.removeEventListener('visibilitychange', update); };
+  }, [animated, ready]);
+  useEffect(() => { props.onStateChange?.(currentState); }, [currentState, props.onStateChange]);
+  const use3D = ready && animated;
   const preview = (
     <img
       src={avatarPreviewPath(gender, props.size)}
@@ -47,26 +81,15 @@ export const Avatar = React.memo((props: Props) => {
     />
   );
   return (
-    <div className={`absolute inset-0 flex items-center justify-center ${currentState === 'speaking' ? 'vigia-avatar-speaking' : currentState === 'listening' ? 'vigia-avatar-listening' : ''}`}>
+    <div ref={container} className={`absolute inset-0 flex items-center justify-center ${currentState === 'speaking' ? 'vigia-avatar-speaking' : currentState === 'listening' ? 'vigia-avatar-listening' : ''}`}>
       {use3D ? (
         <AvatarBoundary key={gender} fallback={preview}>
-          <Suspense fallback={<>{preview}<span role="status" className="sr-only">Carregando avatar…</span></>}>
-            <Avatar3D {...props} gender={gender} />
+          {loadedGender !== gender && preview}
+          <Suspense fallback={<span role="status" className="sr-only">Carregando avatar…</span>}>
+            <Avatar3D {...props} onStateChange={undefined} onModelReady={modelReady} gender={gender} animationEnabled={visible} />
           </Suspense>
         </AvatarBoundary>
       ) : preview}
-      {props.interactive3D !== false && (
-        <button
-          type="button"
-          onClick={() => setActive(value => !value)}
-          aria-label={use3D ? 'Usar imagem do avatar' : 'Ativar avatar 3D'}
-          aria-pressed={use3D}
-          style={props.size === 'sm' ? { fontSize: 8, lineHeight: 1, padding: '2px 4px' } : undefined}
-          className="absolute bottom-0 right-0 z-30 rounded bg-slate-700 text-white text-xs px-2 py-1"
-        >
-          {use3D ? '2D' : '3D'}
-        </button>
-      )}
     </div>
   );
 });

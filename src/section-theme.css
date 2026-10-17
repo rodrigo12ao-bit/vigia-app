@@ -1,0 +1,51 @@
+/* Sector accents stay readable on bright, softly layered surfaces. */
+.vigia-app,.welcome-shell{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+.vigia-app{--section-accent:#9a670b;--section-strong:#80510a;--section-soft:#fff3cd;--section-edge:#f0cf7b;--vigia-brand:var(--section-accent);--vigia-ink:#26314a;--vigia-muted:#5d667c;--vigia-border:#e3e5f1;background:radial-gradient(ellipse at 3% 0%,#fff3cb90,transparent 48%),radial-gradient(ellipse at 95% 25%,#e0dcff90,transparent 48%),linear-gradient(145deg,#fffdfa,#f7f3ff 54%,#edf6ff);}
+.vigia-app[data-section=chat],.navigation-tabs [data-section=chat]{--section-accent:#2563eb;--section-strong:#1d4ed8;--section-soft:#e6efff;--section-edge:#b7ceff;}
+.vigia-app[data-section=learn],.navigation-tabs [data-section=learn]{--section-accent:#7c3aed;--section-strong:#6d28d9;--section-soft:#f0e8ff;--section-edge:#d5befa;}
+.vigia-app[data-section=school],.navigation-tabs [data-section=school]{--section-accent:#0f766e;--section-strong:#115e59;--section-soft:#dcf7f0;--section-edge:#9bded2;}
+.vigia-app[data-section=games],.navigation-tabs [data-section=games]{--section-accent:#be185d;--section-strong:#9d174d;--section-soft:#fce7f1;--section-edge:#f5b3d1;}
+.vigia-app[data-section=topics],.navigation-tabs [data-section=topics]{--section-accent:#15803d;--section-strong:#166534;--section-soft:#e3f8e8;--section-edge:#afe4bc;}
+.vigia-app[data-section=phones],.navigation-tabs [data-section=phones]{--section-accent:#c34b2f;--section-strong:#a43b24;--section-soft:#ffede6;--section-edge:#f5c1ae;}
+.vigia-app[data-section=sala_segura],.navigation-tabs [data-section=sala_segura]{--section-accent:#0e7490;--section-strong:#155e75;--section-soft:#e0f7ff;--section-edge:#abe2f4;}
+.navigation-tabs [data-section=home]{--section-accent:#9a670b;--section-strong:#80510a;--section-soft:#fff3cd;--section-edge:#f0cf7b;}
+.vigia-app .app-navigation{background:#ffffffec;backdrop-filter:blur(14px);border-bottom:1px solid #e5def6;box-shadow:0 4px 24px #49329608;}
+.navigation-brand{gap:10px;color:#34265f;min-height:44px;cursor:pointer;}
+.navigation-brand-image{width:42px;height:42px;flex-shrink:0;filter:drop-shadow(0 3px 6px #674bd526);}
+.navigation-brand-copy{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1;}
+.navigation-brand-copy strong{font-size:25px;font-weight:850;letter-spacing:-.7px;}
+.navigation-brand-copy small{font-size:9px;letter-spacing:.11em;text-transform:uppercase;font-weight:750;color:#77728b;margin-top:5px;}
+.vigia-app .navigation-icon,.vigia-app .navigation-profile{min-height:44px;background:#faf8ff;color:#4b3b73;border:1px solid #ded6ef;box-shadow:none;cursor:pointer;}
+.vigia-app .navigation-icon{min-width:44px;}
+.vigia-app .navigation-icon:hover,.vigia-app .navigation-profile:hover{background:#eee8ff;color:#512dbf;}
+.vigia-app .navigation-icon svg,.vigia-app .navigation-profile svg{color:currentColor;}
+.vigia-app .app-navigation button:focus-visible{outline:2px solid #7c3aed;outline-offset:3px;}
+.navigation-tabs button{color:var(--section-accent);border:1px solid transparent;min-height:45px;transition:background .18s ease,border-color .18s ease;cursor:pointer;}
+.navigation-tabs button:hover{background:var(--section-soft);}
+.navigation-tabs button[aria-current=page]{background:var(--section-soft);border-color:var(--section-edge);color:var(--section-strong);box-shadow:0 3px 10px #34314e06;}
+.vigia-app .vigia-primary{background:var(--section-accent);box-shadow:0 5px 12px #30236b15;cursor:pointer;}
+.vigia-app .vigia-primary:hover{background:var(--section-strong);}
+.vigia-app .vigia-home .vigia-home-mission .vigia-primary{color:#38280c;}
+.vigia-app .eyebrow{color:var(--section-strong);}
+.vigia-app .learning-sections button[aria-current=page]{color:var(--section-strong);border:1px solid var(--section-edge);background:var(--section-soft);}
+.vigia-app .learn-card progress{accent-color:var(--section-accent);}
+.vigia-app .learning-heading{background:linear-gradient(120deg,var(--section-soft),#fff);border-color:var(--section-edge);}
+.vigia-app .learning-hero-medallion{background:var(--section-soft);border-color:var(--section-edge);color:var(--section-strong);box-shadow:0 6px 0 var(--section-edge);}
+.vigia-app .recommendation{background:var(--section-soft);border-color:var(--section-edge);}
+.vigia-app .learn-card.home-action>svg:first-child{color:var(--section-accent);}
+.welcome-shell{background:radial-gradient(ellipse at 15% 15%,#fff3c8,transparent 48%),radial-gradient(ellipse at 90% 20%,#dbeaff,transparent 42%),linear-gradient(140deg,#f8f1ff,#f8faff);color:#30234d;}
+.welcome-shell .welcome-card{background:#ffffffed;border:1px solid #e5dbf8;box-shadow:0 24px 80px #66509e1f;color:#30234d;}
+.welcome-shell .vigia-primary{background:linear-gradient(120deg,#6f3ce2,#4d67e8);color:#fff;box-shadow:0 6px 15px #6937d52b;}
+.welcome-shell .vigia-primary:hover{background:linear-gradient(120deg,#602bcf,#3855d6);}
+.adult-entry-brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:24px;}
+.adult-entry-brand img{width:90px;height:90px;filter:drop-shadow(0 12px 18px #674ee331);animation:entry-brand-turn 1.2s cubic-bezier(.2,.7,.3,1) both,entry-brand-float 5s ease-in-out 1.2s infinite;}
+.adult-entry-brand strong{font-size:30px;font-weight:850;letter-spacing:-.8px;}
+.adult-entry-card h1{font-size:clamp(24px,5vw,31px);font-weight:800;letter-spacing:-.6px;line-height:1.2;}
+.adult-entry-card>p{color:#69627d;line-height:1.65;}
+.adult-entry-card>p strong{color:#473064;}
+.adult-entry-card label{font-size:14px;line-height:1.6;cursor:pointer;}
+.adult-entry-card input[type=checkbox]{width:19px;height:19px;flex-shrink:0;margin-top:3px;accent-color:#7c3aed;}
+@keyframes entry-brand-turn{from{opacity:0;transform:perspective(600px) rotateY(-160deg) translateY(14px)}to{opacity:1;transform:perspective(600px) rotateY(0) translateY(0)}}
+@keyframes entry-brand-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@media(max-width:640px){.navigation-brand-image{width:36px;height:36px}.navigation-brand-copy strong{font-size:22px}.navigation-brand-copy small{font-size:8px;letter-spacing:.08em}.navigation-tabs button{min-height:50px}.adult-entry-brand{margin-bottom:17px}.adult-entry-brand img{width:74px;height:74px}.adult-entry-brand strong{font-size:27px}}
+@media(prefers-reduced-motion:reduce){.adult-entry-brand img{animation:none}.navigation-tabs button{transition:none}}

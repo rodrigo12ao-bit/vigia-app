@@ -4,6 +4,7 @@ const App=lazy(()=>import('./App.tsx').catch(()=>({default:BootLoadFailure})));
 import {AdultGate} from './components/AdultGate';
 import './index.css';
 import './learning.css';
+import './section-theme.css';
 
 // Only an import failure reaches this screen; an existing App is never reset
 // automatically, and retry leaves browser storage and saved drafts untouched.

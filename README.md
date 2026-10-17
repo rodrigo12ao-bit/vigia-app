@@ -1,5 +1,17 @@
 # Vigia — Aprender com a Vigia
 
+## Marca, setores e avatar automático — 17/10/2026
+
+A entrada usa uma marca SVG original com giro inicial e flutuação suave, botões disponíveis imediatamente e degradê claro roxo/azul/amarelo. Cada setor tem uma cor própria. A faixa técnica superior e os controles visíveis “3D/2D” foram removidos. O acesso 18+, os consentimentos e os controles de áudio permanecem disponíveis.
+
+Na conversa, a cabeça e o busto animam automaticamente quando estão visíveis. A boca acompanha o estado de reprodução da fala e fecha ao silenciar; esse movimento é uma cadência visual, sem sincronização por fonema. Há modelos humanos originais feminino e masculino. Imagens leves aparecem durante o carregamento, avatares fora da tela deixam de desenhar e a preferência de reduzir movimento é aplicada também enquanto o avatar está aberto.
+
+Para reduzir trabalho desnecessário, chamadas simultâneas de verificação de acesso compartilham somente a requisição em andamento; a próxima ação revalida o acesso no servidor. A conversa começa a carregar ao interagir com sua aba, sem realizar uma chamada de IA. A entrada não espera modelos 3D. Isso reduz operações e carregamento, mas não certifica um prazo de resposta do Gemini nem elimina a suspensão do Render gratuito.
+
+O símbolo da marca foi desenhado no próprio projeto; os ícones existentes vêm do [Lucide](https://lucide.dev/icons/shield-check), sob [licença ISC](https://github.com/lucide-icons/lucide/blob/main/LICENSE). Não há novo serviço, dependência externa ou assinatura. Antes da publicação consolidada, o painel Netlify confirmou o plano Free, saldo de 39,2 créditos, ausência de cartão e excedentes/recarga desativados. A publicação usa 15 créditos gratuitos.
+
+Validação local: 54 testes focados de avatar, acesso, cópia de arquivos e atualização passaram; 19 verificações da entrada/cores/contraste e 18 de avatar feminino em computador/celular emulado passaram. APIs, microfone e áudio são fictícios nessas verificações; não constituem teste de aparelho físico nem medição de latência real. A compilação também trata corretamente arquivos regulares do OneDrive identificados como pontos de análise, preservando a recusa de links simbólicos reais. A conferência pública e os identificadores finais da publicação serão registrados após a confirmação nos dois endereços.
+
 ## Atualizações do aplicativo instalado — 17/10/2026
 
 O app instalado pelo Render continua vinculado a `https://vigia-app.onrender.com/`; publicar somente no Netlify não atualiza essa instalação. Enquanto existirem instalações antigas, cada lançamento deve atualizar o servidor/telas do Render e as telas/Function do Netlify, conferir a revisão pública em ambos e testar a atualização do PWA. O Netlify é o endereço recomendado para novas instalações. Históricos locais de visitante pertencem a cada endereço; trocar de instalação não migra esses dados.
@@ -12,7 +24,7 @@ Validação desta atualização: 21 testes focados de avatar/PWA/persistência, 
 
 ## Avatar publicado — 17/10/2026
 
-Acesse **[Vigia](https://vigia-aplicativo-18plus.netlify.app/)**. O novo avatar original está publicado: **busto na voz e cabeça nos espaços pequenos**, tanto em imagem quanto em 3D. O botão 3D ativa as animações; 2D retorna à imagem. O site permaneceu no plano Netlify **Free**, com recarga automática e cobranças de excedente desativadas. O saldo observado antes do envio foi de 84,5 créditos gratuitos; uma publicação de produção utiliza 15 créditos desse saldo. Nenhum plano, cartão, recarga ou serviço pago foi ativado.
+Acesse **[Vigia](https://vigia-aplicativo-18plus.netlify.app/)**. Esta seção registra a primeira publicação do avatar: **busto na voz e cabeça nos espaços pequenos**, tanto em imagem quanto em 3D. Naquela versão, havia botões 3D/2D; a versão atual usa animação automática, descrita acima. O site permaneceu no plano Netlify **Free**, com recarga automática e cobranças de excedente desativadas. O saldo observado antes daquele envio foi de 84,5 créditos gratuitos; uma publicação de produção utiliza 15 créditos desse saldo. Nenhum plano, cartão, recarga ou serviço pago foi ativado.
 
 Publicação confirmada no deploy `6ad2e8cb4cadf1da0e8d0714`, incluindo a Function `api-proxy`. A origem do pacote é o projeto local revisado, com base Git `bb624be` e mudanças ainda não commitadas; o manifesto dos arquivos está em `artifacts/vigia-avatar-deploy-20261017.json`. Foram aprovadas **14 verificações online** de avatar e cache em computador/celular emulado e três leituras HTTP de página, JavaScript e saúde da API. PNGs, GLB e JavaScript correspondem ao pacote local. O HTML hospedado contém somente um comentário invisível adicional da Netlify; a comparação exige que todo o restante permaneça idêntico. IA, microfone e voz foram fictícios nos testes de apresentação; nenhuma mensagem real de IA ou gravação de dados online foi feita.
 
@@ -22,7 +34,7 @@ Evidências desta publicação anterior: `artifacts/vigia-original-publication.j
 
 Foi criada uma tutora estilizada original, com uniforme azul, colete laranja e cinco movimentos: repouso, conversa, escuta, pensamento e acolhimento. O arquivo [vigia-original.glb](public/model/vigia-original.glb) tem aproximadamente 0,92 MB, inclui geometria, materiais e animações, e não depende de imagens ou serviços externos. Os gestos e a abertura da boca acompanham o estado da conversa; não há sincronização dos lábios com cada som da fala.
 
-Abra [avatar-vigia-original.html](avatar-vigia-original.html) para girar a personagem, testar os movimentos e baixar o modelo ou uma imagem transparente, mesmo sem internet. O enquadramento padrão é o busto, e o rosto é usado nos espaços pequenos da conversa. A tutora aparece inicialmente como imagem; o botão **3D** ativa o modelo animado e **2D** retorna à imagem. O modelo masculino e os arquivos anteriores foram preservados. Esta alteração está publicada no endereço Netlify acima.
+Abra [avatar-vigia-original.html](avatar-vigia-original.html) para girar a personagem, testar os movimentos e baixar o modelo ou uma imagem transparente, mesmo sem internet. O enquadramento padrão é o busto, e o rosto é usado nos espaços pequenos da conversa. No aplicativo atual, o modelo anima automaticamente, com imagem durante o carregamento e como recuperação de falha gráfica. Os arquivos anteriores foram preservados; a versão atual também inclui um tutor humano original masculino. Para recriá-lo, acrescente `--male` aos comandos de geração abaixo.
 
 Para recriar os arquivos com as dependências locais já instaladas: `node scripts/create-vigia-avatar.mjs`, depois `node scripts/build-avatar-preview.cjs --capture`. As evidências de geração e validação ficam em `artifacts/vigia-original-model.json` e `artifacts/vigia-original-preview-checks.json`. Os testes do arquivo e do mapeamento das animações usam `node --test tests/avatar-asset.test.cjs tests/avatar-animation.test.cjs`.
 

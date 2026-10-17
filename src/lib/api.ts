@@ -68,7 +68,21 @@ export function getAiStatus():Promise<AiStatus>{
   }
   return statusPromise;
 }
-export async function getAiAccess(){const r=await apiFetch('/api/ai-access');const body=await r.json();if(!r.ok)throw Error(body.blocked||'Não foi possível verificar a voz.');return body as {allowed:boolean;voice:boolean;blocked:string|null};}
+interface AiAccess {allowed:boolean;voice:boolean;blocked:string|null;}
+interface AiAccessRequest {uid:string|undefined;promise:Promise<AiAccess>;}
+let aiAccessRequest:AiAccessRequest|undefined;
+export async function getAiAccess(){
+  const uid=auth.currentUser?.uid;
+  // Share concurrent checks for this identity only. Completed decisions are
+  // never cached: the next action performs a fresh server authorization check.
+  if(!aiAccessRequest||aiAccessRequest.uid!==uid){
+    const next:AiAccessRequest={uid,promise:apiFetch('/api/ai-access').then(async r=>{
+      const body=await r.json();if(!r.ok)throw Error(body.blocked||'Não foi possível verificar a voz.');return body as AiAccess;
+    }).finally(()=>{if(aiAccessRequest===next)aiAccessRequest=undefined;})};
+    aiAccessRequest=next;
+  }
+  return waitForRequest(aiAccessRequest.promise,uid);
+}
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers);
   const user = auth.currentUser;

@@ -1,9 +1,17 @@
 import {useState,type ReactNode} from 'react';
 import {adultAudience,adultAccessVersion} from '../lib/audience';
-// Lucide ShieldCheck (ISC): keep this one icon independent of the application's icon bundle.
-const ShieldCheck=({size}:{size:number})=><svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>;
 export function AdultGate({children}:{children:ReactNode}){
  const [accepted,setAccepted]=useState(()=>sessionStorage.getItem('vigia_adult_access')===adultAccessVersion),[checked,setChecked]=useState(false),[declined,setDeclined]=useState(false);
  if(!adultAudience||accepted)return <>{children}</>;
- return <main className="welcome-shell"><section className="welcome-card" aria-label="Acesso para adultos"><span className="brand-symbol"><ShieldCheck size={27}/></span><h1>Vigia para adultos</h1><p>Aprenda prevenção, pratique decisões e prepare-se para cuidar da sua comunidade.</p><p><strong>Acesso exclusivo para pessoas de 18 anos ou mais.</strong> A IA pode errar e não substitui serviços de emergência.</p>{declined?<p role="alert">O acesso não está disponível para menores de 18 anos.</p>:<><label className="flex gap-3 text-left items-start py-4"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>Declaro que tenho 18 anos ou mais e vou utilizar minha própria conta.</label><button className="vigia-primary" disabled={!checked} onClick={()=>{sessionStorage.setItem('vigia_adult_access',adultAccessVersion);setAccepted(true);}}>Continuar</button></>}<button className="vigia-secondary" onClick={()=>setDeclined(true)}>Tenho menos de 18 anos</button></section></main>;
+ return <main className="welcome-shell"><section className="welcome-card adult-entry-card" aria-label="Acesso para adultos">
+  <div className="adult-entry-brand"><img src="/icons/vigia-brand.svg" width="90" height="99" alt="" /><strong>Vigia</strong></div>
+  <h1>Cuidar começa com aprender.</h1>
+  <p>Aprenda prevenção, pratique decisões e prepare-se para cuidar da sua comunidade.</p>
+  <p><strong>Acesso exclusivo para pessoas de 18 anos ou mais.</strong> A IA pode errar e não substitui serviços de emergência.</p>
+  {declined?<p role="alert">O acesso não está disponível para menores de 18 anos.</p>:<>
+   <label className="flex gap-3 text-left items-start py-4"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>Declaro que tenho 18 anos ou mais e vou utilizar minha própria conta.</label>
+   <button className="vigia-primary" disabled={!checked} onClick={()=>{sessionStorage.setItem('vigia_adult_access',adultAccessVersion);setAccepted(true);}}>Continuar</button>
+  </>}
+  <button className="vigia-secondary" onClick={()=>setDeclined(true)}>Tenho menos de 18 anos</button>
+ </section></main>;
 }
