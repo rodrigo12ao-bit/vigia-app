@@ -22,8 +22,78 @@ async function harness({voices=[{lang:'pt-BR',name:'Voz local',localService:true
   const window={speechSynthesis,SpeechSynthesisUtterance:Utterance,SpeechRecognition:Recognition,dispatchEvent:event=>events.push(event)};
   const module={exports:{}};
   new Function('window','SpeechSynthesisUtterance','MediaRecorder','CustomEvent','module','exports',(await bundle).code)(window,Utterance,recordingSupported?Recorder:undefined,class{constructor(type,init){this.type=type;this.detail=init.detail;}},module,module.exports);
-  return {...module.exports,spoken,recorders,recognitions,listeners,events};
+  return {...module.exports,spoken,recorders,recognitions,listeners,events,setVoices(next){voices=next;for(const listener of [...listeners])listener();}};
 }
+
+test('local Portuguese capability requires an actual local pt-BR or pt voice, never a name or remote voice',async()=>{
+  const h=await harness();
+  assert.equal(h.hasLocalPortugueseVoice(),true);
+  for(const voices of [[],[{lang:'pt-BR',name:'Voz remota',localService:false}],[{lang:'en-US',name:'Brazilian local',localService:true}],[{lang:'pt-PT',name:'Voz local de Portugal',localService:true}]])assert.equal(h.hasLocalPortugueseVoice(voices),false);
+  assert.equal(h.hasLocalPortugueseVoice([{lang:'pt',name:'Português local',localService:true}]),true);
+  assert.equal(h.hasLocalPortugueseVoice([{lang:'pt_br',name:'Português local',localService:true}]),true);
+});
+
+test('local-only reading selects local Brazilian Portuguese even when a remote voice is the default',async()=>{
+  const remote={lang:'pt-BR',name:'Premium remota',localService:false,default:true},local={lang:'pt-BR',name:'Voz local',localService:true},h=await harness({voices:[remote,{lang:'pt',name:'Português local',localService:true},local]});
+  let started=0,ended=0;h.speakDeviceText('Confira as pilhas.',{onStart:()=>started++,onEnd:()=>ended++},{localOnly:true});
+  assert.equal(h.spoken.length,1);assert.equal(h.spoken[0].voice,local);h.spoken[0].onstart();h.spoken[0].onend();assert.equal(started,1);assert.equal(ended,1);assert.equal(h.events.length,0);
+});
+
+test('local-only reading waits for late local voices without using an initially available remote voice',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const remote={lang:'pt-BR',name:'Remota',localService:false},local={lang:'pt-BR',name:'Local',localService:true},h=await harness({voices:[remote]});
+  let ended=0,errors=0;h.speakDeviceText('Confira as pilhas.',{onEnd:()=>ended++,onError:()=>errors++},{localOnly:true});
+  assert.equal(h.spoken.length,0);assert.equal(h.listeners.size,1);t.mock.timers.tick(200);h.setVoices([remote,local]);assert.equal(h.spoken.length,1);assert.equal(h.spoken[0].voice,local);
+  t.mock.timers.tick(100);h.spoken[0].onstart();h.spoken[0].onend();assert.equal(errors,0);assert.equal(ended,1);assert.equal(h.listeners.size,0);
+});
+
+test('missing local voice reports bounded unavailability instead of speaking remotely or using a browser default',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  for(const voices of [[],[{lang:'pt-BR',name:'Remota',localService:false}],[{lang:'en-US',name:'Local',localService:true}]]){
+    const h=await harness({voices});let error='',errors=0;h.speakDeviceText('Confira as pilhas.',{onError:message=>{error=message;errors++;}},{localOnly:true});
+    t.mock.timers.tick(300);assert.equal(h.spoken.length,0);assert.equal(errors,1);assert.match(error,/voz local em português/);assert.equal(h.listeners.size,0);
+    h.setVoices([{lang:'pt-BR',name:'Local posterior',localService:true}]);t.mock.timers.tick(10000);assert.equal(h.spoken.length,0);assert.equal(errors,1);
+  }
+});
+
+test('cancellation before local voices arrive releases listeners and prevents late playback',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const h=await harness({voices:[]});let cancelled=0,errors=0;
+  const handle=h.speakDeviceText('Confira as pilhas.',{onCancel:()=>cancelled++,onError:()=>errors++},{localOnly:true});const lateChanged=[...h.listeners][0];
+  handle.cancel();handle.cancel();h.setVoices([{lang:'pt-BR',name:'Local',localService:true}]);lateChanged();t.mock.timers.tick(10000);
+  assert.equal(cancelled,1);assert.equal(errors,0);assert.equal(h.spoken.length,0);assert.equal(h.listeners.size,0);
+});
+
+test('stopping local speech for mute ignores queued browser events and cannot resume a later sentence',async()=>{
+  const h=await harness();let started=0,ended=0,cancelled=0;
+  h.speakDeviceText('Confira as pilhas. Guarde a lanterna.',{onStart:()=>started++,onEnd:()=>ended++,onCancel:()=>cancelled++},{localOnly:true});
+  const lateStart=h.spoken[0].onstart,lateEnd=h.spoken[0].onend;h.stopSpeaking();lateStart();lateEnd();
+  assert.equal(started,0);assert.equal(ended,0);assert.equal(cancelled,1);assert.equal(h.spoken.length,1);
+});
+
+test('voice capability observer reports initial and late availability and stops after cleanup',async()=>{
+  const h=await harness({voices:[]}),states=[];const stop=h.observeLocalPortugueseVoices(value=>states.push(value));
+  assert.deepEqual(states,[false]);h.setVoices([{lang:'pt-BR',name:'Remota',localService:false}]);h.setVoices([{lang:'pt-BR',name:'Local',localService:true}]);
+  assert.deepEqual(states,[false,false,true]);const late=[...h.listeners][0];stop();stop();late();h.setVoices([]);assert.deepEqual(states,[false,false,true]);assert.equal(h.listeners.size,0);
+});
+
+test('local-only speakText bypasses status and server TTS instead of fetching before speaking',async()=>{
+  const h=await harness();let started=0,ended=0;
+  await h.speakText('Confira as pilhas.',()=>started++,()=>ended++,false,{localOnly:true});assert.equal(h.spoken.length,1);assert.equal(h.spoken[0].voice.localService,true);
+  h.spoken[0].onstart();h.spoken[0].onend();assert.equal(started,1);assert.equal(ended,1);assert.equal(h.events.length,0);
+});
+
+test('a caller cannot mutate a pending local-only request into permission for a remote voice',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const h=await harness({voices:[{lang:'pt-BR',name:'Remota',localService:false}]}),options={localOnly:true};let errors=0;
+  h.speakDeviceText('Confira as pilhas.',{onError:()=>errors++},options);options.localOnly=false;t.mock.timers.tick(300);
+  assert.equal(h.spoken.length,0);assert.equal(errors,1);
+});
+
+test('general disclosed device reading retains its existing remote fallback when local-only was not requested',async()=>{
+  const voice={lang:'pt-BR',name:'Remota divulgada',localService:false},h=await harness({voices:[voice]});
+  h.speakDeviceText('Confira as pilhas.');assert.equal(h.spoken[0].voice,voice);h.spoken[0].onstart();h.spoken[0].onend();
+});
 
 test('device speech reads successive sentences even when the browser voice list stays empty',async t=>{
   t.mock.timers.enable({apis:['setTimeout']});

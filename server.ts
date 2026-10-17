@@ -19,6 +19,7 @@ import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/promp
 import {VIGIA_ADULT_TEXT_PROMPT,VIGIA_ADULT_VOICE_PROMPT} from './src/data/promptsAdult';
 import {educationalPlanSchema,validEducationalPlan} from './server/educationalPlan';
 import {createAiAdmission} from './server/aiAdmission';
+import {buildChatContext} from './server/chatContext';
 import {installApiBoundary,publicRequestError,apiResponseHeaders} from './server/apiBoundary';
 import {createAuthenticatedApiLimiter} from './server/apiRateLimit';
 
@@ -103,15 +104,11 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
       const readingInstruction=readingInstructions[['basic','standard','advanced'].includes(req.body.readingLevel)?req.body.readingLevel:'standard'];
       const baseInstruction = `[PERSONALIDADE ACOLHEDORA]: ${genderInstruction} Seja uma tutora educativa, acolhedora e clara. Use linguagem simples, respostas curtas e uma orientação por vez. Explique que é uma IA quando pertinente; nunca incentive dependência emocional, segredo em relação a adultos ou vínculo exclusivo.\n${userContext}\n${readingInstruction}`;
 
-      if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-        const recentHistory = chatHistory
-          .slice(-30)
-          .map((h: any) => `${h.role === 'user' ? 'Participante' : 'Vigia'}: ${h.content}`)
-          .join('\n');
-        contentsPrompt = `${baseInstruction}\n\nHistórico recente da conversa:\n${recentHistory}\n\nMensagem atual: "${message}"`;
-      } else {
-        contentsPrompt = `${baseInstruction}\n\nMensagem atual: "${message}"`;
-      }
+      const imageInstruction = image && image.data
+        ? 'O participante anexou uma imagem. Responda diretamente à pergunta visual: nomeie os objetos, formas e cores quando forem identificáveis. Não invente elementos, identifique pessoas, confirme diagnósticos ou assegure a segurança do local. Não acrescente alertas ou sugestões sem relação com a pergunta.'
+        : '';
+      const modelContext = buildChatContext({message,history:chatHistory,systemInstruction:VIGIA_SYSTEM_INSTRUCTION,baseInstruction,imageInstruction});
+      contentsPrompt = modelContext.contentsPrompt;
 
       // Prepare contents payload (text only or image + text)
       let contentsPayload: any;
@@ -124,7 +121,7 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
             },
           },
           {
-            text: `${contentsPrompt}\n\nO participante anexou uma imagem. Responda diretamente à pergunta visual: nomeie os objetos, formas e cores quando forem identificáveis. Não invente elementos, identifique pessoas, confirme diagnósticos ou assegure a segurança do local. Não acrescente alertas ou sugestões sem relação com a pergunta.`,
+            text: contentsPrompt,
           },
         ];
       } else {
@@ -151,45 +148,25 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
               systemInstruction: VIGIA_SYSTEM_INSTRUCTION,
               responseMimeType: 'application/json',
               temperature: 0.7,
+              maxOutputTokens: 600,
               responseSchema: {
                 type: Type.OBJECT,
                 properties: {
                   reply: { type: Type.STRING, description: 'Resposta curta, acolhedora e pausada da Vigia em pt-BR' },
                   avatarState: {
                     type: Type.STRING,
+                    enum: ['idle','listening','thinking','speaking','explaining','asking','celebrating','serious','closing','alert'],
                     description: 'Estado do avatar (idle, listening, thinking, speaking, explaining, asking, celebrating, serious, closing, alert)',
                   },
-                  topicIllustration: {
-                    type: Type.STRING,
-                    description: 'Ilustração temática relevante ao assunto falado: enchentes, deslizamentos, tempestades, incendios, mochila, numeros, ou geral',
-                  },
-                  challengeOrQuestion: {
-                    type: Type.STRING,
-                    description: 'Pergunta curta ou pequeno desafio educativo',
-                  },
-                  interactiveOptions: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: '2 a 3 opções dinâmicas de continuação (ex: Fazer missão, Ouvir história, Continuar)',
-                  },
-                  suggestedFollowUps: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: '2 a 3 perguntas curtas sugeridas',
-                  },
-                  emergencyTip: {
-                    type: Type.STRING,
-                    description: 'Lembrete de segurança em emergências com adulto responsável',
-                  },
                 },
-                required: ['reply', 'avatarState', 'interactiveOptions', 'suggestedFollowUps'],
+                required: ['reply', 'avatarState'],
               },
             };
 
             response = await ai.models.generateContent({
               model: modelUsed,
               contents: contentsPayload,
-              localInput:{message,history:chatHistory,readingLevel:req.body.readingLevel},
+              localInput:{message,history:modelContext.history,readingLevel:req.body.readingLevel},
               config: callConfig,
             },signal);
 
@@ -250,8 +227,12 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
         }
         parsedData = JSON.parse(cleanJson);
       } catch { throw new Error('Resposta inválida da IA.'); }
+      if(parsedData&&typeof parsedData==='object'&&!Array.isArray(parsedData)){
+        if(parsedData.interactiveOptions===undefined)parsedData.interactiveOptions=[];
+        if(parsedData.suggestedFollowUps===undefined)parsedData.suggestedFollowUps=[];
+      }
       if (!parsedData || ['emergencyTip','challengeOrQuestion','topicIllustration'].some(k=>parsedData[k]!==undefined && typeof parsedData[k]!=='string'))throw new Error('Resposta inválida da IA.');
-      if (!parsedData || typeof parsedData.reply !== 'string' || parsedData.reply.length > 10000 || !['idle','listening','thinking','speaking','explaining','asking','celebrating','serious','closing','alert'].includes(parsedData.avatarState) || !Array.isArray(parsedData.interactiveOptions) || !Array.isArray(parsedData.suggestedFollowUps) || [...parsedData.interactiveOptions,...parsedData.suggestedFollowUps].some(v => typeof v !== 'string')) throw new Error('Resposta inválida da IA.');
+      if (!parsedData || typeof parsedData.reply !== 'string' || !parsedData.reply.trim() || parsedData.reply.length > 10000 || !['idle','listening','thinking','speaking','explaining','asking','celebrating','serious','closing','alert'].includes(parsedData.avatarState) || !Array.isArray(parsedData.interactiveOptions) || !Array.isArray(parsedData.suggestedFollowUps) || [...parsedData.interactiveOptions,...parsedData.suggestedFollowUps].some(v => typeof v !== 'string')) throw new Error('Resposta inválida da IA.');
 
       return res.json({
         ...parsedData,
@@ -567,9 +548,10 @@ async function startServer() {
         const allowed=await realAiAccess(uid,true);
         if(ws.readyState!==ws.OPEN)return;
         if(!allowed){ws.send(JSON.stringify({type:'error',message:'Acesso à voz real não autorizado.'}));ws.close(1008);return;}
-        const nativeVoice=new URL(req.url||'/','http://localhost').searchParams.get('voiceProtocol')==='native-v1';
+        const voiceParams=new URL(req.url||'/','http://localhost').searchParams;
+        const nativeVoice=voiceParams.get('voiceProtocol')==='native-v1';
         if(realAiConfig().provider==='gemini'&&nativeVoice)connectGeminiVoice(ws,VIGIA_LIVE_SYSTEM_INSTRUCTION);
-        else connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION,{streamSpeech:new URL(req.url||'/','http://localhost').searchParams.get('voiceProtocol')==='stream-v1'});
+        else connectRealVoice(ws,realAi(),VIGIA_LIVE_SYSTEM_INSTRUCTION,{streamSpeech:voiceParams.get('voiceProtocol')==='stream-v1'});
       } catch {if(ws.readyState===ws.OPEN){ws.send(JSON.stringify({type:'error',message:'Não foi possível iniciar a voz real.'}));ws.close(1011);}}
       return;
     }

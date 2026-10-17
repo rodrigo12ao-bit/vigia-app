@@ -59,15 +59,31 @@ function ensureAdultSession(key:string,headers:Headers,guest?:Promise<void>):Pro
   }
   return entry.promise;
 }
-let statusPromise:Promise<AiStatus>|undefined;let statusReadAt=0,statusPending=false;
-export function getAiStatus():Promise<AiStatus>{
-  if(!statusPromise||(!statusPending&&Date.now()-statusReadAt>3000)){
-    statusPending=true;
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
-    statusPromise=fetch('/api/status',{cache:'no-store',credentials:'same-origin',signal:controller.signal}).then(async r=>{if(!r.ok)throw Error('Não foi possível verificar a IA.');const status=await r.json();statusReadAt=Date.now();return status;}).catch(error=>{statusPromise=undefined;throw error;}).finally(()=>{clearTimeout(timer);statusPending=false;});
-  }
-  return statusPromise;
+const statusFreshMs=30000,statusStaleMs=60000;
+let statusPromise:Promise<AiStatus>|undefined,statusCachedPromise:Promise<AiStatus>|undefined;
+let statusReadAt=0,statusPending=false;
+function invalidateAiStatus(){statusCachedPromise=undefined;if(!statusPending)statusPromise=undefined;}
+function refreshAiStatus():Promise<AiStatus>{
+  if(statusPending&&statusPromise)return statusPromise;
+  statusPending=true;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
+  const pending=fetch('/api/status',{cache:'no-store',credentials:'same-origin',signal:controller.signal}).then(async r=>{
+    if(!r.ok)throw Error('Não foi possível verificar a IA.');
+    const status=await r.json();statusReadAt=Date.now();statusCachedPromise=pending;return status as AiStatus;
+  }).catch(error=>{if(statusPromise===pending)statusPromise=undefined;throw error;}).finally(()=>{clearTimeout(timer);statusPending=false;});
+  statusPromise=pending;return pending;
 }
+// This is a public configuration hint, never an authorization decision. Every
+// POST still passes the server's current identity, adulthood and consent guards.
+// A recent hint removes a serialized round trip; stale hints refresh in parallel.
+export function getAiStatus(options:{fresh?:boolean}={}):Promise<AiStatus>{
+  if(options.fresh)return refreshAiStatus();
+  const age=Date.now()-statusReadAt;
+  if(statusCachedPromise&&age<=statusFreshMs)return statusCachedPromise;
+  if(statusCachedPromise&&age<=statusStaleMs){void refreshAiStatus().catch(()=>{});return statusCachedPromise;}
+  return refreshAiStatus();
+}
+if(typeof window!=='undefined'&&typeof window.addEventListener==='function')window.addEventListener('online',invalidateAiStatus);
 interface AiAccess {allowed:boolean;voice:boolean;blocked:string|null;}
 interface AiAccessRequest {uid:string|undefined;promise:Promise<AiAccess>;}
 let aiAccessRequest:AiAccessRequest|undefined;
@@ -121,6 +137,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
       if(confirmAdult)await waitForRequest(ensureAdultSession(uid||'guest',headers,guest),uid,signal);
       checkRequest(uid,signal);
       const response=await waitForRequest(fetch(path,{...options,headers,credentials:'same-origin'}),uid,signal);
+      if([401,403,428,503].includes(response.status))invalidateAiStatus();
       if(response.status===401){
         if(user)adultSessions.delete(uid!);
         else if(guest&&await waitForRequest(isExpiredSession(response),uid,signal)){
@@ -133,6 +150,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
     }catch(error){
       checkRequest(uid,signal);
       if(error instanceof GuestSessionExpired){forgetGuestSession(error.session);if(attempt===0)continue;}
+      if(error instanceof TypeError)invalidateAiStatus();
       throw error;
     }
   }

@@ -22,13 +22,40 @@ export interface DeviceSpeechHandle {
   cancel: () => void;
 }
 
-// Explicit device reading: complete text, real lifecycle, no provider requests.
-export function speakDeviceText(text: string, callbacks: DeviceSpeechCallbacks = {}): DeviceSpeechHandle {
-  return startDeviceSpeech(text,callbacks,true);
+export interface DeviceSpeechOptions {
+  localOnly?: boolean;
 }
 
-function startDeviceSpeech(text:string,callbacks:DeviceSpeechCallbacks,cancelPrevious:boolean):DeviceSpeechHandle {
+function localPortugueseVoice(voices:readonly SpeechSynthesisVoice[]):SpeechSynthesisVoice|undefined {
+  const allowed=voices.filter(voice=>voice.localService===true&&/^(?:pt-BR|pt)$/i.test((voice.lang||'').replace(/_/g,'-').trim()));
+  return allowed.find(voice=>/^pt-BR$/i.test(voice.lang.replace(/_/g,'-').trim()))||allowed[0];
+}
+
+// Capability detection never reads text aloud or sends data to any service.
+export function hasLocalPortugueseVoice(voices?:readonly SpeechSynthesisVoice[]):boolean {
+  try{
+    if(voices===undefined){if(typeof window==='undefined'||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return false;voices=window.speechSynthesis.getVoices();}
+    return !!localPortugueseVoice(voices);
+  }catch{return false;}
+}
+
+export function observeLocalPortugueseVoices(listener:(available:boolean)=>void):()=>void {
+  let disposed=false;
+  const synthesis=typeof window==='undefined'?undefined:window.speechSynthesis;
+  const changed=()=>{if(!disposed)listener(hasLocalPortugueseVoice());};
+  changed();
+  synthesis?.addEventListener?.('voiceschanged',changed);
+  return()=>{if(disposed)return;disposed=true;synthesis?.removeEventListener?.('voiceschanged',changed);};
+}
+
+// Explicit device reading: complete text, real lifecycle, no provider requests.
+export function speakDeviceText(text: string, callbacks: DeviceSpeechCallbacks = {},options:DeviceSpeechOptions={}): DeviceSpeechHandle {
+  return startDeviceSpeech(text,callbacks,true,options);
+}
+
+function startDeviceSpeech(text:string,callbacks:DeviceSpeechCallbacks,cancelPrevious:boolean,options:DeviceSpeechOptions={}):DeviceSpeechHandle {
   if(cancelPrevious)stopSpeaking();
+  const localOnly=options.localOnly===true;
   const generation=voiceGeneration;
   let finished=false,started=false,index=0;
   const utterances=new Set<SpeechSynthesisUtterance>();
@@ -89,22 +116,29 @@ function startDeviceSpeech(text:string,callbacks:DeviceSpeechCallbacks,cancelPre
       index++;next();
     };
     utterance.onerror=()=>{if(!finished&&generation===voiceGeneration)fail();};
-    const queue=(voices:SpeechSynthesisVoice[])=>{
-      if(finished||generation!==voiceGeneration||queued)return;queued=true;
-      const preferred=voices.find(voice=>voice.localService&&/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name))
+    const queue=(voices:SpeechSynthesisVoice[]):boolean=>{
+      if(finished||generation!==voiceGeneration||queued)return true;
+      const preferred=localOnly?localPortugueseVoice(voices):voices.find(voice=>voice.localService&&/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name))
         ||voices.find(voice=>/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name)&&/francisca|ant[oô]nio|francisco|neural|premium/i.test(voice.name))
         ||voices.find(voice=>/pt[-_ ]?br|brazil/i.test(voice.lang||voice.name))||voices[0];
+      // A local-only request never delegates to a remote or default voice,
+      // even when the browser's list starts empty or only has remote entries.
+      if(localOnly&&!preferred)return false;
+      queued=true;
       if(preferred)utterance.voice=preferred;
       startTimer=globalThis.setTimeout(fail,10000);timers.add(startTimer);
       try{window.speechSynthesis.speak(utterance);}catch{fail();}
+      return true;
     };
     try{
       const voices=window.speechSynthesis.getVoices();
-      if(voices.length){queue(voices);return;}
-      const changed=()=>queue(window.speechSynthesis.getVoices());
+      if(voices.length&&queue(voices))return;
+      const changed=()=>{try{queue(window.speechSynthesis.getVoices());}catch{fail();}};
       window.speechSynthesis.addEventListener('voiceschanged',changed);
       cleanup.add(()=>window.speechSynthesis.removeEventListener('voiceschanged',changed));
-      const timer=globalThis.setTimeout(()=>queue(window.speechSynthesis.getVoices()),300);timers.add(timer);
+      const timer=globalThis.setTimeout(()=>{
+        try{if(!queue(window.speechSynthesis.getVoices()))finish('error','Não há uma voz local em português disponível neste aparelho. Você pode escolher a voz Google gratuita ou continuar por texto.');}catch{fail();}
+      },300);timers.add(timer);
     }catch{fail();}
   };
   next();return handle;
@@ -144,7 +178,8 @@ export async function speakText(
   text: string,
   onStart?: () => void,
   onEnd?: () => void,
-  deviceOnly = false
+  deviceOnly = false,
+  options:DeviceSpeechOptions={}
 ) {
   let generation = voiceGeneration;
   try {
@@ -167,7 +202,7 @@ export async function speakText(
       onEnd && onEnd();
       return;
     }
-    if(deviceOnly){onErrorFallback(text,onStart,onEnd,generation);return;}
+    if(deviceOnly||options.localOnly){onErrorFallback(text,onStart,onEnd,generation,options);return;}
     const aiStatus=await getAiStatus().catch(()=>null);
     if(generation!==voiceGeneration)return;
     if(import.meta.env.MODE==='presentation'||['adult-synthetic','local-synthetic','adult-gemini'].includes(aiStatus?.ai?.mode||'')){
@@ -289,7 +324,7 @@ export async function speakText(
   }
 }
 
-function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void, generation = voiceGeneration) {
+function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void, generation = voiceGeneration,options:DeviceSpeechOptions={}) {
   if (generation !== voiceGeneration) return;
   startDeviceSpeech(text, {
     onStart,
@@ -298,7 +333,7 @@ function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void,
       onEnd?.();
       window.dispatchEvent(new CustomEvent('vigia-error', { detail: message }));
     },
-  },false);
+  },false,options);
 }
 
 function cleanupAudio() {

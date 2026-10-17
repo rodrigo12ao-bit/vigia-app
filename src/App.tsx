@@ -14,7 +14,8 @@ import type {ActivityClaim} from './lib/adventureModel';
 import {RewardCelebration} from './components/learning/RewardCelebration';
 import { Navbar,type AppTab } from './components/Navbar';
 import {useDialog} from './hooks/useDialog';
-import {createConversationMemory,queueConversationSnapshot,requireConversationReadyForUpdate,flushConversationForUpdate,appendVoiceTurn,type ConversationMetadata} from './lib/conversationState';
+import {createConversationMemory,queueConversationSnapshot,requireConversationReadyForUpdate,flushConversationForUpdate,type ConversationMetadata} from './lib/conversationState';
+import {appendVoiceConversationTurn,createVoiceConversationMemory,queueVoiceConversationSnapshot} from './lib/voiceConversationState';
 const HomeTab=React.lazy(()=>import('./components/HomeTab'));
 const LearningCenter=React.lazy(()=>import('./components/learning/LearningCenter'));
 const SchoolDashboard=React.lazy(()=>import('./components/SchoolDashboard'));
@@ -65,6 +66,9 @@ export default function App() {
   const accountVersion=useRef(0);
   const conversationVersion=useRef(0);
   const conversationMemory=useRef(createConversationMemory());
+  const voiceConversationMemory=useRef(createVoiceConversationMemory());
+  const [voiceMessages,setVoiceMessages]=useState<ChatMessage[]>([]);
+  const renderedVoiceMemory=voiceConversationMemory.current;
   const renderedAccountVersion=accountVersion.current;
   const renderedConversationVersion=conversationVersion.current;
   const [notice,setNotice]=useState('');
@@ -98,6 +102,15 @@ export default function App() {
       onCancel:()=>{if(renderedAccountVersion===accountVersion.current)setIsSpeaking(false);callbacks.onCancel?.();},
       onError:message=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);setNotice(message);}callbacks.onError?.(message);},
     });
+  };
+  const readLocalAloud=(text:string,callbacks:DeviceSpeechCallbacks={}):DeviceSpeechHandle|null=>{
+    if(renderedAccountVersion!==accountVersion.current)return null;
+    return speakDeviceText(text,{
+      onStart:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(true);callbacks.onStart?.();}else callbacks.onCancel?.();},
+      onEnd:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);callbacks.onEnd?.();}else callbacks.onCancel?.();},
+      onCancel:()=>{if(renderedAccountVersion===accountVersion.current)setIsSpeaking(false);callbacks.onCancel?.();},
+      onError:message=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);setNotice(message);}callbacks.onError?.(message);},
+    },{localOnly:true});
   };
 
   const [isDailyMissionOpen, setIsDailyMissionOpen] = useState(false);
@@ -193,12 +206,19 @@ export default function App() {
 
   const flushActiveConversation=async()=>{
     const memory=conversationMemory.current,version=accountVersion.current;
-    const isCurrent=()=>conversationMemory.current===memory&&version===accountVersion.current&&auth.currentUser?.uid===memory.uid;
+    const voiceMemory=voiceConversationMemory.current;
+    const isCurrent=()=>conversationMemory.current===memory&&voiceConversationMemory.current===voiceMemory&&version===accountVersion.current&&auth.currentUser?.uid===memory.uid;
     if(!isCurrent())throw Error('A conta ou a conversa mudou. Tente novamente.');
     queueConversationSnapshot(memory,conversationMessages.current,conversationActivity.current.loading);
     if(memory.pendingSave.current){
       if(!memory.flush)throw Error('A conversa ainda está sendo preparada. Aguarde antes de atualizar.');
       await memory.flush();
+      if(!isCurrent())throw Error('A conta ou a conversa mudou. Tente novamente.');
+    }
+    queueVoiceConversationSnapshot(voiceMemory);
+    if(voiceMemory.pendingSave.current){
+      if(!voiceMemory.flush)throw Error('A conversa por voz ainda está sendo preparada. Aguarde antes de atualizar.');
+      await voiceMemory.flush();
       if(!isCurrent())throw Error('A conta ou a conversa mudou. Tente novamente.');
     }
   };
@@ -207,15 +227,19 @@ export default function App() {
     const check=()=>{
       if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)throw Error('A conta ou a conversa mudou. Tente atualizar novamente.');
       requireConversationReadyForUpdate(memory,conversationMessages.current,conversationActivity.current);
+      const voiceMemory=voiceConversationMemory.current;
+      if(!voiceMemory.historyReady&&voiceMemory.messages.length)throw Error('Recarregue o histórico de voz antes de atualizar. A conversa por voz continua preservada.');
     };
     await flushConversationForUpdate(flushActiveConversation,check);
   };
   const prepareAccountChange=async(action:string)=>{
     const memory=conversationMemory.current,version=accountVersion.current;
     memory.stopAudio?.();stopSpeaking();setIsSpeaking(false);setChatMode('text');
+    voiceConversationMemory.current.stopAudio?.();
     const check=()=>{
       if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)throw Error('A conta ou a conversa mudou. Tente novamente.');
       requireConversationReadyForUpdate(memory,conversationMessages.current,{...conversationActivity.current,mode:'text'},action);
+      if(!voiceConversationMemory.current.historyReady&&voiceConversationMemory.current.messages.length)throw Error('Recarregue o histórico de voz antes de '+action+'. Sua conversa por voz permanece aberta.');
     };
     await flushConversationForUpdate(flushActiveConversation,check);
     return {memory,version};
@@ -239,12 +263,24 @@ export default function App() {
     }
   },[profileReady,messages,isLoading,activeTab]);
   useEffect(()=>{
+    const memory=voiceConversationMemory.current;
+    if(!profileReady||auth.currentUser?.uid!==memory.uid)return;
+    queueVoiceConversationSnapshot(memory);
+    if(activeTab!=='chat'&&memory.pendingSave.current&&memory.flush){
+      void memory.flush().catch(()=>{if(memory===voiceConversationMemory.current)setNotice('A última conversa por voz ainda não foi salva. Tente novamente antes de atualizar.');});
+    }
+  },[profileReady,voiceMessages,activeTab]);
+  useEffect(()=>{
     const stage=()=>{
       const memory=conversationMemory.current;
       if(auth.currentUser?.uid!==memory.uid)return;
       queueConversationSnapshot(memory,conversationMessages.current,conversationActivity.current.loading);
       const pending=memory.pendingSave.current;
       if(pending&&!pending.uid)memory.stageGuest?.(pending.session);
+      const voiceMemory=voiceConversationMemory.current;
+      queueVoiceConversationSnapshot(voiceMemory);
+      const pendingVoice=voiceMemory.pendingSave.current;
+      if(pendingVoice&&!pendingVoice.uid)voiceMemory.stageGuest?.(pendingVoice.session);
     };
     const flush=()=>{
       const memory=conversationMemory.current,version=accountVersion.current;
@@ -257,7 +293,9 @@ export default function App() {
       const memory=conversationMemory.current;
       let failed=false;try{stage();}catch{failed=true;}
       const unavailableHistory=!memory.historyReady&&conversationMessages.current.some(message=>message.role==='user');
-      if(failed||unavailableHistory||memory.draft.text.trim()||memory.draft.image||conversationActivity.current.loading||(memory.uid&&memory.pendingSave.current)){event.preventDefault();event.returnValue='';}
+      const voiceMemory=voiceConversationMemory.current;
+      const unavailableVoiceHistory=!voiceMemory.historyReady&&voiceMemory.messages.length>0;
+      if(failed||unavailableHistory||unavailableVoiceHistory||memory.draft.text.trim()||memory.draft.image||conversationActivity.current.loading||(memory.uid&&memory.pendingSave.current)||(voiceMemory.uid&&voiceMemory.pendingSave.current)){event.preventDefault();event.returnValue='';}
     };
     window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',hidden);window.addEventListener('beforeunload',beforeUnload);
     return()=>{window.removeEventListener('pagehide',flush);document.removeEventListener('visibilitychange',hidden);window.removeEventListener('beforeunload',beforeUnload);};
@@ -625,6 +663,7 @@ export default function App() {
     if(!force && renderedAccountVersion!==accountVersion.current)return;
     ++conversationVersion.current;
     const previous=conversationMemory.current;
+    if(force){voiceConversationMemory.current.stopAudio?.();voiceConversationMemory.current=createVoiceConversationMemory(auth.currentUser?.uid);setVoiceMessages([]);}
     conversationMemory.current=createConversationMemory(auth.currentUser?.uid);
     conversationMemory.current.historyReady=!force&&previous.uid===auth.currentUser?.uid&&previous.historyReady;
     chatAbortRef.current?.abort();
@@ -646,6 +685,14 @@ export default function App() {
       },
     ]);
     setAvatarState('idle');
+  };
+  const handleResetVoice=()=>{
+    if(renderedAccountVersion!==accountVersion.current)return;
+    const previous=voiceConversationMemory.current;
+    previous.stopAudio?.();
+    const next=createVoiceConversationMemory(auth.currentUser?.uid);
+    next.historyReady=previous.historyReady;
+    voiceConversationMemory.current=next;setVoiceMessages([]);
   };
 
   const handleLoadSession = (sessionMessages: ChatMessage[],metadata?:ConversationMetadata,updatedAt?:string) => {
@@ -723,6 +770,9 @@ export default function App() {
               <React.Suspense fallback={<div role="status" className="learn-shell">Preparando sua conversa com a Vigia…</div>}>
               <ChatTab
                 conversationMemory={conversationMemory.current}
+                voiceConversationMemory={voiceConversationMemory.current}
+                voiceMessages={voiceMessages}
+                onResetVoice={handleResetVoice}
                 onHistoryError={message=>{if(renderedAccountVersion===accountVersion.current&&auth.currentUser?.uid===currentUser?.uid)setNotice(message);}}
                 messages={messages}
                 onSendMessage={handleSendMessage}
@@ -731,6 +781,7 @@ export default function App() {
                 isSpeaking={isSpeaking}
                 onReplayAudio={speakMessage}
                 onReadDevice={readAloud}
+                onReadLocalDevice={readLocalAloud}
                 onDeviceSpeechConsent={allowDeviceSpeech}
                 onSelectPrompt={handleSelectPrompt}
                 onResetChat={handleResetChat}
@@ -740,7 +791,7 @@ export default function App() {
                 currentUser={currentUser}
                 isGuest={isGuest}
                 onChatModeChange={mode=>{if(renderedAccountVersion===accountVersion.current&&auth.currentUser?.uid===currentUser?.uid)setChatMode(mode);}}
-                onVoiceTurn={(input,reply)=>{if(renderedAccountVersion!==accountVersion.current||renderedConversationVersion!==conversationVersion.current)return;setMessages(previous=>appendVoiceTurn(previous,input,reply));}}
+                onVoiceTurn={(input,reply)=>{if(renderedAccountVersion!==accountVersion.current||renderedVoiceMemory!==voiceConversationMemory.current)return;appendVoiceConversationTurn(renderedVoiceMemory,input,reply);setVoiceMessages(renderedVoiceMemory.messages);}}
                 onSpeechRecognized={(speechText) => {
                   setDebugInfo((prev) => ({
                     ...prev,

@@ -27,6 +27,17 @@ export async function adultAccess(uid:string){
   const [record,authority]=await Promise.all([adminDb().doc('adult_access/'+uid).get(),adminDb().doc('sala_authorities/'+uid).get()]);
   return record.data()?.version===ADULT_ACCESS_VERSION&&!authority.data()?.guardianUid;
 }
+// Share only the check performed during this HTTP request. A different request
+// (or identity) always re-reads the declaration and prior guardian authority.
+// The cache is private: request bodies, headers and res.locals cannot forge it.
+const requestAdultChecks=new WeakMap<Request,{uid:string;promise:Promise<boolean>}>();
+async function requestAdultAccess(req:Request){
+  const uid=identity(req);
+  let entry=requestAdultChecks.get(req);
+  if(!entry||entry.uid!==uid){entry={uid,promise:adultAccess(uid)};requestAdultChecks.set(req,entry);}
+  const allowed=await entry.promise;
+  return identity(req)===uid&&allowed;
+}
 const tickets = new Map<string, { uid: string; expires: number }>();
 export function identity(req: Request): string { return req.res.locals.uid; }
 export function allowedOrigin(origin?: string): boolean {
@@ -81,7 +92,7 @@ export function installSecurity(app: Express,options:{skipApiHeaders?:boolean;sk
   });
   app.use('/api',async(req,res,next)=>{
     if(!runtime.adultAudience)return next();
-    try{if(!await adultAccess(identity(req)))return res.status(403).json({error:'Confirme que tem 18 anos ou mais para acessar o Vigia.'});next();}catch{res.status(503).json({error:'Não foi possível verificar o acesso adulto.'});}
+    try{if(!await requestAdultAccess(req))return res.status(403).json({error:'Confirme que tem 18 anos ou mais para acessar o Vigia.'});next();}catch{res.status(503).json({error:'Não foi possível verificar o acesso adulto.'});}
   });
   installRealAiAccess(app);
   app.post('/api/live-ticket', (req, res) => {
@@ -93,9 +104,9 @@ export function installSecurity(app: Express,options:{skipApiHeaders?:boolean;sk
   });
 }
 
-export async function realAiAccess(uid:string,firebaseUser:boolean) {
+export async function realAiAccess(uid:string,firebaseUser:boolean,request?:Request) {
   const config=realAiConfig();
-  if(config.provider==='gemini')return config.enabled&&runtime.adultAudience&&(runtime.localReal||runtime.adultLive)&&await adultAccess(uid);
+  if(config.provider==='gemini')return config.enabled&&runtime.adultAudience&&(runtime.localReal||runtime.adultLive)&&await (request&&identity(request)===uid?requestAdultAccess(request):adultAccess(uid));
   if(!runtime.localReal)return false;
   if(uid.startsWith('guest:'))return config.enabled&&canUseRealAi(uid,false);
   if(!firebaseUser)return false;
@@ -104,7 +115,7 @@ export async function realAiAccess(uid:string,firebaseUser:boolean) {
 }
 
 export function installRealAiAccess(app:Express) {
-  app.get('/api/ai-access',async(req,res)=>{try{const config=realAiConfig();const allowed=await realAiAccess(identity(req),!!res.locals.firebaseUser);res.json({allowed,voice:allowed,provider:demoMode?null:config.provider,blocked:demoMode?'Voz indisponível no modo de simulação.':config.blocked||(!allowed?config.provider==='local'?'Use uma conta fictícia ou a opção visitante nesta avaliação local.':'Entre com a conta adulta fictícia autorizada para este teste.':null)});}catch{res.status(503).json({allowed:false,voice:false,blocked:'Não foi possível verificar a conta de teste.'});}});
+  app.get('/api/ai-access',async(req,res)=>{try{const config=realAiConfig();const allowed=await realAiAccess(identity(req),!!res.locals.firebaseUser,req);res.json({allowed,voice:allowed,provider:demoMode?null:config.provider,blocked:demoMode?'Voz indisponível no modo de simulação.':config.blocked||(!allowed?config.provider==='local'?'Use uma conta fictícia ou a opção visitante nesta avaliação local.':'Entre com a conta adulta fictícia autorizada para este teste.':null)});}catch{res.status(503).json({allowed:false,voice:false,blocked:'Não foi possível verificar a conta de teste.'});}});
   app.use('/api',async(req,res,next)=>{
     const path=req.path.toLowerCase().replace(/\/$/,'');
     if(demoMode || !['/chat','/analyze-scenario','/generate-quiz','/transcribe','/tts','/live-ticket'].includes(path))return next();
@@ -113,7 +124,7 @@ export function installRealAiAccess(app:Express) {
       if(['/chat','/analyze-scenario'].includes(path)&&isEmergency(req.body?.message||req.body?.scenario||''))return next();
       const config=realAiConfig();
       if(!config.enabled)return res.status(503).json({status:'unavailable',code:'configuration_blocked',error:config.blocked});
-      if(!await realAiAccess(identity(req),!!res.locals.firebaseUser))return res.status(403).json({status:'unavailable',code:'audience_blocked',error:config.provider==='local'?'Use uma conta fictícia nesta avaliação local.':'IA real restrita à conta adulta fictícia autorizada. O uso infantil ainda não foi liberado.'});
+      if(!await realAiAccess(identity(req),!!res.locals.firebaseUser,req))return res.status(403).json({status:'unavailable',code:'audience_blocked',error:config.provider==='local'?'Use uma conta fictícia nesta avaliação local.':'IA real restrita à conta adulta fictícia autorizada. O uso infantil ainda não foi liberado.'});
       if(req.headers['x-vigia-ai-consent']!==config.consentVersion)return res.status(428).json({status:'unavailable',code:'consent_required',error:config.provider==='local'?'Confirme o processamento local de dados fictícios.':config.provider==='gemini'?'Confirme o processamento de dados pelo Gemini gratuito.':'Confirme o envio de dados fictícios ao serviço OpenAI.'});
       next();
     } catch {res.status(503).json({status:'unavailable',error:'Não foi possível verificar o acesso à IA.'});}

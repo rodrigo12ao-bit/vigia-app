@@ -129,6 +129,17 @@ test('manual pause during cloud playback remains paused after the real playback 
   }finally{h.session.stop();await flush();}
 });
 
+test('finishing local device speech releases processing state so the next turn can report processing again',async()=>{
+  const h=await harness();h.session.speechOutput='device';
+  try{
+    h.emit({type:'processing'});h.emit({type:'speech_on_device',text:'Resposta verificada fictícia.'});
+    assert.equal(h.track.enabled,false);h.session.finishDevicePlayback(true);
+    assert.equal(h.events.states.at(-1),'listening');assert.equal(h.track.enabled,true);
+    const changes=h.events.states.length;h.emit({type:'processing'});
+    assert.equal(h.events.states.length,changes+1);assert.equal(h.events.states.at(-1),'processing');
+  }finally{h.session.stop();await flush();}
+});
+
 test('manual interruption discards old PCM and old turn events until the server acknowledgement',async()=>{
   const h=await harness();
   try{
@@ -149,6 +160,18 @@ test('successive PCM packets are scheduled contiguously without waiting for the 
     assert.equal(h.context.sources.length,1,'The first packet is scheduled before turn_complete.');
     h.emit({type:'audio_chunk',pcmBase64:pcm});await flush();
     assert.equal(h.context.sources[1].startAt,h.context.sources[0].startAt+0.1);
+  }finally{h.session.stop();await flush();}
+});
+
+test('mute updates an idle audio graph immediately and persists when the next PCM is scheduled',async()=>{
+  const h=await harness();const events=[];
+  const gain={value:1,cancelScheduledValues:time=>events.push(['cancel',time]),setValueAtTime:(value,time)=>events.push(['schedule',value,time])};
+  h.session.outputGain={gain,connect(){},disconnect(){}};
+  try{
+    h.session.setMuted(true);assert.equal(gain.value,0);assert.equal(h.track.enabled,true,'Mute never starts or stops microphone capture.');
+    h.emit({type:'processing'});h.emit({type:'audio_chunk',pcmBase64:pcm});await flush();assert.equal(gain.value,0);
+    h.session.setMuted(false);assert.equal(gain.value,1);assert.equal(events.at(-1)[1],1);
+    assert.equal(h.context.sources.length,1);
   }finally{h.session.stop();await flush();}
 });
 

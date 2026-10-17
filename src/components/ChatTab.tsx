@@ -1,7 +1,10 @@
 import { apiFetch } from '../lib/api';
 import { prepareImage } from '../lib/images';
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue } from 'motion/react';
+import {AudioActivityMeter} from './AudioActivityMeter';
+import {VoiceHistoryDialog} from './VoiceHistoryDialog';
+import {createVoiceConversationMemory,flushVoiceConversation,isVoiceSession,queueVoiceConversationSnapshot,type VoiceConversationMemory} from '../lib/voiceConversationState';
 import {
   Send,
   Mic,
@@ -49,9 +52,12 @@ import {
   AudioRecorder,
   isSpeechRecognitionSupported,
   stopSpeaking,
+  hasLocalPortugueseVoice,
+  observeLocalPortugueseVoices,
   type DeviceSpeechCallbacks,
   type DeviceSpeechHandle,
 } from '../utils/speech';
+import {readVoicePreference,saveVoicePreference,voiceOutputFor,type VoicePreference} from '../lib/voicePreference';
 import { GeminiLiveSession } from '../utils/geminiLive';
 import {getAiAccess,getAiStatus} from '../lib/api';
 import {recordingToWave} from '../utils/audioWave';
@@ -61,7 +67,6 @@ import {
   loadSessions,
   saveSession,
   deleteSession,
-  deleteAllSessions,
   renameSession,
   stageGuestSession,
 } from '../lib/chatHistoryService';
@@ -90,11 +95,15 @@ interface ChatTabProps {
   isSpeaking: boolean;
   onReplayAudio: (text: string) => void;
   onReadDevice?: (text: string, callbacks?: DeviceSpeechCallbacks) => DeviceSpeechHandle | null;
+  onReadLocalDevice?: (text: string, callbacks?: DeviceSpeechCallbacks) => DeviceSpeechHandle | null;
   onDeviceSpeechConsent?: () => boolean;
   onSelectPrompt: (prompt: string) => void;
   onResetChat?: () => void;
   onLoadSession?: (messages: ChatMessage[],metadata?:ConversationMetadata,updatedAt?:string) => void;
   conversationMemory?:ConversationMemory;
+  voiceConversationMemory?:VoiceConversationMemory;
+  voiceMessages?:ChatMessage[];
+  onResetVoice?:()=>void;
   onHistoryError?:(message:string)=>void;
   onChatModeChange?: (mode: 'text' | 'live') => void;
   onVoiceTurn?: (input:string,reply:string)=>void;
@@ -230,11 +239,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   isSpeaking,
   onReplayAudio,
   onReadDevice,
+  onReadLocalDevice,
   onDeviceSpeechConsent,
   onSelectPrompt,
   onResetChat,
   onLoadSession,
   conversationMemory,
+  voiceConversationMemory,
+  voiceMessages,
+  onResetVoice,
   onHistoryError,
   onChatModeChange,
   onVoiceTurn,
@@ -248,6 +261,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const userId=currentUser?.uid;
   const localMemory=useRef(createConversationMemory(userId));
   const memory=conversationMemory||localMemory.current;
+  const localVoiceMemory=useRef(createVoiceConversationMemory(userId));
+  const voiceMemory=voiceConversationMemory||localVoiceMemory.current;
+  const voiceMemoryRef=useRef(voiceMemory);voiceMemoryRef.current=voiceMemory;
   const memoryRef=useRef(memory);memoryRef.current=memory;
   const componentActive=useRef(true);
   useEffect(()=>{componentActive.current=true;return()=>{componentActive.current=false;};},[]);
@@ -274,7 +290,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
   const voiceStartLock=useRef(false);
-  const switchToVoice=async()=>{if(isLoading||textSubmission.current){setSpeechFeedbackMsg('Aguarde a resposta de texto antes de iniciar a voz.');return;}if(messages.length>198){setSpeechFeedbackMsg(conversationLimitMessage);return;}if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
+  const switchToVoice=async()=>{if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;if(voiceMemory.messages.length>198&&!voiceMemory.historyReady){setSpeechFeedbackMsg('Recarregue o histórico antes de iniciar outra conversa por voz. Sua conversa anterior permanece preservada.');return;}voiceStartLock.current=true;if(voiceMemory.messages.length>198){try{await flushVoiceSession();onResetVoice?.();}catch{voiceStartLock.current=false;setSpeechFeedbackMsg('Salve a conversa por voz antes de iniciar outra. Seu histórico permanece aberto.');return;}}if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
   useEffect(()=>{voiceStartLock.current=false;},[chatMode]);
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
   useEffect(()=>()=>{if(auth.currentUser?.uid===memory.uid)onChatModeChange?.('text');},[memory]);
@@ -303,6 +319,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     memory.flushing=flushing;return flushing;
   };
   memory.flush=flushSession;memory.stageGuest=stageGuestSession;
+  const flushVoiceSession=()=>flushVoiceConversation(voiceMemory,{current:()=>auth.currentUser?.uid===voiceMemory.uid,save:saveSession,stageGuest:stageGuestSession});
+  voiceMemory.flush=flushVoiceSession;voiceMemory.stageGuest=stageGuestSession;
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [inputText, setInputText] = useState(memory.draft.text);
   const inputTextRef=useRef(inputText);inputTextRef.current=inputText;
@@ -329,7 +347,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
   }, [chatMode, isLoading, isSpeaking, isTranscribing, interactionState]);
 
-  const [micVolume, setMicVolume] = useState(0);
+  const micLevel=useMotionValue(0);
+  const setMicVolume=React.useCallback((value:number)=>micLevel.set(value),[micLevel]);
   const [interimSpeech, setInterimSpeech] = useState('');
   const [micPermissionError, setMicPermissionError] = useState(false);
   const [speechFeedbackMsg, setSpeechFeedbackMsg] = useState<string | null>(null);
@@ -344,6 +363,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(memory.metadata.current?.id||null);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [historyChannel,setHistoryChannel]=useState<'text'|'voice'>('text');
+  const [viewedVoiceSession,setViewedVoiceSession]=useState<ChatSession|null>(null);
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -414,7 +435,26 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const deviceReadVersion=useRef(0);
   const deviceReadingRef=useRef<{id:number;session:GeminiLiveSession;handle:DeviceSpeechHandle|null}|null>(null);
   const deviceReadHandler=useRef(onReadDevice);deviceReadHandler.current=onReadDevice;
-  const deviceConsentHandler=useRef(onDeviceSpeechConsent);deviceConsentHandler.current=onDeviceSpeechConsent;
+  const localDeviceReadHandler=useRef(onReadLocalDevice);localDeviceReadHandler.current=onReadLocalDevice;
+  const deviceLocalOnlyRef=useRef(false);
+  const [localVoiceAvailable,setLocalVoiceAvailable]=useState(()=>hasLocalPortugueseVoice());
+  const localVoiceAvailableRef=useRef(localVoiceAvailable);localVoiceAvailableRef.current=localVoiceAvailable;
+  const [voicePreference,setVoicePreference]=useState<VoicePreference>(()=>readVoicePreference(localStorage,userId));
+  const voicePreferenceRef=useRef(voicePreference);voicePreferenceRef.current=voicePreference;
+  const appliedVoiceOutput=useRef<{session:GeminiLiveSession|null;mode:'cloud'|'device'}>({session:null,mode:'cloud'});
+  useEffect(()=>observeLocalPortugueseVoices(setLocalVoiceAvailable),[]);
+  const selectVoicePreference=(preference:VoicePreference)=>{
+    voicePreferenceRef.current=preference;setVoicePreference(preference);
+    try{saveVoicePreference(localStorage,preference,userId);}catch{setSpeechFeedbackMsg('A escolha da voz funciona nesta conversa, mas não pôde ser guardada neste aparelho.');}
+  };
+  const applyVoiceOutput=(session:GeminiLiveSession)=>{
+    const mode=voiceOutputFor(voicePreferenceRef.current,localVoiceAvailableRef.current&&!!localDeviceReadHandler.current);
+    if(appliedVoiceOutput.current.session!==session)appliedVoiceOutput.current={session,mode:'cloud'};
+    if(mode!==appliedVoiceOutput.current.mode&&!session.setSpeechOutput(mode))return;
+    appliedVoiceOutput.current={session,mode};
+    deviceLocalOnlyRef.current=mode==='device';
+    deviceModeRef.current=mode==='device';setDeviceMode(mode==='device');
+  };
   const audioMutedRef=useRef(!!isAudioMuted);audioMutedRef.current=!!isAudioMuted;
   const [liveAvatarState, setLiveAvatarState] = useState<AvatarState | null>(null);
   const [liveIsSpeaking, setLiveIsSpeaking] = useState(false);
@@ -459,8 +499,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   const readWithDevice=(text:string,chooseMode=false)=>{
-    const session=liveSessionRef.current,read=deviceReadHandler.current;
+    if(chooseMode)deviceLocalOnlyRef.current=localVoiceAvailableRef.current&&!!localDeviceReadHandler.current;
+    const session=liveSessionRef.current,read=deviceLocalOnlyRef.current?localDeviceReadHandler.current:deviceReadHandler.current;
     if(!session||!read||!text||text.length>1500||text!==liveCheckedReplyRef.current)return false;
+    if(chooseMode&&deviceLocalOnlyRef.current&&audioMutedRef.current){
+      // This explicit recovery action asks to hear the checked answer. Keep the
+      // sound control and avatar in sync; automatic local reading never unmutes.
+      if(!onToggleAudioMute)return false;
+      onToggleAudioMute();audioMutedRef.current=false;session.setMuted(false);
+    }
     const resumeOnEnd=chooseMode||!liveManualPauseRef.current;
     cancelDeviceReading(false);
     if(chooseMode)liveManualPauseRef.current=false;
@@ -498,6 +545,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
     active.handle=handle;
     if(chooseMode&&!session.setSpeechOutput('device')){cancelDeviceReading(false);setSpeechFeedbackMsg('A sessão de voz foi encerrada. Você pode continuar por texto.');return false;}
+    if(chooseMode)appliedVoiceOutput.current={session,mode:'device'};
     accepted=true;
     deviceModeRef.current=true;setDeviceMode(true);
     setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);
@@ -505,21 +553,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return true;
   };
 
-  const chooseDeviceVoice=()=>{
-    const session=liveSessionRef.current;
-    if(!session)return;
-    session.pauseMicrophone(true);setLivePaused(true);
-    // Changing output mode discards any unfinished utterance from the old mode.
-    session.interruptPlayback();
-    if(!deviceConsentHandler.current?.()){liveManualPauseRef.current=true;return;}
-    if(!session.setSpeechOutput('device')){setSpeechFeedbackMsg('A sessão de voz foi encerrada. Você pode continuar por texto.');return;}
-    deviceModeRef.current=true;setDeviceMode(true);
-    liveManualPauseRef.current=false;
-    setLiveRetryAt(0);setLiveUnavailable(false);setSpeechFeedbackMsg(null);
-    session.finishDevicePlayback(true);setLivePaused(false);
-  };
-
   useEffect(()=>{if(isAudioMuted)cancelDeviceReading(false);},[isAudioMuted]);
+  useEffect(()=>{const session=liveSessionRef.current;if(session&&isListening&&!deviceReading)applyVoiceOutput(session);},[voicePreference,localVoiceAvailable,interactionState,deviceReading]);
 
   // Track online network status
   useEffect(() => {
@@ -541,8 +576,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   }, [isListening, isSpeaking, isLoading]);
 
   useEffect(() => {
-    let cancelled=false; setHistoryReady(false);setHistoryError('');memoryRef.current.historyReady=false;
-    loadSessions(userId).then(list=>{if(cancelled||auth.currentUser?.uid!==userId)return;memoryRef.current.historyReady=true;setSessions(list);setHistoryReady(true);}).catch(()=>{if(!cancelled&&auth.currentUser?.uid===userId)setHistoryError('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
+    let cancelled=false; setHistoryReady(false);setHistoryError('');memoryRef.current.historyReady=false;voiceMemoryRef.current.historyReady=false;
+    loadSessions(userId).then(list=>{if(cancelled||auth.currentUser?.uid!==userId)return;memoryRef.current.historyReady=true;voiceMemoryRef.current.historyReady=true;setSessions(list);setHistoryReady(true);}).catch(()=>{if(!cancelled&&auth.currentUser?.uid===userId)setHistoryError('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
     return ()=>{cancelled=true;};
   },[userId,historyAttempt]);
   useEffect(()=>{setCurrentSessionId(memory.metadata.current?.id||null);},[memory]);
@@ -559,6 +594,17 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const timer=setTimeout(()=>{flushSession().then(()=>{if(!cancelled&&memory.savedSession)setSessions(list=>mergeSavedSession(list,memory.savedSession!));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
     return ()=>{cancelled=true;clearTimeout(timer);};
   },[historyReady,messages,isLoading,userId,currentSessionId,memory]);
+  useEffect(()=>{
+    if(!historyReady||auth.currentUser?.uid!==voiceMemory.uid)return;
+    voiceMemory.historyReady=true;
+    queueVoiceConversationSnapshot(voiceMemory);
+    if(!voiceMemory.pendingSave.current)return;
+    let cancelled=false;
+    // Spoken records save independently of a text request that is still running.
+    void flushVoiceSession().then(()=>{if(!cancelled&&voiceMemory.savedSession)setSessions(list=>mergeSavedSession(list,voiceMemory.savedSession!));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz. Ela permanece neste aparelho; tente salvar antes de atualizar.');});
+    return()=>{cancelled=true;};
+  },[historyReady,voiceMessages,voiceMemory,userId]);
+  useEffect(()=>()=>{if(auth.currentUser?.uid===voiceMemory.uid)void flushVoiceSession().catch(()=>onHistoryError?.('Não foi possível salvar a última conversa por voz. Ela permanece aberta neste aparelho.'));},[voiceMemory]);
 
   // Live session management. A limpeza usa a instância local para impedir
   // que o cleanup de uma sessão antiga encerre uma sessão nova.
@@ -571,6 +617,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setLiveCheckedReply('');
     liveCheckedReplyRef.current='';
     deviceModeRef.current=false;setDeviceMode(false);setDeviceReading(false);
+    deviceLocalOnlyRef.current=false;
     liveManualPauseRef.current=false;
     setInterimSpeech('');
     setSpeechFeedbackMsg(null);
@@ -588,6 +635,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       onStateChange: (state) => {
         if (disposed || liveSessionRef.current !== session) return;
         if(deviceReadingRef.current?.session===session&&(state==='idle'||state==='listening'))return;
+        if(state==='listening')applyVoiceOutput(session);
         switch (state) {
           case 'connecting':
             setInteractionState('CONNECTING');
@@ -644,10 +692,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
         setLiveSubtitle((prev) => prev + text);
         voiceOutput.current+=text;
       },
-      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current){liveCheckedReplyRef.current=voiceOutput.current;setLiveCheckedReply(voiceOutput.current);saveVoiceTurn?.(voiceInput.current,voiceOutput.current);}voiceInput.current='';voiceOutput.current='';},
+      onTurnComplete:()=>{if(disposed||liveSessionRef.current!==session)return;if(voiceInput.current&&voiceOutput.current){liveCheckedReplyRef.current=voiceOutput.current;setLiveCheckedReply(voiceOutput.current);try{saveVoiceTurn?.(voiceInput.current,voiceOutput.current);}catch(error){session.pauseMicrophone(true);setLivePaused(true);setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível registrar a conversa por voz. Sua resposta continua disponível.');}}voiceInput.current='';voiceOutput.current='';},
       onDeviceSpeech:text=>{
         if(disposed||liveSessionRef.current!==session||!deviceModeRef.current)return;
-        if(!text||text.length>1500||text!==liveCheckedReplyRef.current||!deviceReadHandler.current){
+        if(!text||text.length>1500||text!==liveCheckedReplyRef.current||!(deviceLocalOnlyRef.current?localDeviceReadHandler.current:deviceReadHandler.current)){
           session.finishDevicePlayback(false);setLivePaused(true);setLiveUnavailable(true);
           setSpeechFeedbackMsg('A resposta não está pronta para leitura. Você pode continuar por texto.');
           return;
@@ -694,11 +742,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if (liveSessionRef.current === session) liveSessionRef.current = null;
       setMicVolume(0);
     };
-  }, [chatMode,userId,liveSessionVersion]);
+  }, [chatMode,userId,liveSessionVersion,voiceMemory]);
 
   // Clean interim speech when response arrives
   useEffect(() => {
-    if (prevLoadingRef.current && !isLoading) {
+    if (chatModeRef.current!=='live' && prevLoadingRef.current && !isLoading) {
       setInterimSpeech('');
       latestFinalRef.current = '';
       latestInterimRef.current = '';
@@ -1218,15 +1266,26 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if(chatMode==='live')setChatMode('text');
   };
   memory.stopAudio=()=>{endLiveConversation();stopListening();};
+  voiceMemory.stopAudio=()=>{endLiveConversation();stopListening();};
   useEffect(()=>{
     if(messages.length<=198)return;
-    if(chatModeRef.current==='live')endLiveConversation();
+    if(chatModeRef.current==='live')return;
     if(isListeningRef.current)stopListening();
     setSpeechFeedbackMsg(conversationLimitMessage);
   },[messages.length]);
+  useEffect(()=>{if(voiceMemory.messages.length>198&&chatModeRef.current==='live'){liveSessionRef.current?.pauseMicrophone(true);setLivePaused(true);setSpeechFeedbackMsg('Esta conversa por voz atingiu o limite. Toque em Nova voz; seu histórico foi preservado.');}},[voiceMessages,voiceMemory]);
 
   const handleNewChat = async () => {
     if(switchLock.current)return;
+    if(chatModeRef.current==='live'){
+      const activeVoiceMemory=voiceMemory;
+      if(!activeVoiceMemory.historyReady&&activeVoiceMemory.messages.length){setSpeechFeedbackMsg('Recarregue o histórico antes de iniciar outra conversa por voz. Sua conversa atual permanece aberta.');return;}
+      endLiveConversation();
+      switchLock.current=true;
+      try{await flushVoiceSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz. Tente novamente antes de iniciar outra.');return;}finally{switchLock.current=false;}
+      if(!componentActive.current||voiceMemoryRef.current!==activeVoiceMemory||auth.currentUser?.uid!==userId)return;
+      onResetVoice?.();setShowHistoryDrawer(false);setLiveSessionVersion(value=>value+1);setChatMode('live');return;
+    }
     if(!memory.historyReady&&messages.some(message=>message.role==='user')){setSpeechFeedbackMsg('Recarregue o histórico antes de trocar de conversa. O conteúdo aberto foi preservado.');return;}
     if (inputText.trim()||selectedImageRef.current||imagePreparation.current.pending) {
       if (!window.confirm('Você tem uma mensagem não enviada. Deseja iniciar um novo chat mesmo assim?')) {
@@ -1249,6 +1308,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   // Switch to a chat session
   const handleSelectSession = async (session: ChatSession) => {
+    if(isVoiceSession(session)){
+      if(switchLock.current)return;
+      endLiveConversation();switchLock.current=true;
+      try{await flushVoiceSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz aberta. Seu registro foi preservado.');return;}finally{switchLock.current=false;}
+      if(!componentActive.current||auth.currentUser?.uid!==userId)return;
+      setViewedVoiceSession(session);setShowHistoryDrawer(false);return;
+    }
     if(isLoading || switchLock.current)return;
     if(!memory.historyReady&&messages.some(message=>message.role==='user')){setSpeechFeedbackMsg('Recarregue o histórico antes de trocar de conversa. O conteúdo aberto foi preservado.');return;}
     if((inputText.trim()||selectedImageRef.current||imagePreparation.current.pending)&&!window.confirm('Há uma mensagem não enviada. Deseja abrir outra conversa? O texto digitado será preservado; imagens serão removidas após a troca.'))return;
@@ -1271,12 +1337,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const target=sessionToDelete,current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
     historyMutation.current=true;setHistoryMutationError('');
     try{
-      endLiveConversation();stopListening();await flushSession();if(!current())return;
+      endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
       await deleteSession(target.id,userId);if(!current())return;
       const updated=sessions.filter(session=>session.id!==target.id);setSessions(updated);
       if(pendingSave.current?.session.id===target.id)pendingSave.current=null;
+      if(voiceMemory.metadata.current?.id===target.id)onResetVoice?.();
       if(currentSessionId===target.id){
-        if(updated.length)await handleSelectSession(updated[0]);
+        const nextText=updated.find(session=>!isVoiceSession(session));
+        if(nextText)await handleSelectSession(nextText);
         else {cancelImagePreparation(true);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
       }
       setSessionToDelete(null);
@@ -1290,10 +1358,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
     historyMutation.current=true;setHistoryMutationError('');
     try{
-      endLiveConversation();stopListening();await flushSession();if(!current())return;
-      await deleteAllSessions(userId);if(!current())return;
-      cancelImagePreparation(true);
-      pendingSave.current=null;setSessions([]);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);
+      endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
+      const all=await loadSessions(userId);if(!current())return;
+      const deletingVoice=historyChannel==='voice';
+      for(const session of all.filter(session=>isVoiceSession(session)===deletingVoice)){await deleteSession(session.id,userId);if(!current())return;}
+      setSessions(all.filter(session=>isVoiceSession(session)!==deletingVoice));
+      if(deletingVoice){voiceMemory.pendingSave.current=null;onResetVoice?.();}
+      else{cancelImagePreparation(true);pendingSave.current=null;restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
       setIsConfirmDeleteAllOpen(false);setShowHistoryDrawer(false);
     }catch{if(current())setHistoryMutationError('Não foi possível concluir a exclusão. As conversas restantes e a conversa aberta foram preservadas. Tente novamente.');}
     finally{historyMutation.current=false;}
@@ -1305,11 +1376,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     const title=editingTitleText.trim(),current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
     historyMutation.current=true;setHistoryMutationError('');
     try{
-      endLiveConversation();stopListening();await flushSession();if(!current())return;
+      endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
       const renamed=await renameSession(sessionId,title,userId);if(!current())return;
       setSessions(list=>mergeSavedSession(list,renamed));
       if(sessionMetadata.current?.id===sessionId)sessionMetadata.current={...sessionMetadata.current,title};
       if(memory.savedSession?.id===sessionId)memory.savedSession=renamed;
+      if(voiceMemory.metadata.current?.id===sessionId)voiceMemory.metadata.current={...voiceMemory.metadata.current,title};
+      if(voiceMemory.savedSession?.id===sessionId)voiceMemory.savedSession=renamed;
       setEditingSessionId(null);setEditingTitleText('');
     }catch{if(current())setHistoryMutationError('Não foi possível renomear. O título anterior e o texto digitado foram preservados. Tente novamente.');}
     finally{historyMutation.current=false;}
@@ -1338,7 +1411,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
     if(chatMode==='live'&&liveUnavailable)return {text:'Voz indisponível',color:'bg-amber-500/20 text-amber-200 border-amber-400/40',icon:<VolumeX className="w-3.5 h-3.5 shrink-0"/>};
     if (interactionState==='CONNECTING')return {text:'Conectando a voz…',color:'bg-violet-500/20 text-violet-200 border-violet-400/40',icon:<Sparkles className="w-3.5 h-3.5 animate-pulse shrink-0"/>};
-    if (isLoading||interactionState==='PROCESSING') {
+    if ((chatMode==='text'&&isLoading)||interactionState==='PROCESSING') {
       return {
         text: chatMode==='live'&&liveSubtitle?'Preparando a voz…':'Preparando a resposta…',
         color: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
@@ -1384,7 +1457,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const liveRetryWaiting=liveRetryAt>Date.now();
 
   // Filter sessions by search query
-  const filteredSessions = sessions.filter(
+  const filteredSessions = sessions.filter(s=>isVoiceSession(s)===(historyChannel==='voice')).filter(
     (s) =>
       s.title.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
       (s.lastMessagePreview && s.lastMessagePreview.toLowerCase().includes(historySearchQuery.toLowerCase()))
@@ -1424,6 +1497,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   return (
     <div className="w-full h-full flex-1 min-h-0 min-w-0 max-w-5xl mx-auto px-1 sm:px-3 py-1 sm:py-2 flex flex-col overflow-hidden">
+      {viewedVoiceSession&&<VoiceHistoryDialog session={viewedVoiceSession} onClose={()=>setViewedVoiceSession(null)}/>}
       {/* QUADRO AZUL PRINCIPAL COMPLETO DE CONVERSA */}
       <div className="w-full h-full flex-1 min-h-0 min-w-0 bg-gradient-to-b from-indigo-950 via-slate-950 to-slate-900 border border-indigo-900/60 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col relative">
 
@@ -1497,15 +1571,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
             <button
               onClick={handleNewChat}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 shadow-md flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-              title="Iniciar uma nova conversa"
+              title={chatMode==='live'?'Iniciar uma nova conversa por voz':'Iniciar uma nova conversa'}
             >
               <Plus className="w-4 h-4 text-orange-400" />
-              <span className="hidden md:inline">Novo chat</span>
+              <span className="hidden md:inline">{chatMode==='live'?'Nova voz':'Novo chat'}</span>
             </button>
 
             {/* Conversas / Histórico Drawer Toggle */}
             <button
-              onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+              onClick={() => {if(!showHistoryDrawer)setHistoryChannel(chatMode==='live'?'voice':'text');setShowHistoryDrawer(!showHistoryDrawer);}}
               className={`p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                 showHistoryDrawer
                   ? 'bg-indigo-600 text-white border-indigo-500'
@@ -1709,9 +1783,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                 </div>
 
                 <div className="text-center">
-                  <h3 className="font-black text-sm text-white">Apagar TODO o histórico?</h3>
+                  <h3 className="font-black text-sm text-white">Apagar o histórico de {historyChannel==='voice'?'voz':'texto'}?</h3>
                   <p className="text-xs text-slate-400 font-medium mt-1">
-                    Isso apagará permanentemente todas as suas conversas gravadas.
+                    Isso apagará permanentemente as conversas de {historyChannel==='voice'?'voz':'texto'}. O histórico de {historyChannel==='voice'?'texto':'voz'} será preservado.
                   </p>
                   {historyMutationError&&<p role="alert" className="text-xs text-amber-200 mt-2">{historyMutationError}</p>}
                 </div>
@@ -1727,7 +1801,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     onClick={handleConfirmDeleteAll}
                     className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-md cursor-pointer"
                   >
-                    Sim, apagar tudo
+                    Sim, apagar {historyChannel==='voice'?'voz':'texto'}
                   </button>
                 </div>
               </motion.div>
@@ -1823,6 +1897,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
 
                   {/* Search Input */}
+                  <div className="flex rounded-xl bg-slate-950 p-1 gap-1" role="group" aria-label="Canal do histórico">
+                    <button type="button" aria-pressed={historyChannel==='text'} onClick={()=>setHistoryChannel('text')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${historyChannel==='text'?'bg-indigo-600 text-white':'text-slate-300'}`}>Texto</button>
+                    <button type="button" aria-pressed={historyChannel==='voice'} onClick={()=>setHistoryChannel('voice')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${historyChannel==='voice'?'bg-sky-700 text-white':'text-slate-300'}`}>Voz</button>
+                  </div>
                   <div className="relative shrink-0">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     <input
@@ -1847,7 +1925,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                           </span>
 
                           {groupList.map((session) => {
-                            const isSelected = session.id === currentSessionId;
+                            const isSelected = session.id === (historyChannel==='voice'?voiceMemory.metadata.current?.id:currentSessionId);
                             const isEditing = editingSessionId === session.id;
 
                             return (
@@ -1930,14 +2008,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
 
                   {/* Delete All Action */}
-                  {sessions.length > 0 && (
+                  {sessions.some(session=>isVoiceSession(session)===(historyChannel==='voice')) && (
                     <div className="pt-2 border-t border-slate-800 shrink-0">
                       <button
                         onClick={() => setIsConfirmDeleteAllOpen(true)}
                         className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                        <span>Apagar todas as conversas</span>
+                        <span>Apagar conversas de {historyChannel==='voice'?'voz':'texto'}</span>
                       </button>
                     </div>
                   )}
@@ -1958,11 +2036,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           </div>}
           {chatMode === 'live' ? (
             <div className="flex-1 min-h-0 min-w-0 bg-slate-950 flex flex-col relative overflow-hidden">
-              {!deviceMode&&onDeviceSpeechConsent&&isListening&&<div className="shrink-0 px-3 py-1.5 flex justify-end">
-                <button onClick={chooseDeviceVoice} className="text-xs px-2.5 py-1.5 rounded-lg border border-sky-400/30 text-sky-200 hover:bg-sky-500/10 cursor-pointer">Voz do aparelho</button>
-              </div>}
+              <div className="shrink-0 px-3 py-2 flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Tipo de voz">
+                <button type="button" aria-pressed={voicePreference==='local'&&localVoiceAvailable} disabled={!localVoiceAvailable} title={localVoiceAvailable?'Voz rápida disponível neste aparelho':'Voz rápida indisponível neste aparelho; a Voz Google permanece disponível'} onClick={()=>selectVoicePreference('local')} className={`text-xs px-3 py-2 rounded-lg border border-sky-400/30 disabled:opacity-50 ${voicePreference==='local'&&localVoiceAvailable?'bg-sky-800 text-white':'text-sky-200'}`}>Voz rápida</button>
+                <button type="button" aria-pressed={voicePreference==='google'||!localVoiceAvailable} onClick={()=>selectVoicePreference('google')} className={`text-xs px-3 py-2 rounded-lg border border-sky-400/30 ${voicePreference==='google'||!localVoiceAvailable?'bg-sky-800 text-white':'text-sky-200'}`}>Voz Google</button>
+                {!localVoiceAvailable&&<span className="text-[10px] text-slate-400">Sem voz local em português neste aparelho.</span>}
+                {!isListening&&<span className="text-[10px] text-slate-400">A escolha vale para a próxima resposta.</span>}
+              </div>
               {deviceMode&&<div role="status" className="shrink-0 px-3 py-2 text-center text-xs text-sky-200 bg-sky-950/40 border-b border-sky-500/20">
-                <span className="font-bold">Voz do aparelho</span>{deviceReading?' · Microfone pausado · interrompa pelo botão':''}
+                <span className="font-bold">{deviceLocalOnlyRef.current?'Voz rápida':'Voz do aparelho'}</span>{deviceReading?' · Microfone pausado · interrompa pelo botão':''}
               </div>}
               
               {/* ZONA SUPERIOR: FAIXA DE LEGENDAS (Ocupa espaço apenas se ativada) */}
@@ -1989,13 +2070,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
               {/* ONDAS SONORAS (Abaixo da Legenda, Acima do Avatar) */}
               <div className="shrink-0 flex items-center justify-center pt-4 pb-2 bg-transparent pointer-events-none z-10 min-h-[40px]">
                 {(isListening || currentIsSpeaking) && (
-                  <div className="flex items-center justify-center gap-1.5 h-6">
-                      <motion.span animate={{ height: isListening ? [6, Math.max(10, micVolume * 20), 6] : [6, 14, 6] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
-                      <motion.span animate={{ height: isListening ? [10, Math.max(14, micVolume * 30), 10] : [10, 20, 10] }} transition={{ repeat: Infinity, duration: 0.5 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
-                      <motion.span animate={{ height: isListening ? [14, Math.max(18, micVolume * 40), 14] : [14, 24, 14] }} transition={{ repeat: Infinity, duration: 0.3 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-200' : 'bg-emerald-200'}`} />
-                      <motion.span animate={{ height: isListening ? [8, Math.max(12, micVolume * 25), 8] : [8, 16, 8] }} transition={{ repeat: Infinity, duration: 0.6 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-300' : 'bg-emerald-300'}`} />
-                      <motion.span animate={{ height: isListening ? [5, Math.max(8, micVolume * 15), 5] : [5, 10, 5] }} transition={{ repeat: Infinity, duration: 0.4 }} className={`w-1 rounded-full ${currentIsSpeaking ? 'bg-sky-400' : 'bg-emerald-400'}`} />
-                  </div>
+                  <AudioActivityMeter level={micLevel} speaking={currentIsSpeaking}/>
                 )}
               </div>
 
@@ -2218,9 +2293,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <motion.span animate={{ height: `${Math.max(6, micVolume * 24)}px` }} className="w-1 bg-emerald-400 rounded-full" />
-                    <motion.span animate={{ height: `${Math.max(10, micVolume * 36)}px` }} className="w-1 bg-emerald-300 rounded-full" />
-                    <motion.span animate={{ height: `${Math.max(6, micVolume * 20)}px` }} className="w-1 bg-emerald-400 rounded-full" />
+                    <AudioActivityMeter level={micLevel} compact/>
                   </div>
                 </div>
               )}

@@ -5,10 +5,23 @@ import {GeminiAi,GEMINI_ADULT_CONSENT,verifiedFreeGemini} from './geminiAi';
 
 export const AI_CONSENT_VERSION = '2026-10-12-openai-adult-synthetic-v1';
 export const LOCAL_AI_CONSENT_VERSION='2026-10-12-local-free-synthetic-v1';
+export interface VoiceTurnRequest {
+  audio: string;
+  mime: string;
+  instruction: string;
+  history: Array<{role:string;content:string}>;
+}
+export interface VoiceTurnResult {
+  input: string;
+  reply: string;
+  status: 'ok' | 'no_speech';
+}
 export interface AiEngine {
   provider?: string;
   models:{generateContent:(request:any,signal?:AbortSignal)=>Promise<{text:string}>};
   transcribe:(audio:string,mime:string,signal?:AbortSignal)=>Promise<{text:string;status:string;provider:string}>;
+  // Optional single multimodal generation. Other engines retain separate STT/text.
+  voiceTurn?:(request:VoiceTurnRequest,signal?:AbortSignal)=>Promise<VoiceTurnResult>;
   speech:(text:string,signal?:AbortSignal)=>Promise<{pcm:Buffer;sampleRate:number}>;
   speechStream?:(text:string,signal?:AbortSignal)=>AsyncGenerator<Buffer>;
 }

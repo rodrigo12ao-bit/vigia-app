@@ -43,7 +43,7 @@ export function connectGeminiVoice(client:WebSocket,instruction:string,env:NodeJ
   // its actual audio queue to finish, and saves this checked turn exactly once.
   send({type:'turn_complete'});
  };
- upstream.on('open',()=>{if(closed){upstream.close();return;}upstream.send(JSON.stringify({setup:{model:'models/'+GEMINI_LIVE_MODEL,generationConfig:{responseModalities:['AUDIO'],temperature:0.5,maxOutputTokens:800,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Aoede'}}}},systemInstruction:{parts:[{text:instruction}]},inputAudioTranscription:{},outputAudioTranscription:{},realtimeInputConfig:{automaticActivityDetection:{disabled:false,startOfSpeechSensitivity:'START_SENSITIVITY_LOW',endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',prefixPaddingMs:100,silenceDurationMs:500}}}}));});
+ upstream.on('open',()=>{if(closed){upstream.close();return;}upstream.send(JSON.stringify({setup:{model:'models/'+GEMINI_LIVE_MODEL,generationConfig:{responseModalities:['AUDIO'],temperature:0.5,maxOutputTokens:800,speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Aoede'}}}},systemInstruction:{parts:[{text:instruction}]},inputAudioTranscription:{},outputAudioTranscription:{},realtimeInputConfig:{automaticActivityDetection:{disabled:false,startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',prefixPaddingMs:300,silenceDurationMs:600}}}}));});
  upstream.on('message',raw=>{
   if(closed)return;
   try{

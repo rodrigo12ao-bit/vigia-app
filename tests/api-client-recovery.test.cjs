@@ -18,7 +18,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const user=uid=>({uid,getIdToken:async()=>`synthetic-token-${uid}`});
 
 async function harness(t,{handler,currentUser=null,consent=true}={}){
-  const auth={currentUser},calls=[],prompts=[],local=new Map(),session=new Map([['vigia_adult_access','isolated-adult-version']]),timers=new Set();
+  const auth={currentUser},calls=[],prompts=[],local=new Map(),session=new Map([['vigia_adult_access','isolated-adult-version']]),timers=new Set(),listeners=new Map();
   let now=0;
   if(consent)local.set('vigia_ai_consent:'+(currentUser?.uid||'guest'),'isolated-consent');
   const storage=map=>({getItem:key=>map.get(key)||null,setItem:(key,value)=>map.set(key,value)});
@@ -36,18 +36,86 @@ async function harness(t,{handler,currentUser=null,consent=true}={}){
   const module={exports:{}};
   const script=await compiled;
   new Function('testEnv','module','exports','fetch','window','localStorage','sessionStorage','Date','setTimeout','clearTimeout',script.code)
-    ({auth},module,module.exports,fetch,{confirm:message=>{prompts.push(message);return true;}},storage(local),storage(session),{now:()=>now},timer,clear);
-  return {...module.exports,auth,calls,prompts,local,session,advance:ms=>{now+=ms;},count:path=>calls.filter(call=>call.path===path).length};
+    ({auth},module,module.exports,fetch,{confirm:message=>{prompts.push(message);return true;},addEventListener:(type,listener)=>listeners.set(type,listener)},storage(local),storage(session),{now:()=>now},timer,clear);
+  return {...module.exports,auth,calls,prompts,local,session,emit:type=>listeners.get(type)?.(),advance:ms=>{now+=ms;},count:path=>calls.filter(call=>call.path===path).length};
 }
 
-test('status shares the pending request and starts its 3 s cache only after the response',async t=>{
+test('status shares the pending request and starts its 30 s cache only after the response',async t=>{
   const pending=deferred();let request=0;
   const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===1?pending.promise:undefined});
   const first=h.getAiStatus();h.advance(50000);
   assert.equal(h.getAiStatus(),first);assert.equal(h.count('/api/status'),1);
   pending.resolve(response(200,status));await first;
-  h.advance(2000);assert.equal(h.getAiStatus(),first);
+  h.advance(29000);assert.equal(h.getAiStatus(),first);
   h.advance(1001);await h.getAiStatus();assert.equal(h.count('/api/status'),2);
+});
+
+test('a stale status refresh runs in parallel without holding the next text POST',async t=>{
+  const pending=deferred();let request=0;
+  const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===2?pending.promise:undefined});
+  await h.getAiStatus();h.advance(31000);
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,200);
+  assert.equal(h.count('/api/status'),2);assert.equal(h.count('/api/chat'),1);
+  const changed={...status,ai:{...status.ai,blocked:'Synthetic disabled configuration'}};
+  pending.resolve(response(200,changed));await flush();
+  await assert.rejects(h.apiFetch('/api/chat',{method:'POST',body:'{}'}),/disabled configuration/);
+  assert.equal(h.count('/api/chat'),1);
+});
+
+test('status hints older than 60 s wait for refresh and never remain indefinitely stale',async t=>{
+  const pending=deferred();let request=0;
+  const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===2?pending.promise:undefined});
+  await h.getAiStatus();h.advance(61000);
+  const sending=h.apiFetch('/api/chat',{method:'POST',body:'{}'});await flush();assert.equal(h.count('/api/chat'),0);
+  pending.resolve(response(200,status));assert.equal((await sending).status,200);
+});
+
+test('online invalidates a recent status and a failed background refresh can be retried',async t=>{
+  let request=0;
+  const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===2?response(503,{error:'Synthetic status outage'}):undefined});
+  await h.getAiStatus();h.advance(31000);
+  assert.deepEqual(await h.getAiStatus(),status);await flush();
+  h.emit('online');await h.getAiStatus();assert.equal(h.count('/api/status'),3);
+});
+
+test('cached status cannot bypass a changed consent: 428 is returned once and the next action asks again',async t=>{
+  let changed=false,handled=0;
+  const changedStatus={...status,ai:{...status.ai,consentVersion:'isolated-consent-v2'}};
+  const h=await harness(t,{handler:({path,options})=>{
+    if(path==='/api/status')return response(200,changed?changedStatus:status);
+    if(path==='/api/chat'){
+      if(options.headers.get('X-Vigia-AI-Consent')!==(changed?'isolated-consent-v2':'isolated-consent'))return response(428,{code:'consent_required',error:'Synthetic consent required'});
+      handled++;return response();
+    }
+  }});
+  await h.getAiStatus();changed=true;
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,428);
+  assert.equal(handled,0);assert.equal(h.count('/api/chat'),1);assert.equal(h.prompts.length,0);
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,200);
+  assert.equal(handled,1);assert.equal(h.count('/api/status'),2);assert.equal(h.prompts.length,1);
+  assert.equal(h.local.get('vigia_ai_consent:guest'),'isolated-consent-v2');
+});
+
+test('a cached configuration never replaces fresh authorization of the text POST',async t=>{
+  const h=await harness(t,{handler:({path})=>path==='/api/chat'?response(403,{code:'audience_blocked',error:'Synthetic adulthood revoked'}):undefined});
+  await h.getAiStatus();assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,403);
+  assert.equal(h.count('/api/chat'),1);await h.getAiStatus();assert.equal(h.count('/api/status'),2);
+});
+
+test('explicit connection verification refreshes immediately and shares the pending read',async t=>{
+  const pending=deferred();let request=0;
+  const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===2?pending.promise:undefined});
+  await h.getAiStatus();const refresh=h.getAiStatus({fresh:true});
+  assert.equal(h.getAiStatus({fresh:true}),refresh);assert.equal(h.count('/api/status'),2);
+  pending.resolve(response(200,status));await refresh;
+});
+
+test('a text connection failure invalidates status without replaying the failed write',async t=>{
+  let fail=true;
+  const h=await harness(t,{handler:({path})=>path==='/api/chat'&&fail?Promise.reject(new TypeError('Synthetic connection lost')):undefined});
+  await h.getAiStatus();await assert.rejects(h.apiFetch('/api/chat',{method:'POST',body:'{}'}),/connection lost/);
+  assert.equal(h.count('/api/chat'),1);fail=false;
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,200);assert.equal(h.count('/api/status'),2);
 });
 
 test('a failed status request can be requested again',async t=>{

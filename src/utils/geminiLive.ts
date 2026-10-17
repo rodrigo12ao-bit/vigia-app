@@ -715,7 +715,12 @@ export class GeminiLiveSession {
 
   public setMuted(muted:boolean):void{
     this.muted=muted;
-    if(this.outputGain&&this.outputAudioCtx)this.outputGain.gain.setValueAtTime(muted?0:1,this.outputAudioCtx.currentTime);
+    if(this.outputGain&&this.outputAudioCtx){
+      const gain=this.outputGain.gain,value=muted?0:1,now=this.outputAudioCtx.currentTime;
+      // A quiet audio graph may defer evaluating automation. Update the intrinsic
+      // value too, so mute applies immediately and survives the next PCM packet.
+      gain.cancelScheduledValues?.(now);gain.value=value;gain.setValueAtTime(value,now);
+    }
   }
 
   public pauseMicrophone(paused:boolean):void{
@@ -745,7 +750,7 @@ export class GeminiLiveSession {
     this.pendingAudioChunks=0;
     this.serverTurnComplete=false;
     if(this.stopped)return;
-    if(resumeInput)this.pauseMicrophone(false);
+    if(resumeInput){this.pauseMicrophone(false);this.setState('listening');}
     else this.setState('idle');
     this.callbacks.onAvatarStateChange?.(resumeInput?'listening':'idle');
   }
