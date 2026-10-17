@@ -26,7 +26,9 @@ export function discoverPwaUpdates(registration: ServiceWorkerRegistration, opti
   let observedWorker: ServiceWorker | null = null;
 
   const waiting = () => {
-    if (stopped || !registration.waiting) return false;
+    // The first installation briefly waits before activating. It is an update
+    // only when an earlier worker is already active for this registration.
+    if (stopped || !registration.active || !registration.waiting) return false;
     options.onAvailable();
     options.onStatus('available');
     return true;

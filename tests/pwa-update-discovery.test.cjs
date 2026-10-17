@@ -8,11 +8,12 @@ function deferred() {
   const promise = new Promise(done => { resolve = done; });
   return { promise, resolve };
 }
-function harness({ online = true, visible = true, waiting = null, update } = {}) {
+function harness({ online = true, visible = true, active = { state: 'activated' }, waiting = null, installing = null, update } = {}) {
   const window = new EventTarget(), document = new EventTarget(), registration = new EventTarget();
   document.visibilityState = visible ? 'visible' : 'hidden';
+  registration.active = active;
   registration.waiting = waiting;
-  registration.installing = null;
+  registration.installing = installing;
   const states = [];
   let calls = 0, available = 0, time = 0, cancelled = false, tick;
   registration.update = async () => { calls++; return update ? update(registration) : registration; };
@@ -73,6 +74,27 @@ test('an existing waiting worker remains discoverable after its notice was dismi
     assert.ok(h.available() > initial);
     const beforeManual = h.available(); await h.watcher.check(true);
     assert.ok(h.available() > beforeManual); assert.equal(h.calls(), 0);
+  } finally { h.watcher.dispose(); }
+});
+
+test('first installation keeps watching through transient waiting without announcing an update', async () => {
+  const worker = new EventTarget(); worker.state = 'installing';
+  const h = harness({ active: null, installing: worker });
+  try {
+    await flush(); assert.equal(h.calls(), 0); assert.equal(h.available(), 0);
+    h.registration.waiting = worker; h.registration.installing = null; worker.state = 'installed';
+    worker.dispatchEvent(new Event('statechange')); await flush();
+    assert.equal(h.available(), 0); assert.equal(h.states.at(-1), 'checking');
+    h.registration.waiting = null; h.registration.active = worker; worker.state = 'activated';
+    worker.dispatchEvent(new Event('statechange')); await flush();
+    assert.equal(h.available(), 0); assert.equal(h.states.at(-1), 'current');
+
+    // A later worker for this same registration is a genuine update.
+    const next = new EventTarget(); next.state = 'installing';
+    h.registration.installing = next; h.registration.dispatchEvent(new Event('updatefound'));
+    h.registration.waiting = next; h.registration.installing = null; next.state = 'installed';
+    next.dispatchEvent(new Event('statechange')); await flush();
+    assert.ok(h.available() > 0); assert.equal(h.states.at(-1), 'available');
   } finally { h.watcher.dispose(); }
 });
 

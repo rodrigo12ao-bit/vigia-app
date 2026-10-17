@@ -8,17 +8,44 @@ const { resolvePublicTestOrigin } = require('./browser-target.cjs');
 // Test the built application through its ordinary text/voice UI. API replies,
 // voice sockets and microphone input are local fixtures; nothing reaches AI or
 // account services and this test never reads .env or server private files.
-const publicDir = path.resolve('dist/netlify/public');
+const workspaceDir = fs.realpathSync(process.cwd());
+const within = (directory, target) => {
+  const relative = path.relative(directory, target);
+  return relative !== '' && !relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative);
+};
+const publicDir = fs.realpathSync(path.resolve(process.env.VIGIA_AVATAR_BUILD_DIR || 'dist/netlify/public'));
+assert.ok(within(workspaceDir, publicDir), 'O diretório do build precisa ficar dentro do workspace.');
+assert.ok(fs.statSync(publicDir).isDirectory(), 'O diretório do build precisa existir.');
 const online = process.argv.includes('--online');
 const origin = online ? resolvePublicTestOrigin(process.env.VIGIA_AVATAR_PUBLIC_URL || 'https://vigia-aplicativo-18plus.netlify.app') : 'http://127.0.0.1:3138';
 const headerOnly = process.argv.includes('--header-only');
 const presentationOnly = process.argv.includes('--presentation-only');
-const prefix = online ? 'artifacts/vigia-original-publication' : headerOnly ? 'artifacts/vigia-original-app-headers' : presentationOnly ? 'artifacts/vigia-original-app-presentation' : 'artifacts/vigia-original-app-browser';
+const defaultPrefix = online ? 'artifacts/vigia-original-publication' : headerOnly ? 'artifacts/vigia-original-app-headers' : presentationOnly ? 'artifacts/vigia-original-app-presentation' : 'artifacts/vigia-original-app-browser';
+const artifactsDir = path.join(workspaceDir, 'artifacts');
+const prefix = path.resolve(process.env.VIGIA_AVATAR_EVIDENCE_PREFIX || defaultPrefix);
+assert.ok(within(artifactsDir, prefix), 'O prefixo da evidência precisa ficar dentro de artifacts.');
+// Check every existing parent before creating output directories so a junction
+// or symbolic link cannot redirect browser evidence outside this workspace.
+let evidenceParent = path.dirname(prefix);
+while (!fs.existsSync(evidenceParent)) evidenceParent = path.dirname(evidenceParent);
+const realEvidenceParent = fs.realpathSync(evidenceParent);
+assert.ok(realEvidenceParent === workspaceDir || within(workspaceDir, realEvidenceParent), 'O caminho da evidência não pode sair do workspace.');
+if (fs.existsSync(artifactsDir)) {
+  const realArtifactsDir = fs.realpathSync(artifactsDir);
+  assert.ok(within(workspaceDir, realArtifactsDir), 'A pasta artifacts não pode sair do workspace.');
+  assert.ok(realEvidenceParent === realArtifactsDir || within(realArtifactsDir, realEvidenceParent), 'A evidência não pode sair de artifacts.');
+}
+if (process.env.VIGIA_AVATAR_EVIDENCE_PREFIX) {
+  const directory = path.dirname(prefix), basename = path.basename(prefix);
+  const existingEvidence = fs.existsSync(directory) && fs.readdirSync(directory).some(name => name === basename + '.json' || name.startsWith(basename + '-'));
+  assert.ok(!existingEvidence, 'Este prefixo já possui evidências; escolha outro para preservá-las.');
+}
 const headPreviewPath = '/model/vigia-original-head.png';
 const bustPreviewPath = '/model/vigia-original-preview.png';
 const adultVersion = fs.readFileSync('src/lib/audience.ts', 'utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];
-const report = { scope: 'Built Netlify app on loopback, desktop and emulated mobile. Every API, voice socket and microphone response is fictitious. External traffic blocked. No real AI, account login, payment, publication or physical microphone.', checks: [], profiles: [], status: 'running' };
-if (online) report.scope = 'Published Netlify HTML/JS/PNG/GLB and service worker are real; all API requests and voice sockets are mocked before reaching the network. Microphone input is the Chrome fake device. Desktop and mobile emulation, no real AI, login, payment, account change or physical microphone.';
+const hosting = online ? new URL(origin).hostname.endsWith('.onrender.com') ? 'Render' : 'Netlify' : 'local';
+const report = { scope: 'Selected built app on loopback, desktop and emulated mobile. Every API, voice socket and microphone response is fictitious. External traffic blocked. No real AI, account login, payment, publication or physical microphone.', hosting, buildDir: publicDir, evidencePrefix: prefix, checks: [], profiles: [], status: 'running' };
+if (online) report.scope = 'Published ' + hosting + ' HTML/JS/PNG/GLB and service worker are real. The expected entry must be present in live HTML and load successfully; PNG/GLB assets must match the selected local build exactly. All API requests and voice sockets are mocked before reaching the network. Microphone input is the Chrome fake device. Desktop and mobile emulation, no real AI, login, payment, account change or physical microphone.';
 report.origin = origin;
 const status = { demo: false, realAI: true, localDemo: false, audience: '18plus', ai: { mode: 'adult-gemini', provider: 'gemini', blocked: null, consentVersion: 'avatar-local-fixture', voice: true } };
 let browser, page, context, stage = 'setup', label;
@@ -229,7 +256,7 @@ async function profile(mobile) {
   if (online) {
     assert.equal(navigation.status(), 200);
     const published = await navigation.text();
-    assert.ok(published.includes(report.expectedEntry), 'O HTML publicado não referencia a versão atual do bundle.');
+    assert.ok(published.includes(report.expectedEntry), 'O HTML publicado não referencia a versão esperada do bundle.');
     profile.publishedIndexSha256 = createHash('sha256').update(published).digest('hex');
   }
   await page.waitForSelector('[aria-label="Conversa & Voz"]');
@@ -366,14 +393,17 @@ async function profile(mobile) {
 
 (async() => {
   try {
-    fs.mkdirSync('artifacts', { recursive: true });
-    assert.ok(fs.existsSync(path.join(publicDir, 'index.html')), 'Build Netlify antes de rodar o teste.');
+    fs.mkdirSync(path.dirname(prefix), { recursive: true });
+    assert.ok(fs.existsSync(path.join(publicDir, 'index.html')), 'Prepare o build selecionado antes de rodar o teste.');
     assert.ok(fs.existsSync(path.join(publicDir, 'model/vigia-original.glb')), 'O modelo original precisa fazer parte do build.');
     report.bundleSha256 = createHash('sha256').update(fs.readFileSync(path.join(publicDir, 'index.html'))).digest('hex');
     if (online) {
       const expectedHTML = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
-      report.expectedEntry = expectedHTML.match(/<script[^>]+src="([^\"]+\/index-[^\"]+\.js)"/)?.[1];
+      const localEntry = expectedHTML.match(/<script[^>]+src="([^\"]+\/index-[^\"]+\.js)"/)?.[1];
+      report.expectedEntry = process.env.VIGIA_AVATAR_EXPECTED_ENTRY || localEntry;
+      report.entrySource = process.env.VIGIA_AVATAR_EXPECTED_ENTRY ? 'Verified deployment entry supplied by test operator; build environment may change the JavaScript hash.' : 'Selected local build.';
       assert.ok(report.expectedEntry, 'Bundle de entrada atual não encontrado.');
+      assert.match(report.expectedEntry, /^\/assets\/index-[A-Za-z0-9_-]+\.js$/, 'O bundle esperado precisa ser um arquivo versionado da pasta assets.');
     } else await new Promise((resolve, reject) => { server.once('error', reject); server.listen(3138, '127.0.0.1', resolve); });
     const puppeteer = (await import('puppeteer')).default;
     browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, pipe: true, args: ['--no-sandbox', '--disable-background-networking', '--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'], timeout: 60000 });
