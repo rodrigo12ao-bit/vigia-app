@@ -25,7 +25,7 @@
 .navigation-tabs button[aria-current=page]{background:var(--section-soft);border-color:var(--section-edge);color:var(--section-strong);box-shadow:0 3px 10px #34314e06;}
 .vigia-app .vigia-primary{background:var(--section-accent);box-shadow:0 5px 12px #30236b15;cursor:pointer;}
 .vigia-app .vigia-primary:hover{background:var(--section-strong);}
-.vigia-app .vigia-home .vigia-home-mission .vigia-primary{color:#38280c;}
+.vigia-app .vigia-home .vigia-home-mission .vigia-primary{color:#38280c!important;}
 .vigia-app .eyebrow{color:var(--section-strong);}
 .vigia-app .learning-sections button[aria-current=page]{color:var(--section-strong);border:1px solid var(--section-edge);background:var(--section-soft);}
 .vigia-app .learn-card progress{accent-color:var(--section-accent);}
