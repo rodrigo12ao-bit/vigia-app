@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { HelpCircle, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 import { LevelData } from '../../types';
@@ -20,10 +20,13 @@ export const QuizChallengeGame: React.FC<QuizChallengeGameProps> = ({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
+  const answered=useRef(false),advanced=useRef(false);
+  useEffect(()=>{answered.current=false;advanced.current=false;},[currentIdx]);
 
   const q = questions[currentIdx];
 
   const handleOptionClick = (idx: number) => {
+    if(answered.current)return;answered.current=true;
     setSelectedIdx(idx);
     const correct = idx === q.correctIndex;
     setIsCorrect(correct);
@@ -38,6 +41,7 @@ export const QuizChallengeGame: React.FC<QuizChallengeGameProps> = ({
   };
 
   const handleNext = () => {
+    if(selectedIdx===null||advanced.current)return;advanced.current=true;
     if (currentIdx < questions.length - 1) {
       setCurrentIdx((prev) => prev + 1);
       setSelectedIdx(null);

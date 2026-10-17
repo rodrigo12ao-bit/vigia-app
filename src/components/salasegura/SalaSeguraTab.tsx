@@ -64,6 +64,8 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
   const [pendingInvites, setPendingInvites] = useState<SalaSeguraInvite[]>([]);
   const [activeChat, setActiveChat] = useState<SalaSeguraChat | null>(null);
   const [messages, setMessages] = useState<SalaSeguraMessage[]>([]);
+  const [messageThreadId,setMessageThreadId]=useState<string|null>(null);
+  const visibleMessages=messageThreadId===activeChat?.id?messages:[];
 
   // Input fields
   const [inviteCodeInput, setInviteCodeInput] = useState('');
@@ -82,14 +84,18 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
   const actionLock=useRef(false);
   const [actionError,setActionError]=useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const context=useRef({uid:currentUser?.uid,chatId:activeChat?.id});context.current={uid:currentUser?.uid,chatId:activeChat?.id};
+  const alive=useRef(true),timers=useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;timers.current.forEach(clearTimeout);};},[]);
+  const isCurrent=(uid:string|undefined,chatId?:string)=>alive.current&&context.current.uid===uid&&(chatId===undefined||context.current.chatId===chatId);
 
   // Load User Profile
   useEffect(() => {
-    let cancelled=false;setProfile(null);setChats([]);setPendingInvites([]);setActiveChat(null);setMessages([]);
+    let cancelled=false;setProfile(null);setChats([]);setPendingInvites([]);setActiveChat(null);setMessages([]);setActionError('');setMessageInput('');setInviteFeedback(null);
     if (currentUser) {
       fetchOrCreateUserProfile(currentUser.uid, currentUser.email, currentUser.displayName || 'Super Protetor')
         .then((p) => {if(!cancelled)setProfile(p);})
-        .catch(()=>setActionError('Não foi possível carregar o perfil.'));
+        .catch(()=>{if(!cancelled)setActionError('Não foi possível carregar o perfil.');});
     }
     return ()=>{cancelled=true;};
   }, [currentUser]);
@@ -97,62 +103,68 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
   // Subscribe to Chats & Invites
   useEffect(() => {
     if (!currentUser) return;
+    let cancelled=false;
 
     const unsubChats = subscribeUserChats(currentUser.uid, (updatedChats) => {
-      setChats(updatedChats);
-      if (activeChat) {
-        const found = updatedChats.find((c) => c.id === activeChat.id);
-        if (found) setActiveChat(found);
-      }
+      if(cancelled)return;setChats(updatedChats);
+      setActiveChat(previous=>previous?updatedChats.find(c=>c.id===previous.id)||null:null);
     });
 
     const unsubInvites = subscribePendingInvites(currentUser.uid, (invites) => {
-      setPendingInvites(invites);
+      if(!cancelled)setPendingInvites(invites);
     });
 
     return () => {
+      cancelled=true;
       unsubChats();
       unsubInvites();
     };
-  }, [currentUser, activeChat?.id]);
+  }, [currentUser]);
 
   // Subscribe to Active Chat Messages
   useEffect(() => {
+    setMessages([]);setMessageInput('');setShowReportModal(false);setShowBlockConfirm(false);setReportSuccess(false);setReportReason('');setActionError('');
     if (!activeChat || !currentUser) return;
+    let cancelled=false,scrollTimer:ReturnType<typeof setTimeout>|undefined;
 
     const unsubMessages = subscribeChatMessages(activeChat.id, (msgs) => {
+      if(cancelled||!isCurrent(currentUser.uid,activeChat.id))return;
+      setMessageThreadId(activeChat.id);
       setMessages(msgs);
 
       // Auto-scroll to bottom
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      clearTimeout(scrollTimer);scrollTimer=setTimeout(() => {
+        if(!cancelled)messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
       // Mark unread messages as read
       const unreadMsgs = msgs.filter((m) => m.senderUid !== currentUser.uid && !m.readBy?.includes(currentUser.uid));
       if (unreadMsgs.length > 0) {
-        markChatAsRead(activeChat.id,currentUser.uid,unreadMsgs).catch(()=>setActionError('Não foi possível confirmar a leitura.'));
+        markChatAsRead(activeChat.id,currentUser.uid,unreadMsgs).catch(()=>{if(!cancelled)setActionError('Não foi possível confirmar a leitura.');});
       }
     });
 
-    return () => unsubMessages();
+    return () => {cancelled=true;clearTimeout(scrollTimer);unsubMessages();};
   }, [activeChat?.id, currentUser]);
 
   const handleCopyInviteCode = async () => {
     if (!profile?.inviteCode) return;
-    try{await navigator.clipboard.writeText(profile.inviteCode);}catch{setActionError('Não foi possível copiar. Selecione o código manualmente.');return;}
+    const uid=profile.uid;
+    try{await navigator.clipboard.writeText(profile.inviteCode);}catch{if(isCurrent(uid))setActionError('Não foi possível copiar. Selecione o código manualmente.');return;}
+    if(!isCurrent(uid))return;
     setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    timers.current.push(setTimeout(() => {if(isCurrent(uid))setCopiedCode(false);}, 2000));
   };
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || !inviteCodeInput.trim()) return;
+    const uid=profile.uid;
 
     setInviteFeedback(null);
     if(actionLock.current)return;actionLock.current=true;
     let res;try{res=await sendInviteByCode(profile,inviteCodeInput);}catch(e){res={success:false,message:e instanceof Error?e.message:'Convite indisponível.'};}finally{actionLock.current=false;}
-    setInviteFeedback(res);
+    if(!isCurrent(uid))return;setInviteFeedback(res);
 
     if (res.success) {
       setInviteCodeInput('');
@@ -174,54 +186,62 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
 
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid) || '';
     const textToSend = messageInput.trim();
+    const uid=profile.uid,chatId=activeChat.id,originalDraft=messageInput;
     if(actionLock.current)return;actionLock.current=true;
     setIsSending(true);
 
     try {
       await sendMessage(activeChat.id, profile, textToSend, recipientUid);
-      setMessageInput('');
-    } catch(e) { setActionError(e instanceof Error?e.message:'Mensagem não enviada.'); } finally {
+      if(isCurrent(uid,chatId))setMessageInput(current=>current===originalDraft?'':current);
+    } catch(e) { if(isCurrent(uid,chatId))setActionError(e instanceof Error?e.message:'Mensagem não enviada.'); } finally {
       actionLock.current=false;
-      setIsSending(false);
+      if(alive.current)setIsSending(false);
     }
   };
 
   const handleBlockUser = async () => {
     if (!profile || !activeChat) return;
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid);
+    const uid=profile.uid,chatId=activeChat.id;
     if(actionLock.current)return;actionLock.current=true;
     try {
     if (recipientUid) {
       await blockUser(profile.uid, recipientUid);
+      if(!isCurrent(uid,chatId))return;
       setProfile((prev) => prev ? { ...prev, blockedUsers: [...(prev.blockedUsers || []), recipientUid] } : null);
     }
     setShowBlockConfirm(false);
     setActiveChat(null);
-    }catch{setActionError('Não foi possível bloquear o contato. Tente novamente.');}finally{actionLock.current=false;}
+    }catch{if(isCurrent(uid,chatId))setActionError('Não foi possível bloquear o contato. Tente novamente.');}finally{actionLock.current=false;}
   };
 
   const handleUnblockUser = async (targetUid: string) => {
     if (!profile) return;
+    const uid=profile.uid;
     if(actionLock.current)return;actionLock.current=true;
     try {await unblockUser(profile.uid, targetUid);
+    if(!isCurrent(uid))return;
     setProfile((prev) => prev ? { ...prev, blockedUsers: (prev.blockedUsers || []).filter((u) => u !== targetUid) } : null);
-    }catch{setActionError('Não foi possível desbloquear o contato.');}finally{actionLock.current=false;}
+    }catch{if(isCurrent(uid))setActionError('Não foi possível desbloquear o contato.');}finally{actionLock.current=false;}
   };
 
   const handleSubmitReport = async () => {
     if (!profile || !activeChat || !reportReason.trim()) return;
     const recipientUid = activeChat.participants.find((uid) => uid !== profile.uid) || '';
     const lastText = activeChat.lastMessageText || 'Chat';
+    const uid=profile.uid,chatId=activeChat.id;
 
     if(actionLock.current)return;actionLock.current=true;
     try {await submitReport(profile.uid, recipientUid, activeChat.id, lastText, reportReason);
+    if(!isCurrent(uid,chatId))return;
     setReportSuccess(true);
-    setTimeout(() => {
+    timers.current.push(setTimeout(() => {
+      if(!isCurrent(uid,chatId))return;
       setReportSuccess(false);
       setShowReportModal(false);
       setReportReason('');
-    }, 2000);
-    }catch{setActionError('A denúncia não foi registrada. Verifique sua conexão e tente novamente.');}finally{actionLock.current=false;}
+    }, 2000));
+    }catch{if(isCurrent(uid,chatId))setActionError('A denúncia não foi registrada. Verifique sua conexão e tente novamente.');}finally{actionLock.current=false;}
   };
 
   const handleChangeRole = async (newRole: UserRole) => {
@@ -289,7 +309,7 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-black text-white">Sala Segura</h2>
               <span className="bg-indigo-500/30 border border-indigo-400/30 text-indigo-200 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
-                Chat Infantil Controlado
+                {adultAudience?'Conversa privada 18+':'Chat Infantil Controlado'}
               </span>
             </div>
             <p className="text-xs text-slate-300 font-medium">
@@ -387,14 +407,14 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
 
           {/* Messages Scroll Body */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
-            {messages.length === 0 ? (
+            {visibleMessages.length === 0 ? (
               <div className="text-center py-12 space-y-2 text-slate-400">
                 <MessageSquare className="w-8 h-8 mx-auto text-slate-300" />
                 <p className="text-xs font-bold">Início da conversa privada na Sala Segura.</p>
                 <p className="text-[11px]">Diga "Olá!" para começar o aprendizado juntos.</p>
               </div>
             ) : (
-              messages.map((msg) => {
+              visibleMessages.map((msg) => {
                 const isMe = msg.senderUid === profile?.uid;
                 const isRead = msg.readBy?.length > 1 || msg.status === 'read';
 

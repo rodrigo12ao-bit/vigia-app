@@ -15,6 +15,14 @@ const messages=content=>[{id:'u',role:'user',content:'Pergunta fictícia',timest
 const session=(id='one',content='Resposta fictícia',updatedAt='2026-10-15T12:01:00.000Z')=>({id,title:'Título preservado',createdAt:'2026-01-01T00:00:00.000Z',updatedAt,messages:messages(content)});
 function storage(){const data=new Map();return {data,getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};}
 const deferred=()=>{let resolve;const promise=new Promise(yes=>resolve=yes);return {promise,resolve};};
+test('a remounted composer observes an older completed submission and its newer draft stays intact',async()=>{
+  const {conversation}=await helpers,memory=conversation.createConversationMemory();
+  conversation.updateConversationDraft(memory,{text:'Mensagem enviada'});
+  let visible;const unsubscribe=conversation.subscribeConversationDraft(memory,()=>{visible=memory.draft.text;});
+  assert.equal(visible,'Mensagem enviada');conversation.updateConversationDraft(memory,{text:''});assert.equal(visible,'');
+  conversation.updateConversationDraft(memory,{text:'Próxima mensagem'});assert.equal(visible,'Próxima mensagem');
+  unsubscribe();conversation.updateConversationDraft(memory,{text:'Após desmontagem'});assert.equal(visible,'Próxima mensagem');
+});
 async function fixture(){
   const h=await helpers,local=storage(),store=h.history.createHistoryStore({read:async()=>{throw Error('Cloud is not allowed.');},write:async()=>{throw Error('Cloud is not allowed.');},remove:async()=>{throw Error('Cloud is not allowed.');}},local);
   return {...h,local,store};

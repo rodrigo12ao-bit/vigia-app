@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, RotateCcw, ArrowRight, ListOrdered, Sparkles } from 'lucide-react';
 import { LevelData } from '../../types';
@@ -25,14 +25,17 @@ export const SequenceOrderGame: React.FC<SequenceOrderGameProps> = ({
   const [selectedSequence, setSelectedSequence] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState(false);
+  const finished=useRef(false);
 
   const handleSelectItem = (item: string) => {
     if (selectedSequence.includes(item)) return;
+    setIsCorrect(false);setFeedback(null);
     setSelectedSequence((prev) => [...prev, item]);
     setShuffledPool((prev) => prev.filter((i) => i !== item));
   };
 
   const handleRemoveItem = (item: string) => {
+    setIsCorrect(false);setFeedback(null);
     setSelectedSequence((prev) => prev.filter((i) => i !== item));
     setShuffledPool((prev) => [...prev, item]);
   };
@@ -42,10 +45,11 @@ export const SequenceOrderGame: React.FC<SequenceOrderGameProps> = ({
     setShuffledPool([...correctSequence].sort(() => Math.random() - 0.5));
     setFeedback(null);
     setIsCorrect(false);
+    finished.current=false;
   };
 
   const handleVerify = () => {
-    const isMatches = selectedSequence.every((val, index) => val === correctSequence[index]);
+    const isMatches = selectedSequence.length===correctSequence.length&&selectedSequence.every((val, index) => val === correctSequence[index]);
     if (isMatches) {
       setIsCorrect(true);
       setFeedback('Sensacional! Você colocou todas as etapas na sequência exata de segurança!');
@@ -61,6 +65,8 @@ export const SequenceOrderGame: React.FC<SequenceOrderGameProps> = ({
   };
 
   const handleFinish = () => {
+    if(finished.current||!isCorrect||selectedSequence.length!==correctSequence.length||!selectedSequence.every((val,index)=>val===correctSequence[index]))return;
+    finished.current=true;
     onComplete(3, 60);
   };
 
@@ -103,7 +109,8 @@ export const SequenceOrderGame: React.FC<SequenceOrderGameProps> = ({
         )}
 
         {selectedSequence.map((item, idx) => (
-          <motion.div
+          <motion.button
+            type="button" aria-label={'Remover etapa: '+item}
             key={item}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -114,7 +121,7 @@ export const SequenceOrderGame: React.FC<SequenceOrderGameProps> = ({
               {idx + 1}º
             </span>
             <span className="flex-1 leading-snug">{item}</span>
-          </motion.div>
+          </motion.button>
         ))}
       </div>
 

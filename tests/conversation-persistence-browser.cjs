@@ -8,8 +8,11 @@ const assert=require('node:assert/strict');
 // is denied; no account, Google request, real microphone or AI service is used.
 // Run after a publication build: node tests/conversation-persistence-browser.cjs
 // Pass --presentation only to inspect the presentation build instead.
-if(process.argv.slice(2).some(arg=>arg!=='--presentation'))throw Error('Unknown option.');
-const publicDir=path.resolve(process.argv.includes('--presentation')?'dist/presentation/public':'dist/publication/public');
+if(process.argv.slice(2).some(arg=>!['--presentation','--netlify'].includes(arg)))throw Error('Unknown option.');
+if(process.argv.includes('--presentation')&&process.argv.includes('--netlify'))throw Error('Choose one build.');
+const netlify=process.argv.includes('--netlify');
+const prefix=netlify?'artifacts/review-20261016-persistence':'artifacts/conversation-persistence';
+const publicDir=path.resolve(netlify?'dist/netlify/public':process.argv.includes('--presentation')?'dist/presentation/public':'dist/publication/public');
 assert.ok(fs.existsSync(path.join(publicDir,'index.html')),'Build the selected UI first.');
 const origin='http://localhost:3124';
 const adultVersion=fs.readFileSync('src/lib/audience.ts','utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];
@@ -87,7 +90,7 @@ async function newPage(mobile,{failApp=false,failChat=false}={}){
     if((state.failApp&&/\/assets\/App-[^/]+\.js$/.test(url.pathname))||(state.failChat&&/\/assets\/ChatTab-[^/]+\.js$/.test(url.pathname)))return void request.respond({status:404,contentType:'text/javascript',body:'// Deliberate isolated chunk failure.'});
     void request.continue();
   });
-  await page.evaluateOnNewDocument(({adultVersion,saved,canonicalKey,recoveryKey})=>{
+  await page.evaluateOnNewDocument(({adultVersion,saved,canonicalKey,recoveryKey,netlify})=>{
     sessionStorage.setItem('vigia_adult_access',adultVersion);localStorage.setItem('dc_is_guest','true');
     localStorage.setItem('vigia_ai_consent:guest','fixture-persistence-consent');
     if(!localStorage.getItem(canonicalKey))localStorage.setItem(canonicalKey,JSON.stringify([saved]));
@@ -108,12 +111,12 @@ async function newPage(mobile,{failApp=false,failChat=false}={}){
     navigator.mediaDevices.getUserMedia=async(...args)=>{const stream=await capture(...args);window.persistenceFixture.tracks.push(...stream.getTracks());return stream;};
     window.WebSocket=class{
       static OPEN=1;readyState=1;bufferedAmount=0;
-      constructor(url){if(!String(url).startsWith('ws://localhost:3124/api/live-ws'))throw Error('Non-fixture WebSocket blocked.');window.persistenceFixture.sockets.push(this);setTimeout(()=>{this.onopen?.();this.emit({type:'open',mode:'streamed-speech'});},20);}
+      constructor(url){if(!String(url).startsWith('ws://localhost:3124/api/live-ws')&&!(netlify&&String(url).startsWith('wss://vigia-app.onrender.com/api/live-ws?')))throw Error('Non-fixture WebSocket blocked.');window.persistenceFixture.sockets.push(this);setTimeout(()=>{this.onopen?.();this.emit({type:'open',mode:'streamed-speech'});},20);}
       emit(message){if(this.readyState===1)this.onmessage?.({data:JSON.stringify(message)});}
       send(raw){const message=JSON.parse(raw);if(message.type==='interrupt')setTimeout(()=>this.emit({type:'interrupted'}),0);if(message.type==='speech_output')this.emit(message);}
       close(){this.readyState=3;this.onclose?.();}
     };
-  },{adultVersion,saved,canonicalKey,recoveryKey});
+  },{adultVersion,saved,canonicalKey,recoveryKey,netlify});
   await page.goto(origin,{waitUntil:'domcontentloaded'});
   return state;
 }
@@ -142,7 +145,8 @@ async function persistence(mobile){
     await page.click('[aria-label="Aprender com a Vigia"]');await visible('[aria-label="Áreas de aprendizagem"]');
     const item=await releaseChat();await wait(50);
     const staged=await page.evaluate(key=>{window.dispatchEvent(new Event('pagehide'));return JSON.parse(localStorage.getItem(key)||'[]');},recoveryKey);
-    assert.ok(staged.some(session=>session.id===identity&&session.messages.some(message=>message.content===item.reply)),'pagehide must synchronously stage the latest App-owned response.');
+    const confirmed=await sessions();
+    assert.ok([...staged,...confirmed].some(session=>session.id===identity&&session.messages.some(message=>message.content===item.reply)),'The latest App-owned response must already be confirmed or synchronously staged on pagehide.');
     await page.reload({waitUntil:'domcontentloaded'});await visible('[aria-label="Progresso da aventura"]');await openChat();await waitSaved(item.reply);
     const rows=await sessions();assert.equal(rows.filter(session=>session.messages.some(message=>message.content===item.reply)).length,1);assert.equal(rows.find(session=>session.messages.some(message=>message.content===item.reply)).id,identity);
   });
@@ -176,7 +180,7 @@ async function persistence(mobile){
     assert.ok((await sessions()).some(session=>session.messages.some(message=>message.content==='Resposta simulada para salvamento indisponível fictício')));
     assert.equal(await page.evaluate(()=>Number(sessionStorage.getItem('fixture_skip_waiting')||0)),1);
   });
-  await page.screenshot({path:`artifacts/conversation-persistence-${label}.png`,fullPage:true});
+  await page.screenshot({path:`${prefix}-${label}.png`,fullPage:true});
   assert.deepEqual(state.errors,[]);assert.deepEqual(state.blocked,[]);await closePage();
 }
 async function chunkFailures(){
@@ -206,6 +210,6 @@ async function chunkFailures(){
     browser=await puppeteer.launch({executablePath:process.env.VIGIA_CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required','--mute-audio']});
     for(const mobile of [false,true])await persistence(mobile);
     await chunkFailures();report.status='passed';console.log(`PASS ${report.results.length} persistence/PWA/startup UI checks.`);
-  }catch(error){report.status='failed';report.error=error.message;report.failureStage=stage;process.exitCode=1;console.error(stage+': '+error.message);if(page&&!page.isClosed()){await page.screenshot({path:'artifacts/conversation-persistence-failure.png',fullPage:true}).catch(()=>{});fs.writeFileSync('artifacts/conversation-persistence-failure.txt',await page.$eval('body',node=>node.innerText).catch(()=>''));}}
-  finally{await closePage().catch(()=>{});if(browser){let timer;try{await Promise.race([browser.close(),new Promise(resolve=>timer=setTimeout(resolve,10000))]);}finally{clearTimeout(timer);if(browser.process()?.exitCode===null)browser.process().kill();}}for(const item of heldChats)item.res.destroy();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));fs.writeFileSync('artifacts/conversation-persistence-browser.json',JSON.stringify(report,null,2));}
+  }catch(error){report.status='failed';report.error=error.message;report.failureStage=stage;process.exitCode=1;console.error(stage+': '+error.message);if(page&&!page.isClosed()){await page.screenshot({path:prefix+'-failure.png',fullPage:true}).catch(()=>{});fs.writeFileSync(prefix+'-failure.txt',await page.$eval('body',node=>node.innerText).catch(()=>''));}}
+  finally{await closePage().catch(()=>{});if(browser){let timer;try{await Promise.race([browser.close(),new Promise(resolve=>timer=setTimeout(resolve,10000))]);}finally{clearTimeout(timer);if(browser.process()?.exitCode===null)browser.process().kill();}}for(const item of heldChats)item.res.destroy();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));fs.writeFileSync(prefix+'-browser.json',JSON.stringify(report,null,2));}
 })();

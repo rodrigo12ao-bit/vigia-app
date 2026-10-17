@@ -16,7 +16,7 @@ function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{reso
 async function pwa(beforeUpdate,update=async()=>{}){
   const states=[];
   const React={useRef:value=>({current:value}),useEffect:()=>{},useState:value=>[value,next=>states.push(next)]};
-  const deps={react:React,'react/jsx-runtime':jsxRuntime,'virtual:pwa-register/react':{useRegisterSW:()=>({offlineReady:[false,()=>{}],needRefresh:[true,()=>{}],updateServiceWorker:update})},'lucide-react':new Proxy({},{get:(_target,key)=>String(key)}),'motion/react':{motion:new Proxy({},{get:(_target,key)=>String(key)}),AnimatePresence:'presence'}};
+  const deps={react:React,'react/jsx-runtime':jsxRuntime,'../lib/pwaUpdates':{discoverPwaUpdates:()=>{throw Error('Discovery effects are not executed in this event-handler harness.');}},'virtual:pwa-register/react':{useRegisterSW:()=>({offlineReady:[false,()=>{}],needRefresh:[true,()=>{}],updateServiceWorker:update})},'lucide-react':new Proxy({},{get:(_target,key)=>String(key)}),'motion/react':{motion:new Proxy({},{get:(_target,key)=>String(key)}),AnimatePresence:'presence'}};
   const code=await transform(readFileSync('src/components/PWAPrompt.tsx','utf8'),{loader:'tsx',format:'cjs',jsx:'automatic'}),module={exports:{}};
   new Function('require','module','exports',code.code)(name=>{assert.ok(name in deps,`Unexpected import ${name}`);return deps[name];},module,module.exports);
   const tree=module.exports.PWAPrompt({onBeforeUpdate:beforeUpdate});

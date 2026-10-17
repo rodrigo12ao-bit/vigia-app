@@ -6,6 +6,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence,MotionConfig } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
 import {defaultBadges as INITIAL_BADGES,hydrateBadges} from './lib/badges';
+import {normalizeProfileProgress} from './lib/profileProgress';
+import {finishDeletedAccountSession} from './lib/accountSession';
 import { speakText, speakDeviceText, stopSpeaking, type DeviceSpeechCallbacks, type DeviceSpeechHandle } from './utils/speech';
 import {useAdventure} from './hooks/useAdventure';
 import type {ActivityClaim} from './lib/adventureModel';
@@ -58,6 +60,7 @@ export default function App() {
   const [profileReady,setProfileReady]=useState(false);
   const [profileError,setProfileError]=useState('');
   const [profileRetry,setProfileRetry]=useState(0);
+  const profileCacheBlocked=useRef(false);
   const accountVersion=useRef(0);
   const conversationVersion=useRef(0);
   const conversationMemory=useRef(createConversationMemory());
@@ -225,8 +228,15 @@ export default function App() {
     }catch(error){if(version===accountVersion.current&&auth.currentUser?.uid===uid)setNotice(error instanceof Error?error.message:'Não foi possível salvar a conversa antes de abrir o acesso. Tente novamente.');}
   };
   useEffect(()=>{
-    if(profileReady&&auth.currentUser?.uid===conversationMemory.current.uid)queueConversationSnapshot(conversationMemory.current,messages,isLoading);
-  },[profileReady,messages,isLoading]);
+    const memory=conversationMemory.current;
+    if(!profileReady||auth.currentUser?.uid!==memory.uid)return;
+    queueConversationSnapshot(memory,messages,isLoading);
+    // A reply may finish after Chat has unmounted. Its App-owned memory still
+    // has the saver, so confirm it without waiting for a tab revisit/pagehide.
+    if(activeTab!=='chat'&&memory.pendingSave.current&&memory.flush){
+      void memory.flush().catch(()=>{if(memory===conversationMemory.current)setNotice('A última conversa ainda não foi salva. Verifique a conexão e tente novamente.');});
+    }
+  },[profileReady,messages,isLoading,activeTab]);
   useEffect(()=>{
     const stage=()=>{
       const memory=conversationMemory.current;
@@ -255,7 +265,7 @@ export default function App() {
   useEffect(()=>{
     let disposed=false;let stopProfile:(()=>void)|undefined;
     const unsubscribe=onAuthStateChanged(auth,async user=>{
-      const version=++accountVersion.current;stopProfile?.();stopProfile=undefined;setUserRole('infantil');setInitialMission(null);
+      const version=++accountVersion.current;profileCacheBlocked.current=false;stopProfile?.();stopProfile=undefined;setUserRole('infantil');setInitialMission(null);
       const isCurrent=()=>!disposed&&version===accountVersion.current&&auth.currentUser?.uid===user?.uid;
       chatAbortRef.current?.abort(); sendingRef.current=false;chatAbortRef.current=null;
       stopSpeaking();setIsSpeaking(false);setIsLoading(false);setChatMode('text');
@@ -280,19 +290,19 @@ export default function App() {
         }catch{
           if(!isCurrent())return;
           let restored=false;
-          try{const cached=JSON.parse(localStorage.getItem('vigia_progress:'+user.uid)||'null');if(cached){setNickname(cached.nickname||'Super Protetor');setStarsScore(cached.starsScore||0);setBadges(cached.badges||INITIAL_BADGES);setProfileReady(true);restored=true;}}catch{}
+          try{const cached=JSON.parse(localStorage.getItem('vigia_progress:'+user.uid)||'null');if(cached){const progress=normalizeProfileProgress(cached);setNickname(progress.nickname);setStarsScore(progress.starsScore);setBadges(progress.badges);setAvatarGender(progress.avatarGender);setProfileReady(true);restored=true;}}catch{}
           if(restored)setNotice('Seu perfil está sem conexão. As atividades salvas continuam disponíveis; o acompanhamento requer conexão.');
           else setProfileError('Não foi possível carregar seu perfil. Verifique a conexão e tente novamente. Seus dados foram preservados.');
         }
       }else{
-        try{const data=JSON.parse(localStorage.getItem('vigia_progress:guest') || '{}');setNickname(data.nickname||'Super Protetor');setStarsScore(data.starsScore||0);setBadges(data.badges||INITIAL_BADGES);setAvatarGender(data.avatarGender==='male'?'male':'female');}catch{}
+        try{const progress=normalizeProfileProgress(JSON.parse(localStorage.getItem('vigia_progress:guest') || '{}'));setNickname(progress.nickname);setStarsScore(progress.starsScore);setBadges(progress.badges);setAvatarGender(progress.avatarGender);}catch{profileCacheBlocked.current=true;setNotice('O perfil salvo neste aparelho precisa de revisão. O registro anterior foi preservado; as atividades continuam disponíveis.');}
         setProfileReady(true);setIsWelcomeOpen(localStorage.getItem('dc_is_guest')!=='true');
       }
     });
     return ()=>{disposed=true;++accountVersion.current;chatAbortRef.current?.abort();stopProfile?.();unsubscribe();};
   },[profileRetry]);
   useEffect(()=>{
-    if(!profileReady)return;
+    if(!profileReady||profileCacheBlocked.current)return;
     const uid=currentUser?.uid;
     const progress={starsScore,nickname,avatarGender,badges};
     try{localStorage.setItem('vigia_progress:'+ (uid || 'guest'),JSON.stringify(progress));}catch{setNotice('O armazenamento local está cheio. Seu progresso pode não ter sido salvo.');}
@@ -333,8 +343,20 @@ export default function App() {
       }
       else localStorage.setItem('vigia_progress:guest',JSON.stringify({starsScore:0,badges:INITIAL_BADGES,nickname,avatarGender}));
       if(!isCurrent())return;
+      profileCacheBlocked.current=false;
       setStarsScore(0);setBadges(INITIAL_BADGES);
     }catch{if(isCurrent())setNotice('Não foi possível reiniciar o progresso. Seus dados anteriores foram preservados.');}
+  };
+  const handleAccountDeleted = async (deletedUid:string) => {
+    try{
+      await finishDeletedAccountSession(deletedUid,{
+        currentUid:()=>auth.currentUser?.uid,
+        isCurrent:()=>renderedAccountVersion===accountVersion.current,
+        stopActivity:()=>{const memory=conversationMemory.current;memory.stopAudio?.();memory.historyReady=false;memory.pendingSave.current=null;chatAbortRef.current?.abort();stopSpeaking();setIsSpeaking(false);setChatMode('text');},
+        signOut:()=>signOut(auth),
+        onSignedOut:()=>{setIsGuest(false);try{localStorage.removeItem('dc_is_guest');}catch{}setIsProfileModalOpen(false);setIsAuthModalOpen(false);setIsWelcomeOpen(true);},
+      });
+    }catch(error){if(auth.currentUser?.uid===deletedUid)setNotice(error instanceof Error?error.message:'A conta foi excluída, mas não foi possível encerrar a sessão neste aparelho. Tente novamente.');}
   };
   const handleUpdateNickname = async (newNick:string) => {
     if(renderedAccountVersion!==accountVersion.current)return;
@@ -383,10 +405,14 @@ export default function App() {
 
   const speakMessage = (text: string) => {
     if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return;
-    if (isAudioMuted) return;
+    if(!text.trim())return;
+    setIsAudioMuted(false);
+    const account=accountVersion.current,conversation=conversationVersion.current;
+    const current=()=>account===accountVersion.current&&conversation===conversationVersion.current;
     speakText(
       text,
       () => {
+        if(!current())return;
         const vs = performance.now();
         setIsSpeaking(true);
         setDebugInfo((prev) => ({
@@ -396,6 +422,7 @@ export default function App() {
         }));
       },
       () => {
+        if(!current())return;
         setIsSpeaking(false);
         setAvatarState((prev) => (prev === 'speaking' || prev === 'explaining' ? 'idle' : prev));
       }
@@ -405,12 +432,15 @@ export default function App() {
   const handleSendMessage = async (
     text: string,
     image?: { data: string; mimeType: string }
-  ) => {
-    if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return;
-    if ((!text.trim() && !image) || sendingRef.current || !profileReady) return;
-    if(messages.length>=198){setNotice('Esta conversa atingiu o limite. Abra uma nova conversa; seu histórico está preservado.');return;}
+  ):Promise<boolean> => {
+    if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return false;
+    if ((!text.trim() && !image) || sendingRef.current || !profileReady) return false;
+    if(messages.length>198){setNotice('Esta conversa atingiu o limite. Abra uma nova conversa; seu histórico está preservado.');return false;}
+    if(text.length>4000){setNotice('Escreva uma mensagem de até 4.000 caracteres. Seu rascunho foi preservado.');return false;}
 
     const version=accountVersion.current;
+    const conversation=conversationVersion.current;
+    const isCurrent=()=>version===accountVersion.current&&conversation===conversationVersion.current&&chatAbortRef.current===controller;
     // mark sending immediately to prevent duplicate invocations
     sendingRef.current = true;
 
@@ -429,16 +459,16 @@ export default function App() {
 
     const controller = new AbortController();
     chatAbortRef.current = controller;
+    let timedOut=false;
+    const timeout=setTimeout(()=>{timedOut=true;controller.abort();},90000);
 
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: 'user',
       content: text || (image ? 'Análise de Imagem' : ''),
       timestamp: new Date(),
       imageUrl: image ? `data:${image.mimeType};base64,${image.data}` : undefined,
     };
-
-    const historyForRequest = [...messages, userMsg];
 
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
@@ -460,7 +490,7 @@ export default function App() {
     }));
 
     // Create assistant message placeholder immediately for streaming
-    const assistantMsgId = (Date.now() + 1).toString();
+    const assistantMsgId = crypto.randomUUID();
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
       role: 'assistant',
@@ -488,6 +518,8 @@ export default function App() {
         signal: controller.signal,
       });
 
+      if(!isCurrent()||controller.signal.aborted)return false;
+
       const respTs = performance.now();
       setDebugInfo((prev) => ({
         ...prev,
@@ -501,8 +533,9 @@ export default function App() {
       }
 
       const data = await response.json();
-      if(controller.signal.aborted || version!==accountVersion.current)return;
-      if(data.status!=='emergency'){handleUnlockBadge('b_chat');handleAddStars(5);}
+      if(controller.signal.aborted || !isCurrent())return false;
+      if(typeof data.reply!=='string'||!data.reply.trim()||data.status==='unavailable')throw Error(data.error||'A resposta está indisponível. Tente novamente.');
+      if(data.status!=='emergency'&&data.status!=='blocked'){handleUnlockBadge('b_chat');handleAddStars(5);}
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsgId
@@ -510,10 +543,10 @@ export default function App() {
                 ...m,
                 content: data.reply || 'Tive um pequeno contratempo para processar essa resposta.',
                 emotion: (data.avatarState as AvatarState) || 'speaking',
-                emergencyTip: data.emergencyTip && data.emergencyTip.trim() ? data.emergencyTip : undefined,
-                challengeOrQuestion: data.challengeOrQuestion && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
-                interactiveOptions: Array.isArray(data.interactiveOptions) && data.interactiveOptions.length > 0 ? data.interactiveOptions : undefined,
-                suggestedFollowUps: Array.isArray(data.suggestedFollowUps) && data.suggestedFollowUps.length > 0 ? data.suggestedFollowUps : undefined,
+                emergencyTip: typeof data.emergencyTip==='string' && data.emergencyTip.trim() ? data.emergencyTip : undefined,
+                challengeOrQuestion: typeof data.challengeOrQuestion==='string' && data.challengeOrQuestion.trim() ? data.challengeOrQuestion : undefined,
+                interactiveOptions: Array.isArray(data.interactiveOptions) ? data.interactiveOptions.filter((value:unknown)=>typeof value==='string').slice(0,6) : undefined,
+                suggestedFollowUps: Array.isArray(data.suggestedFollowUps) ? data.suggestedFollowUps.filter((value:unknown)=>typeof value==='string').slice(0,6) : undefined,
               }
             : m
         )
@@ -523,6 +556,7 @@ export default function App() {
 
       // Record approximate avatar render time
       requestAnimationFrame(() => {
+        if(version!==accountVersion.current||conversation!==conversationVersion.current)return;
         const ar = performance.now();
         setDebugInfo((prev) => ({
           ...prev,
@@ -538,16 +572,17 @@ export default function App() {
         modelName: data.model||data.provider||'Serviço de IA',
         lastError: 'Nenhum erro registrado',
       }));
+      return true;
     } catch (error: any) {
-      if(version!==accountVersion.current)return;
-      if (error && error.name === 'AbortError') {
+      if(!isCurrent())return false;
+      if (!timedOut && error && error.name === 'AbortError') {
         setDebugInfo((prev) => ({ ...prev, apiStatus: 'Requisição abortada' }));
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMsgId ? { ...m, content: 'Requisição cancelada pelo usuário.' } : m))
         );
       } else {
         console.error('Erro no streaming de chat:', error);
-        const errorMsg = String(error?.message || error);
+        const errorMsg = timedOut?'A resposta demorou demais. Verifique a conexão e tente novamente.':String(error?.message || error);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMsgId
@@ -568,7 +603,9 @@ export default function App() {
           lastError: errorMsg,
         }));
       }
+      return false;
     } finally {
+      clearTimeout(timeout);
       if(chatAbortRef.current===controller){setIsLoading(false);sendingRef.current=false;chatAbortRef.current=null;}
     }
   };
@@ -868,6 +905,7 @@ export default function App() {
         completedGamesCount={adventure.state.completed}
         isGuest={isGuest}
         onSignOut={handleSignOut}
+        onAccountDeleted={handleAccountDeleted}
         onResetProgress={handleResetProgress}
         onOpenBadges={()=>{setIsProfileModalOpen(false);setIsBadgesModalOpen(true);}}
       />

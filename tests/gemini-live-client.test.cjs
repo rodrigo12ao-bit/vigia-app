@@ -11,10 +11,12 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const pcm=Buffer.alloc(4800).toString('base64');
 
 async function harness({started=true,capturePromise}={}){
-  const contexts=[],sockets=[],events={states:[],capture:[],speechErrors:[],errors:[],closed:0};
+  const contexts=[],sockets=[],events={states:[],capture:[],speechErrors:[],errors:[],closed:0,captureRequests:0};
   class Context{
     constructor(){this.currentTime=10;this.state='running';this.destination={};this.sources=[];contexts.push(this);}
     createGain(){return {gain:{value:1,setValueAtTime(){}},connect(){},disconnect(){}};}
+    createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    createScriptProcessor(){return {connect(){},disconnect(){}};}
     createBuffer(channels,length,rate){if(this.failBuffer)throw Error('simulated_buffer_error');return {duration:length/rate,getChannelData:()=>new Float32Array(length)};}
     createBufferSource(){const source={buffer:null,onended:null,stopped:false,connect(){},disconnect(){},start(at){this.startAt=at;},stop(){this.stopped=true;}};this.sources.push(source);return source;}
     resume(){if(this.resumeError)return Promise.reject(Error('simulated_resume_error'));if(this.pendingResume)return this.pendingResume;this.state='running';return Promise.resolve();}
@@ -30,7 +32,7 @@ async function harness({started=true,capturePromise}={}){
   const track={enabled:true,readyState:'live',stop(){this.readyState='ended';this.enabled=false;}};
   const stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
   const window={location:{protocol:'http:',host:'localhost:isolated'},AudioContext:Context};
-  const navigator={mediaDevices:{getUserMedia:()=>capturePromise||Promise.resolve(stream)}};
+  const navigator={mediaDevices:{getUserMedia:()=>{events.captureRequests++;return capturePromise||Promise.resolve(stream);}}};
   const module={exports:{}};
   const result=await bundle;
   new Function('window','WebSocket','navigator','module','exports',result.code)(window,Socket,navigator,module,module.exports);
@@ -60,6 +62,59 @@ test('cloud pauses capture throughout generation and queued playback, then resum
     assert.equal(h.track.enabled,true);assert.equal(h.events.states.at(-1),'listening');
     h.session.processInputPCM(new Float32Array(1024).fill(0.5));
     assert.equal(h.socket.sent.filter(message=>message.type==='realtime_audio').length,1);
+  }finally{h.session.stop();await flush();}
+});
+
+test('remote close returns to idle and the same session can reconnect',async()=>{
+  const h=await harness({started:false});
+  await h.session.start();h.sockets[0].close();await flush();
+  assert.equal(h.events.states.at(-1),'idle');
+  await h.session.start();assert.equal(h.sockets.length,2);
+  assert.equal(h.contexts[0].state,'closed');assert.equal(h.contexts[1].state,'running');
+  h.session.stop();await flush();
+});
+
+test('duplicate open and a pause during permission waiting keep one paused capture',async()=>{
+  let grantCapture;const capturePromise=new Promise(resolve=>grantCapture=resolve);
+  const h=await harness({started:false,capturePromise});
+  await h.session.start();const socket=h.sockets[0];
+  socket.emit({type:'open',mode:'streamed-speech'});socket.emit({type:'open',mode:'streamed-speech'});
+  h.session.pauseMicrophone(true);assert.equal(h.events.captureRequests,1);
+  grantCapture(h.stream);await flush();
+  assert.equal(h.track.enabled,false);assert.equal(h.events.states.at(-1),'idle');
+  assert.equal(h.contexts.length,2);
+  h.session.stop();await flush();
+});
+
+test('missing backend open times out and releases the socket and output context',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const h=await harness({started:false});await h.session.start();
+  t.mock.timers.tick(20000);await flush();
+  assert.equal(h.events.errors.length,1);assert.equal(h.events.closed,1);
+  assert.equal(h.sockets[0].readyState,3);assert.equal(h.contexts[0].state,'closed');
+});
+
+test('a previous session audio resume cannot be reused or clear the new resume promise',async()=>{
+  const h=await harness();let oldResolve;
+  h.context.state='suspended';h.context.pendingResume=new Promise(resolve=>oldResolve=resolve);
+  const old=h.session.resumeOutputContext().catch(()=>undefined);
+  h.session.stop();await flush();assert.equal(h.session.outputResumePromise,null);
+  await h.session.start();const nextContext=h.contexts.at(-1);let newResolve;
+  nextContext.state='suspended';nextContext.pendingResume=new Promise(resolve=>newResolve=resolve);
+  const next=h.session.resumeOutputContext();
+  oldResolve();await old;assert.equal(h.session.outputResumePromise,next);
+  nextContext.state='running';newResolve();await next;
+  assert.equal(h.session.outputResumePromise,null);h.session.stop();await flush();
+});
+
+for(const rate of [44100,48000])test(`resampling ${rate} Hz worklet frames preserves duration and sample continuity`,async()=>{
+  const h=await harness();
+  try{
+    const frameSize=128,total=rate*2,input=Float32Array.from({length:total},(_,index)=>Math.sin(index/150));
+    const samples=[];
+    for(let offset=0;offset<input.length;offset+=frameSize)samples.push(...h.session.resampleLinear(input.subarray(offset,offset+frameSize),rate,16000));
+    assert.ok(Math.abs(samples.length-32000)<=1,`${samples.length} samples must represent two seconds.`);
+    for(let index=0;index<samples.length;index++)assert.ok(Math.abs(samples[index]-Math.sin(index*rate/16000/150))<0.00002,'Interpolation must keep the phase across frame boundaries.');
   }finally{h.session.stop();await flush();}
 });
 

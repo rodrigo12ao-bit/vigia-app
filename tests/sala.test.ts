@@ -3,10 +3,16 @@ import assert from 'node:assert/strict';
 process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import {createHash} from 'node:crypto';
 const db=getFirestore(initializeApp({projectId:'demo-vigia'},'sala-tests'));
 const tokens:Record<string,string>={};
 const call=async(uid:string,path:string,data:any)=>{const response=await fetch('http://localhost:3000/api/sala/'+path,{method:'POST',headers:{Origin:'http://localhost:3000','Content-Type':'application/json',Authorization:'Bearer '+tokens[uid]},body:JSON.stringify(data)});return {status:response.status,body:await response.json()};};
 before(async()=>{
+  // These exact identities are emulator fixtures. A repeat run must start with
+  // its own relationship pending rather than reuse a previously approved chat.
+  const fixtureInvite=createHash('sha256').update(JSON.stringify(['demo-ana','demo-bruno'].sort())).digest('hex');
+  await db.recursiveDelete(db.doc('chats/'+fixtureInvite));await db.doc('invites/'+fixtureInvite).delete();
+  for(const uid of ['demo-ana','demo-bruno'])await db.doc('users/'+uid).update({blockedUsers:[]});
   for(const uid of ['demo-ana','demo-bruno','demo-responsavel','demo-terceiro']){const r=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:uid+'@example.invalid',password:'DemoLocal!123',returnSecureToken:true})});const data=await r.json();assert.ok(data.idToken);tokens[uid]=data.idToken;}
 });
 test('Sala Segura: convite exige contato e responsável; mensagem é idempotente; bloqueio impede envio',async()=>{
@@ -19,6 +25,8 @@ test('Sala Segura: convite exige contato e responsável; mensagem é idempotente
   assert.equal((await call('demo-terceiro','decision',{id,decision:'approve'})).status,400);
   assert.equal((await call('demo-responsavel','decision',{id,decision:'approve'})).status,200);assert.equal((await db.doc('chats/'+id).get()).exists,false);
   assert.equal((await call('demo-bruno','decision',{id,decision:'approve'})).status,200);assert.equal((await db.doc('chats/'+id).get()).exists,true);
+  assert.equal((await call('demo-ana','decision',{id,decision:'approve'})).status,400,'Completed invites still enforce the reviewer permission.');
+  assert.equal((await call('demo-terceiro','decision',{id,decision:'approve'})).status,400);
   const payload={chatId:id,text:'Mensagem fictícia do teste',messageId:'message-demo-repeat-001'};
   assert.equal((await call('demo-terceiro','message',payload)).status,400);
   assert.equal((await call('demo-ana','message',payload)).status,200);assert.equal((await call('demo-ana','message',payload)).status,200);

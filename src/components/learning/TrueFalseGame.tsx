@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, XCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { LevelData } from '../../types';
@@ -20,10 +20,13 @@ export const TrueFalseGame: React.FC<TrueFalseGameProps> = ({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [score, setScore] = useState(0);
+  const answered=useRef(false),advanced=useRef(false);
+  useEffect(()=>{answered.current=false;advanced.current=false;},[currentIdx]);
 
   const q = questions[currentIdx];
 
   const handleAnswer = (answer: boolean) => {
+    if(answered.current)return;answered.current=true;
     setSelectedAnswer(answer);
     const correct = answer === q.isTrue;
     setIsCorrect(correct);
@@ -38,6 +41,7 @@ export const TrueFalseGame: React.FC<TrueFalseGameProps> = ({
   };
 
   const handleNext = () => {
+    if(selectedAnswer===null||advanced.current)return;advanced.current=true;
     if (currentIdx < questions.length - 1) {
       setCurrentIdx((prev) => prev + 1);
       setSelectedAnswer(null);

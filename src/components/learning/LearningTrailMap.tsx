@@ -1,6 +1,6 @@
 import type {ActivityClaim} from '../../lib/adventureModel';
 import {playActivityFeedback,feedbackPreferences} from '../../lib/activityFeedback';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield,
@@ -86,9 +86,13 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
 
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isBgmOn, setIsBgmOn] = useState(false);
+  const levelRun=useRef({version:0,id:null as string|null});
+  const renderedRun=levelRun.current.version;
+  const selectLevel=(level:LevelData|null)=>{levelRun.current={version:levelRun.current.version+1,id:level?.id||null};setActiveLevel(level);};
+  useEffect(()=>()=>{levelRun.current={version:levelRun.current.version+1,id:null};gameAudio.toggleBgm(false);},[]);
 
   useEffect(()=>{
-    let cancelled=false;setHydrated(false);setJourneyState(DEFAULT_JOURNEY_STATE);setActiveLevel(null);
+    let cancelled=false;setHydrated(false);setSyncError('');setJourneyState(DEFAULT_JOURNEY_STATE);selectLevel(null);
     (async()=>{
       try{
         const saved=userId?(await getDoc(doc(db,'users',userId))).data()?.gameJourney:JSON.parse(localStorage.getItem('vigia_journey:guest') || 'null');
@@ -110,6 +114,9 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
     PLAYER_AVATARS.find((av) => av.id === journeyState.playerAvatarId) || PLAYER_AVATARS[0];
 
   const handleLevelComplete = (levelId: string, stars: number, score: number) => {
+    if(levelRun.current.version!==renderedRun||levelRun.current.id!==levelId)return;
+    if((auth.currentUser?.uid||undefined)!==userId)return;
+    selectLevel(null);
     const xpGained = score + stars * 10;
 
     setJourneyState((prev) => {
@@ -154,7 +161,6 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
       onSpeak('Parabéns, Guardião! Você concluiu a fase e registrou mais uma descoberta!');
     }
 
-    setActiveLevel(null);
   };
 
   const isLevelUnlocked = (mod: ModuleData, levelIndex: number): boolean => {
@@ -196,7 +202,7 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
     const next = getNextUncompletedLevel();
     if (next) {
       setSelectedModuleId(next.module.id);
-      setActiveLevel(next.level);
+      selectLevel(next.level);
     }
   };
 
@@ -358,7 +364,7 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
               onClick={() => {
                 if (window.confirm('Deseja sair do jogo em andamento? Seu progresso nesta fase não será perdido.')) {
                   gameAudio.playClick();
-                  setActiveLevel(null);
+                  selectLevel(null);
                 }
               }}
               className="bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs px-4 py-2 rounded-2xl border border-slate-700 shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
@@ -547,7 +553,7 @@ export const LearningTrailMap: React.FC<LearningTrailMapProps> = ({
                       disabled={!unlocked}
                       onClick={() => {
                         gameAudio.playClick();
-                        setActiveLevel(lvl);
+                        selectLevel(lvl);
                       }}
                       className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-4 flex flex-col items-center justify-center shadow-2xl transition-all relative cursor-pointer ${
                         isCompleted

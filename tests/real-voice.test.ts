@@ -10,3 +10,18 @@ test('emergência por texto ou fala usa a mesma orientação sem pontuação',as
 test('falha de transcrição ou geração não produz áudio nem resposta pronta',async()=>{for(const change of [{transcribe:async()=>{throw Error('Falha de transcrição');}},{models:{generateContent:async()=>{throw Error('Falha de IA');}}}]){const {socket}=fixture(change);if(change.transcribe){const b=Buffer.alloc(6000);for(let i=0;i<b.length;i+=2)b.writeInt16LE(2000,i);socket.message({type:'realtime_audio',pcmBase64:b.toString('base64')});socket.message({type:'realtime_audio',pcmBase64:b.toString('base64')});socket.message({type:'audio_stream_end'});}else socket.message({type:'realtime_text',text:'Mochila'});await flush();assert.ok(socket.sent.some(v=>v.type==='error'));assert.equal(socket.sent.some(v=>v.type==='audio_chunk'||v.type==='output_transcription'),false);}});
 test('fechar a conexão durante geração cancela e não vaza resposta',async()=>{let release!:(v:any)=>void;const {socket}=fixture({models:{generateContent:()=>new Promise(r=>release=r)}});socket.message({type:'realtime_text',text:'Mochila fictícia'});await flush();socket.close();release({text:'Resposta tardia.'});await flush();assert.equal(socket.sent.some(v=>v.type==='output_transcription'||v.type==='audio_chunk'),false);});
 test('áudio corrompido e mensagens indevidas encerram a conexão',()=>{for(const message of [{type:'realtime_audio',pcmBase64:'%'},{type:'realtime_audio',pcmBase64:'AQ=='},{type:'unknown'},{type:'realtime_text',text:'x'.repeat(4001)}]){const {socket,calls}=fixture();socket.message(message);assert.equal(socket.readyState,3);assert.deepEqual(calls,[]);}});
+
+test('falha apenas da síntese por turnos preserva o texto e permite a próxima pergunta',async()=>{
+ let reads=0;const {socket}=fixture({speech:async()=>{if(++reads===1)throw Error('Voz indisponível');return{pcm:Buffer.alloc(240),sampleRate:24000};}});
+ socket.message({type:'realtime_text',text:'Lanterna'});await flush();
+ assert.equal(socket.readyState,1);assert.equal(socket.sent.find(v=>v.type==='output_transcription')?.text,'Use uma lanterna com um adulto.');
+ assert.ok(socket.sent.some(v=>v.type==='speech_unavailable'));assert.equal(socket.sent.at(-1).type,'turn_complete');
+ socket.message({type:'realtime_text',text:'Pilhas'});await flush();assert.equal(reads,2);assert.ok(socket.sent.some(v=>v.type==='audio_chunk'));socket.close();
+});
+
+test('síntese vazia, taxa incompatível e WAV disfarçado nunca são enviados como PCM',async()=>{
+ for(const audio of [{pcm:Buffer.alloc(0),sampleRate:24000},{pcm:Buffer.alloc(241),sampleRate:24000},{pcm:Buffer.alloc(240),sampleRate:16000},{pcm:Buffer.from('RIFF0000'),sampleRate:24000}]){
+  const {socket}=fixture({speech:async()=>audio});socket.message({type:'realtime_text',text:'Lanterna'});await flush();
+  assert.equal(socket.sent.some(v=>v.type==='audio_chunk'),false);assert.ok(socket.sent.some(v=>v.type==='speech_unavailable'));assert.equal(socket.readyState,1);socket.close();
+ }
+});

@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import { randomBytes, createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb,runtime,ADULT_ACCESS_VERSION } from './security';
+import {PublicError} from './learning';
 async function eligibleAdult(tx:FirebaseFirestore.Transaction,uid:string,authority:any){const record=await tx.get(adminDb().doc('adult_access/'+uid));return record.data()?.version===ADULT_ACCESS_VERSION&&!authority?.guardianUid;}
 
 export function installSalaRoutes(app: Express) {
@@ -10,8 +11,12 @@ export function installSalaRoutes(app: Express) {
     next();
   });
   const route = (path: string, action: (uid: string, data: any) => Promise<any>) => app.post(`/api/sala/${path}`, async (req, res) => {
-    try { res.json(await action(res.locals.uid, req.body)); }
-    catch (e) { res.status(400).json({ error: e instanceof Error ? e.message : 'Operação indisponível.' }); }
+    try {
+      if(!req.body||typeof req.body!=='object'||Array.isArray(req.body))throw new PublicError('Conteúdo inválido.');
+      if(req.body.ownerUid&&req.body.ownerUid!==res.locals.uid)throw new PublicError('A conta mudou. Reabra esta tela.',403);
+      res.json(await action(res.locals.uid, req.body));
+    }
+    catch (e) { res.status(e instanceof PublicError?e.status:503).json({ error: e instanceof PublicError ? e.message : 'Operação indisponível. Tente novamente.' }); }
   });
   route('profile', async (uid, data) => {
     const db = adminDb(), ref = db.doc(`users/${uid}`);
@@ -24,7 +29,7 @@ export function installSalaRoutes(app: Express) {
         const directory=await tx.get(db.doc(`invite_codes/${code}`));
         if (!directory.exists || directory.data()?.uid===uid) break;
         code=`VIGIA-${randomBytes(16).toString('hex').toUpperCase()}`;
-        if(attempt===4)throw new Error('Não foi possível criar um código exclusivo.');
+        if(attempt===4)throw new PublicError('Não foi possível criar um código exclusivo.');
       }
       const now = new Date().toISOString();
       const profile = { uid, email: stored.email || '', nickname: stored.nickname || String(data.nickname || 'Super Protetor').slice(0,80), avatarId: stored.avatarId || 'default', role: trusted.role, guardianUid: trusted.guardianUid || null, inviteCode: code, blockedUsers: stored.blockedUsers || [], starsScore: stored.starsScore ?? 50, badges: stored.badges || [], createdAt: stored.createdAt || now, updatedAt: now };
@@ -34,22 +39,22 @@ export function installSalaRoutes(app: Express) {
     });
   });
   route('invite', async (uid, data) => {
-    if (typeof data.code !== 'string' || !/^VIGIA-[A-F0-9]{32}$/.test(data.code)) throw new Error('Código inválido. Use o código completo do contato.');
+    if (typeof data.code !== 'string' || !/^VIGIA-[A-F0-9]{32}$/.test(data.code)) throw new PublicError('Código inválido. Use o código completo do contato.');
     const db = adminDb(), directory = await db.doc(`invite_codes/${data.code}`).get();
     const target = directory.data()?.uid;
-    if (!target || target === uid) throw new Error('Contato indisponível.');
+    if (!target || target === uid) throw new PublicError('Contato indisponível.');
     const id = createHash('sha256').update(JSON.stringify([uid,target].sort())).digest('hex');
     return db.runTransaction(async tx => {
       const [from, to, a, b, previous, chat] = await Promise.all([tx.get(db.doc(`users/${uid}`)), tx.get(db.doc(`users/${target}`)), tx.get(db.doc(`sala_authorities/${uid}`)), tx.get(db.doc(`sala_authorities/${target}`)), tx.get(db.doc(`invites/${id}`)), tx.get(db.doc(`chats/${id}`))]);
       const p1=from.data(), p2=to.data();
-      if (!p1 || !p2 || p1.blockedUsers?.includes(target) || p2.blockedUsers?.includes(uid)) throw new Error('Contato indisponível.');
+      if (!p1 || !p2 || p1.blockedUsers?.includes(target) || p2.blockedUsers?.includes(uid)) throw new PublicError('Contato indisponível.');
       if (chat.exists) return { success: true, message: 'Este contato já está aprovado.' };
       if (previous.exists && previous.data()?.status !== 'rejected') return {success:true,message:'O convite já está aguardando aprovação.'};
       const reviewers = [target];
-      if(runtime.adultAudience){if(!await eligibleAdult(tx,uid,a.data())||!await eligibleAdult(tx,target,b.data()))throw new Error('O contato precisa acessar sua própria conta e confirmar que tem 18 anos ou mais.');}
+      if(runtime.adultAudience){if(!await eligibleAdult(tx,uid,a.data())||!await eligibleAdult(tx,target,b.data()))throw new PublicError('O contato precisa acessar sua própria conta e confirmar que tem 18 anos ou mais.');}
       else for (const authority of [a.data(), b.data()]) {
         if (!authority || authority.role === 'infantil') {
-          if (!authority?.guardianUid) throw new Error('Um responsável verificado precisa vincular as contas infantis antes do convite.');
+          if (!authority?.guardianUid) throw new PublicError('Um responsável verificado precisa vincular as contas infantis antes do convite.');
           reviewers.push(authority.guardianUid);
         }
       }
@@ -59,21 +64,21 @@ export function installSalaRoutes(app: Express) {
     });
   });
   route('decision', async (uid, data) => {
-    if (!/^[a-f0-9]{64}$/.test(data.id || '') || !['approve','reject'].includes(data.decision)) throw new Error('Decisão inválida.');
+    if (!/^[a-f0-9]{64}$/.test(data.id || '') || !['approve','reject'].includes(data.decision)) throw new PublicError('Decisão inválida.');
     const db=adminDb(), ref=db.doc(`invites/${data.id}`);
     return db.runTransaction(async tx => {
       const snap=await tx.get(ref), invite=snap.data();
-      if (!invite || !invite.visibleTo.includes(uid)) throw new Error('Convite indisponível.');
+      if (!invite || !invite.visibleTo.includes(uid)) throw new PublicError('Convite indisponível.');
+      if (data.decision==='approve'&&!invite.reviewerUids.includes(uid)) throw new PublicError('Você não pode aprovar este convite.');
       if (invite.status !== 'pending_guardian_approval') return {success:true};
       if (data.decision === 'reject') {tx.update(ref,{status:'rejected'});return {success:true};}
-      if (!invite.reviewerUids.includes(uid)) throw new Error('Você não pode aprovar este convite.');
       const [from,to,a,b] = await Promise.all([tx.get(db.doc(`users/${invite.fromUid}`)),tx.get(db.doc(`users/${invite.targetUid}`)),tx.get(db.doc(`sala_authorities/${invite.fromUid}`)),tx.get(db.doc(`sala_authorities/${invite.targetUid}`))]);
       const p1=from.data(),p2=to.data();
-      if (!p1 || !p2 || p1.blockedUsers?.includes(invite.targetUid) || p2.blockedUsers?.includes(invite.fromUid)) throw new Error('Contato indisponível.');
+      if (!p1 || !p2 || p1.blockedUsers?.includes(invite.targetUid) || p2.blockedUsers?.includes(invite.fromUid)) throw new PublicError('Contato indisponível.');
       const required=[invite.targetUid];
-      if(runtime.adultAudience){if(!await eligibleAdult(tx,invite.fromUid,a.data())||!await eligibleAdult(tx,invite.targetUid,b.data()))throw new Error('Ambos os participantes precisam ter acesso adulto confirmado.');}
-      else for (const authority of [a.data(),b.data()]) { if (!authority || authority.role==='infantil') { if(!authority?.guardianUid) throw new Error('Vínculo de responsável indisponível.'); required.push(authority.guardianUid); } }
-      if (required.some(id=>!invite.reviewerUids.includes(id))) throw new Error('O vínculo mudou. Envie um novo convite.');
+      if(runtime.adultAudience){if(!await eligibleAdult(tx,invite.fromUid,a.data())||!await eligibleAdult(tx,invite.targetUid,b.data()))throw new PublicError('Ambos os participantes precisam ter acesso adulto confirmado.');}
+      else for (const authority of [a.data(),b.data()]) { if (!authority || authority.role==='infantil') { if(!authority?.guardianUid) throw new PublicError('Vínculo de responsável indisponível.'); required.push(authority.guardianUid); } }
+      if (required.some(id=>!invite.reviewerUids.includes(id))) throw new PublicError('O vínculo mudou. Envie um novo convite.');
       const approvals=[...new Set([...invite.approvals,uid])], approved=required.every(id=>approvals.includes(id));
       tx.update(ref,{approvals,status:approved?'approved':'pending_guardian_approval'});
       if (approved) {
@@ -84,15 +89,15 @@ export function installSalaRoutes(app: Express) {
     });
   });
   route('message', async (uid,data) => {
-    if (!/^[a-f0-9]{64}$/.test(data.chatId || '') || !/^[a-zA-Z0-9-]{10,80}$/.test(data.messageId || '') || typeof data.text!=='string' || !data.text.trim() || data.text.length>2000) throw new Error('Mensagem inválida.');
+    if (!/^[a-f0-9]{64}$/.test(data.chatId || '') || !/^[a-zA-Z0-9-]{10,80}$/.test(data.messageId || '') || typeof data.text!=='string' || !data.text.trim() || data.text.length>2000) throw new PublicError('Mensagem inválida.');
     const db=adminDb(), ref=db.doc(`chats/${data.chatId}`), msg=ref.collection('messages').doc(data.messageId);
     return db.runTransaction(async tx=>{
       const chat=await tx.get(ref), c=chat.data();
-      if (!c?.isApproved || c.participants.length!==2 || !c.participants.includes(uid)) throw new Error('Conversa indisponível.');
+      if (!c?.isApproved || c.participants.length!==2 || !c.participants.includes(uid)) throw new PublicError('Conversa indisponível.');
       const other=c.participants.find((p:string)=>p!==uid);
       const [from,to,existing]=await Promise.all([tx.get(db.doc(`users/${uid}`)),tx.get(db.doc(`users/${other}`)),tx.get(msg)]);
-      if(from.data()?.blockedUsers?.includes(other)||to.data()?.blockedUsers?.includes(uid)) throw new Error('Este contato está bloqueado.');
-      if(existing.exists) {if(existing.data()?.senderUid!==uid)throw new Error('Mensagem indisponível.');return {success:true};}
+      if(from.data()?.blockedUsers?.includes(other)||to.data()?.blockedUsers?.includes(uid)) throw new PublicError('Este contato está bloqueado.');
+      if(existing.exists) {if(existing.data()?.senderUid!==uid)throw new PublicError('Mensagem indisponível.');return {success:true};}
       const now=new Date().toISOString(), text=data.text.trim();
       tx.create(msg,{senderUid:uid,senderNickname:from.data()?.nickname || 'Contato',text,createdAt:now,status:'sent',readBy:[uid]});
       tx.update(ref,{lastMessageText:text,lastMessageTimestamp:now,updatedAt:now,[`unreadCount.${other}`]:FieldValue.increment(1)});

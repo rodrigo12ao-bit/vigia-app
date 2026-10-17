@@ -70,3 +70,12 @@ test('exportação é própria; exclusão infantil exige responsável e bloqueia
  assert.equal((await db.doc('users/'+uid('delete-child')).get()).exists,false);
  assert.equal((await call('delete-child','/api/sala/profile')).status,401);
 });
+
+test('criações simultâneas respeitam o limite de dez turmas do educador',async()=>{
+ const existing=await db.collection('classrooms').where('teacherUid','==',uid('teacher')).get();
+ for(let index=existing.size;index<9;index++)await db.collection('classrooms').doc('review-capacity-'+index).set({teacherUid:uid('teacher'),name:'Turma fictícia de capacidade',studentUids:[]});
+ const replies=await Promise.all([call('teacher','/api/school/create',{name:'Última vaga A'}),call('teacher','/api/school/create',{name:'Última vaga B'})]);
+ assert.equal(replies.filter(reply=>reply.status===200).length,1);
+ assert.equal(replies.filter(reply=>reply.status===400&&/Limite/.test(reply.body.error)).length,1);
+ assert.equal((await db.collection('classrooms').where('teacherUid','==',uid('teacher')).get()).size,10);
+});

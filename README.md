@@ -1,5 +1,43 @@
 # Vigia — Aprender com a Vigia
 
+## Atualizações do aplicativo instalado — 17/10/2026
+
+O app instalado pelo Render continua vinculado a `https://vigia-app.onrender.com/`; publicar somente no Netlify não atualiza essa instalação. Enquanto existirem instalações antigas, cada lançamento deve atualizar o servidor/telas do Render e as telas/Function do Netlify, conferir a revisão pública em ambos e testar a atualização do PWA. O Netlify é o endereço recomendado para novas instalações. Históricos locais de visitante pertencem a cada endereço; trocar de instalação não migra esses dados.
+
+O código desta revisão verifica novas versões ao iniciar, retornar ao aplicativo, recuperar a conexão e a cada cinco minutos visíveis. Na Ajuda, **Buscar atualização** permite uma verificação explícita. A ativação continua pelo botão **Atualizar Agora**, depois de salvar; rascunhos pendentes impedem o recarregamento. Nenhum dado ou cache é apagado para forçar uma atualização. A hospedagem e a IA continuam nas configurações gratuitas existentes. A seção abaixo registra a publicação anterior somente no Netlify; o resultado de atualização do Render deve ser confirmado no painel e por HTTP antes de informar conclusão.
+
+## Avatar publicado — 17/10/2026
+
+Acesse **[Vigia](https://vigia-aplicativo-18plus.netlify.app/)**. O novo avatar original está publicado: **busto na voz e cabeça nos espaços pequenos**, tanto em imagem quanto em 3D. O botão 3D ativa as animações; 2D retorna à imagem. O site permaneceu no plano Netlify **Free**, com recarga automática e cobranças de excedente desativadas. O saldo observado antes do envio foi de 84,5 créditos gratuitos; uma publicação de produção utiliza 15 créditos desse saldo. Nenhum plano, cartão, recarga ou serviço pago foi ativado.
+
+Publicação confirmada no deploy `6ad2e8cb4cadf1da0e8d0714`, incluindo a Function `api-proxy`. A origem do pacote é o projeto local revisado, com base Git `bb624be` e mudanças ainda não commitadas; o manifesto dos arquivos está em `artifacts/vigia-avatar-deploy-20261017.json`. Foram aprovadas **14 verificações online** de avatar e cache em computador/celular emulado e três leituras HTTP de página, JavaScript e saúde da API. PNGs, GLB e JavaScript correspondem ao pacote local. O HTML hospedado contém somente um comentário invisível adicional da Netlify; a comparação exige que todo o restante permaneça idêntico. IA, microfone e voz foram fictícios nos testes de apresentação; nenhuma mensagem real de IA ou gravação de dados online foi feita.
+
+Evidências: `artifacts/vigia-original-publication.json`, `artifacts/vigia-avatar-public-http-checks.json` e `artifacts/vigia-avatar-free-plan-check.json`. Esta etapa publicou as telas e o avatar; o servidor Render e as regras Firestore conservam a versão online anterior. As correções locais de servidor/regras da revisão de 16/10 ainda não foram implantadas.
+
+## Avatar 3D original — 16–17/10/2026
+
+Foi criada uma tutora estilizada original, com uniforme azul, colete laranja e cinco movimentos: repouso, conversa, escuta, pensamento e acolhimento. O arquivo [vigia-original.glb](public/model/vigia-original.glb) tem aproximadamente 0,92 MB, inclui geometria, materiais e animações, e não depende de imagens ou serviços externos. Os gestos e a abertura da boca acompanham o estado da conversa; não há sincronização dos lábios com cada som da fala.
+
+Abra [avatar-vigia-original.html](avatar-vigia-original.html) para girar a personagem, testar os movimentos e baixar o modelo ou uma imagem transparente, mesmo sem internet. O enquadramento padrão é o busto, e o rosto é usado nos espaços pequenos da conversa. A tutora aparece inicialmente como imagem; o botão **3D** ativa o modelo animado e **2D** retorna à imagem. O modelo masculino e os arquivos anteriores foram preservados. Esta alteração está publicada no endereço Netlify acima.
+
+Para recriar os arquivos com as dependências locais já instaladas: `node scripts/create-vigia-avatar.mjs`, depois `node scripts/build-avatar-preview.cjs --capture`. As evidências de geração e validação ficam em `artifacts/vigia-original-model.json` e `artifacts/vigia-original-preview-checks.json`. Os testes do arquivo e do mapeamento das animações usam `node --test tests/avatar-asset.test.cjs tests/avatar-animation.test.cjs`.
+
+As imagens transparentes ficam em [busto](public/model/vigia-original-preview.png) e [cabeça](public/model/vigia-original-head.png). Depois de `npm run build:netlify`, `node tests/avatar-browser.cjs --presentation-only` verifica esses enquadramentos no aplicativo com APIs e voz fictícias, tráfego externo bloqueado e celular emulado. O resultado fica em `artifacts/vigia-original-app-presentation.json`. A bateria anterior de 18 verificações de animação, movimento reduzido e recuperação do 3D está registrada separadamente em `artifacts/vigia-original-app-browser.json`.
+
+Validação final: nove testes do arquivo/animação/enquadramento, dez verificações de apresentação e seis rechecagens do cabeçalho com botão compacto aprovados. As rechecagens estão em `artifacts/vigia-original-app-headers.json`; não foram somadas como novos cenários da revisão geral. Checagem de tipos e compilação Netlify passaram. A voz foi simulada nesses testes de apresentação.
+
+## Revisão completa local — 16/10/2026
+
+As correções desta rodada foram validadas no projeto local. O frontend foi publicado em 17/10 junto com o novo avatar; **servidor e regras desta revisão ainda são locais**, e nenhum serviço pago foi ativado. Texto e voz receberam prioridade: rascunhos sobrevivem a falhas, retornos à aba sincronizam o envio concluído, respostas terminadas fora da conversa são salvas, áudio obsoleto não encerra uma captura nova e gravação/preparação têm limites e cancelamento. O botão Ouvir ativa a leitura, imagem pode ser enviada sozinha e o último turno completo respeita o limite de 200 mensagens.
+
+Também foram corrigidos o desvio dos controles de IA por variações de rota, quotas compartilhadas pelo proxy, confirmação de leitura e aprovação de convite sem permissão, exportação sem paginação, concorrência na criação de turmas, dados de perfil inválidos, exclusão da demonstração, sincronização de atividades, cliques duplicados e instalação/atualização. A compilação conserva os modelos 3D mesmo quando a pasta sincronizada rejeita a cópia otimizada.
+
+**Validação final:** 347 resultados da bateria offline e 36 resultados de integração/regras em emuladores; 74 verificações de interface (28 texto, 32 voz e 14 histórico/PWA); checagem de tipos, frontend Netlify, servidor e diff aprovados. `npm audit` retornou zero vulnerabilidades conhecidas. Nenhuma chamada de IA real ou gravação em banco online foi realizada. Testes repetidos não foram somados novamente. As falhas anteriores foram preservadas nos artefatos da revisão.
+
+[Relatório completo da revisão](revisao-completa-vigia-2026-10-16.html) e `artifacts/review-20261016-summary.json` descrevem correções, evidências e limites. A bateria sem serviços externos usa `npm run test:review`, com o compilador existente, para ambientes onde o carregador `tsx` falha ao consultar o usuário do sistema. Integrações exigem seleção explícita, servidor de demonstração e emuladores locais.
+
+**Ainda sem validação:** voz Google real e aparelhos físicos nesta rodada, login Google online e publicação das novas correções de servidor/regras. Permanecem pontos de evolução: paginação do histórico autenticado no cliente, migração da pontuação legada e validação completa dos elementos de listas no banco. Exclusão de produção continua desativada. Os registros abaixo descrevem publicações e testes anteriores; a publicação atual do frontend está documentada no início deste arquivo.
+
 ## Revisão de abertura e estabilidade — 15/10/2026
 
 **Abrir o Vigia:** [https://vigia-aplicativo-18plus.netlify.app/](https://vigia-aplicativo-18plus.netlify.app/). Passaram 20 fluxos com Gemini/Firebase reais e 32 verificações de carregamento/PWA em desktop e celular emulado. A prova de três turnos completos de voz Google neste novo endereço foi feita **somente em celular emulado (390×844)**, com entrada adulta sintética. **Voz real desktop neste endereço, acesso com Google e aparelho/microfone físicos continuam fora da validação.** O [endereço anterior no Render](https://vigia-app.onrender.com/) permanece disponível.

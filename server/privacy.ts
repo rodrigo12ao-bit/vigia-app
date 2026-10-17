@@ -6,11 +6,22 @@ export function installPrivacyRoutes(app:Express){
  apiRoute(app,'/api/account/export',async(uid,data)=>{
   if(data.targetUid&&data.targetUid!==uid)throw new PublicError('Você só pode exportar seus próprios dados.',403);
   const db=adminDb(),profile=await db.doc('users/'+uid).get();const documents:any[]=[];let bytes=0;
-  async function walk(ref:FirebaseFirestore.DocumentReference){
-   const snap=await ref.get();if(snap.exists){const row={path:ref.path,data:snap.data()};bytes+=Buffer.byteLength(JSON.stringify(row));if(documents.length>=500||bytes>8000000)throw new PublicError('O volume de dados exige uma exportação assistida. Nenhum arquivo incompleto foi gerado.');documents.push(row);}
-   for(const collection of await ref.listCollections())for(const doc of (await collection.get()).docs)await walk(doc.ref);
+  async function walk(ref:FirebaseFirestore.DocumentReference,snapshot?:FirebaseFirestore.DocumentSnapshot){
+   const snap=snapshot||await ref.get();if(snap.exists){const row={path:ref.path,data:snap.data()};bytes+=Buffer.byteLength(JSON.stringify(row));if(documents.length>=500||bytes>8000000)throw new PublicError('O volume de dados exige uma exportação assistida. Nenhum arquivo incompleto foi gerado.');documents.push(row);}
+   // Bound each read before fetching it. Checking the limit only after an
+   // unbounded collection.get() already spent memory and billed every document.
+   for(const collection of await ref.listCollections()){
+    let cursor:FirebaseFirestore.QueryDocumentSnapshot|undefined;
+    while(true){
+     let query:FirebaseFirestore.Query=collection.limit(10);
+     if(cursor)query=query.startAfter(cursor);
+     const page=await query.get();if(page.empty)break;
+     for(const doc of page.docs)await walk(doc.ref,doc);
+     cursor=page.docs.at(-1);if(page.size<10)break;
+    }
+   }
   }
-  await walk(profile.ref);
+  await walk(profile.ref,profile);
   return {format:'vigia-data-v1',exportedAt:new Date().toISOString(),ownerUid:uid,documents};
  });
  apiRoute(app,'/api/account/delete',async(uid,data,authTime)=>{

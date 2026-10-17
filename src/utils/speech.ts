@@ -6,11 +6,10 @@ import { apiFetch, getAiStatus } from '../lib/api';
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentAudioUrl: string | null = null;
-let pendingSpeechTimeout: ReturnType<typeof globalThis.setTimeout> | null = null;
 let activeUtterances: SpeechSynthesisUtterance[] = [];
 let voiceGeneration = 0;
-const voiceCleanup = new Set<() => void>();
 let cancelDeviceSpeech: (() => void) | null = null;
+let cancelTextSpeech: (() => void) | null = null;
 
 export interface DeviceSpeechCallbacks {
   onStart?: () => void;
@@ -25,13 +24,27 @@ export interface DeviceSpeechHandle {
 
 // Explicit device reading: complete text, real lifecycle, no provider requests.
 export function speakDeviceText(text: string, callbacks: DeviceSpeechCallbacks = {}): DeviceSpeechHandle {
-  stopSpeaking();
+  return startDeviceSpeech(text,callbacks,true);
+}
+
+function startDeviceSpeech(text:string,callbacks:DeviceSpeechCallbacks,cancelPrevious:boolean):DeviceSpeechHandle {
+  if(cancelPrevious)stopSpeaking();
   const generation=voiceGeneration;
   let finished=false,started=false,index=0;
   const utterances=new Set<SpeechSynthesisUtterance>();
   const timers=new Set<ReturnType<typeof globalThis.setTimeout>>();
   const cleanup=new Set<()=>void>();
-  const chunks=text.trim().split(/(?<=[.!?])\s+/u).filter(Boolean);
+  const chunks=text.trim().split(/(?<=[.!?])\s+/u).filter(Boolean).flatMap(sentence=>{
+    const parts:string[]=[];
+    let remaining=sentence;
+    while(remaining.length>220){
+      const boundary=remaining.lastIndexOf(' ',220);
+      if(boundary<1)break;
+      parts.push(remaining.slice(0,boundary));remaining=remaining.slice(boundary+1).trimStart();
+    }
+    if(remaining)parts.push(remaining);
+    return parts;
+  });
   const clear=()=>{
     for(const timer of timers)globalThis.clearTimeout(timer);
     timers.clear();for(const fn of cleanup)fn();cleanup.clear();
@@ -138,6 +151,17 @@ export async function speakText(
     // Always cancel any prior speech/audio
     stopSpeaking();
     generation = voiceGeneration;
+    const originalEnd=onEnd;
+    let completed=false;
+    const finish=(cancelled=false)=>{
+      if(completed||(!cancelled&&generation!==voiceGeneration))return;
+      completed=true;
+      if(cancelTextSpeech===cancel)cancelTextSpeech=null;
+      originalEnd?.();
+    };
+    const cancel=()=>finish(true);
+    cancelTextSpeech=cancel;
+    onEnd=()=>finish();
 
     if (!text || !text.trim()) {
       onEnd && onEnd();
@@ -191,17 +215,19 @@ export async function speakText(
               const url = URL.createObjectURL(blob);
               currentAudioUrl = url;
               currentAudio = new Audio(url);
-              currentAudio.onplay = () => onStart && onStart();
+              currentAudio.onplay = () => {if(generation===voiceGeneration)onStart?.();};
               currentAudio.onended = () => {
-                onEnd && onEnd();
-                cleanupAudio();
+                if(generation!==voiceGeneration)return;
+                cleanupAudio();onEnd?.();
               };
               currentAudio.onerror = () => {
+                if(generation!==voiceGeneration)return;
                 cleanupAudio();
                 // fallback to browser TTS
                 onErrorFallback(text, onStart, onEnd, generation);
               };
               await currentAudio.play().catch(() => {
+                if(generation!==voiceGeneration)return;
                 cleanupAudio();
                 onErrorFallback(text, onStart, onEnd, generation);
               });
@@ -265,132 +291,20 @@ export async function speakText(
 
 function onErrorFallback(text: string, onStart?: () => void, onEnd?: () => void, generation = voiceGeneration) {
   if (generation !== voiceGeneration) return;
-  try {
-    clearPendingSpeechTimeout();
-    if (!('speechSynthesis' in window)) {
-      onStart && onStart();
-      pendingSpeechTimeout = globalThis.setTimeout(() => {
-        onEnd && onEnd();
-        pendingSpeechTimeout = null;
-      }, 500);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    activeUtterances = [];
-
-    // Chunk text by sentences to avoid Chrome TTS 15-second bug
-    const chunks = text.match(/[^.!?]+[.!?]*/g)?.map(c => c.trim()).filter(c => c.length > 0) || [text];
-    let currentChunk = 0;
-    let hasStarted = false;
-
-    const speakNextChunk = () => {
-      if (generation !== voiceGeneration) return;
-      if (currentChunk >= chunks.length) {
-        onEnd && onEnd();
-        return;
-      }
-
-      const utter = new SpeechSynthesisUtterance(chunks[currentChunk]);
-      activeUtterances.push(utter); // prevent garbage collection
-      
-      utter.lang = 'pt-BR';
-      utter.rate = 1.05;
-      utter.pitch = 1.1;
-      utter.volume = 1;
-
-      utter.onstart = () => {
-        if (generation !== voiceGeneration) return;
-        if (!hasStarted) {
-          hasStarted = true;
-          onStart && onStart();
-        }
-      };
-
-      utter.onend = () => {
-        if (generation !== voiceGeneration) return;
-        const index = activeUtterances.indexOf(utter);
-        if (index > -1) activeUtterances.splice(index, 1);
-        currentChunk++;
-        speakNextChunk();
-      };
-
-      utter.onerror = (e) => {
-        if (generation !== voiceGeneration) return;
-        console.warn('TTS Chunk error:', e);
-        const index = activeUtterances.indexOf(utter);
-        if (index > -1) activeUtterances.splice(index, 1);
-        // Continue to next chunk on minor errors, or abort if fatal
-        currentChunk++;
-        speakNextChunk();
-      };
-
-      let queued=false;
-      const pickVoiceAndSpeak = (voices: SpeechSynthesisVoice[]) => {
-        if (generation !== voiceGeneration || queued) return;
-        queued=true;
-        const preferredNames = [/francisca/i, /antonio/i, /antônio/i, /francisco/i];
-        let candidate = voices.find((v) => {
-          const isPt = /pt[-_ ]?br|brazil/i.test(v.lang || v.name);
-          const isNeural = /(neural|premium|highly|wave|saudio|synth)/i.test(v.name || '');
-          const hasPreferredName = preferredNames.some((r) => r.test(v.name || ''));
-          return isPt && (isNeural || hasPreferredName);
-        });
-        if (!candidate) {
-          candidate = voices.find((v) => /pt[-_ ]?br|brazil/i.test(v.lang || v.name));
-        }
-        if (!candidate && voices.length > 0) candidate = voices[0];
-        if (candidate) utter.voice = candidate;
-        
-        window.speechSynthesis.speak(utter);
-      };
-
-      const voices = window.speechSynthesis.getVoices();
-      if (voices && voices.length > 0) {
-        pickVoiceAndSpeak(voices);
-      } else {
-        const handler = () => {
-          try {
-            const vs = window.speechSynthesis.getVoices();
-            pickVoiceAndSpeak(vs);
-          } finally {
-            window.speechSynthesis.removeEventListener('voiceschanged', handler as any);
-          }
-        };
-        window.speechSynthesis.addEventListener('voiceschanged', handler as any);
-        voiceCleanup.add(() => window.speechSynthesis.removeEventListener('voiceschanged', handler as any));
-        
-        // Timeout to just speak anyway if voices list doesn't load quickly
-        const voiceTimer = globalThis.setTimeout(() => {
-          if (generation !== voiceGeneration) return;
-          if (!hasStarted) {
-             const vs = window.speechSynthesis.getVoices();
-             if (vs.length > 0) pickVoiceAndSpeak(vs);
-             else pickVoiceAndSpeak([]);
-          }
-        }, 300);
-        voiceCleanup.add(() => globalThis.clearTimeout(voiceTimer));
-      }
-    };
-
-    speakNextChunk();
-
-  } catch (err) {
-    console.error('Browser TTS fallback error:', err);
-    onEnd && onEnd();
-  }
-}
-
-function clearPendingSpeechTimeout() {
-  if (pendingSpeechTimeout !== null) {
-    globalThis.clearTimeout(pendingSpeechTimeout);
-    pendingSpeechTimeout = null;
-  }
+  startDeviceSpeech(text, {
+    onStart,
+    onEnd,
+    onError: message => {
+      onEnd?.();
+      window.dispatchEvent(new CustomEvent('vigia-error', { detail: message }));
+    },
+  },false);
 }
 
 function cleanupAudio() {
   if (currentAudio) {
     try {
+      currentAudio.onplay=null;currentAudio.onended=null;currentAudio.onerror=null;
       currentAudio.pause();
       currentAudio.src = '';
     } catch (e) {}
@@ -406,11 +320,10 @@ function cleanupAudio() {
 
 export function stopSpeaking() {
   ++voiceGeneration;
+  const cancelText=cancelTextSpeech;cancelTextSpeech=null;
   const cancel=cancelDeviceSpeech;cancelDeviceSpeech=null;cancel?.();
-  for (const cleanup of voiceCleanup) cleanup();
-  voiceCleanup.clear();
+  cancelText?.();
   try {
-    clearPendingSpeechTimeout();
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       activeUtterances = [];
@@ -439,6 +352,7 @@ export class VoiceActivityDetector {
   private source: MediaStreamAudioSourceNode | null = null;
   private animFrameId: number | null = null;
   private stream: MediaStream | null = null;
+  private runId=0;
 
   public isVoiceDetected = false;
   private voiceStartTime: number | null = null;
@@ -447,6 +361,7 @@ export class VoiceActivityDetector {
   public onVolumeChange?: (volume: number) => void;
   public onVoiceStart?: () => void;
   public onSilenceDetected?: () => void;
+  public onError?: (error: Error) => void;
 
   private minVoiceDurationMs: number;
   private silenceDurationMs: number;
@@ -461,10 +376,11 @@ export class VoiceActivityDetector {
   public start(stream: MediaStream) {
     this.stop();
     this.stream = stream;
+    const runId=this.runId;
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      if (!AudioCtx) throw new Error('Este navegador não consegue detectar a fala. Use texto.');
 
       this.audioContext = new AudioCtx();
       this.analyser = this.audioContext.createAnalyser();
@@ -473,12 +389,17 @@ export class VoiceActivityDetector {
 
       this.source = this.audioContext.createMediaStreamSource(stream);
       this.source.connect(this.analyser);
+      const context=this.audioContext;
+      void context.resume().catch(error=>{
+        if(runId!==this.runId)return;
+        this.stop();this.onError?.(error instanceof Error?error:new Error('Não foi possível ativar o microfone. Use texto.'));
+      });
 
       const bufferLength = this.analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
       const checkAudio = () => {
-        if (!this.analyser) return;
+        if (!this.analyser||runId!==this.runId) return;
 
         this.analyser.getByteFrequencyData(dataArray);
         let sum = 0;
@@ -496,7 +417,7 @@ export class VoiceActivityDetector {
 
         if (normalizedVolume > this.minVolumeThreshold) {
           this.silenceStartTime = null;
-          if (!this.voiceStartTime) {
+          if (this.voiceStartTime===null) {
             this.voiceStartTime = now;
           } else if (now - this.voiceStartTime >= this.minVoiceDurationMs && !this.isVoiceDetected) {
             this.isVoiceDetected = true;
@@ -505,7 +426,7 @@ export class VoiceActivityDetector {
         } else {
           this.voiceStartTime = null;
           if (this.isVoiceDetected) {
-            if (!this.silenceStartTime) {
+            if (this.silenceStartTime===null) {
               this.silenceStartTime = now;
             } else if (now - this.silenceStartTime >= this.silenceDurationMs) {
               this.isVoiceDetected = false;
@@ -515,16 +436,19 @@ export class VoiceActivityDetector {
           }
         }
 
-        this.animFrameId = requestAnimationFrame(checkAudio);
+        if(runId===this.runId&&this.analyser)this.animFrameId = requestAnimationFrame(checkAudio);
       };
 
       checkAudio();
     } catch (err) {
       console.error('Erro ao iniciar VAD Web Audio API:', err);
+      this.stop();
+      throw err;
     }
   }
 
   public stop() {
+    this.runId++;
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
@@ -534,7 +458,7 @@ export class VoiceActivityDetector {
       this.source = null;
     }
     if (this.audioContext) {
-      try { this.audioContext.close(); } catch (e) {}
+      try { void this.audioContext.close().catch(()=>undefined); } catch (e) {}
       this.audioContext = null;
     }
     this.analyser = null;
@@ -554,77 +478,63 @@ export interface SpeechRecognitionResultData {
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
+  private pendingStop: { recorder: MediaRecorder; promise: Promise<Blob | null>; finish: (blob: Blob | null) => void } | null = null;
   public mimeType = 'audio/webm';
 
   public start(stream: MediaStream) {
     this.stop();
-    this.audioChunks = [];
-
-    let selectedMime = 'audio/webm';
-    if (typeof MediaRecorder !== 'undefined') {
-      if (!MediaRecorder.isTypeSupported('audio/webm')) {
-        if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          selectedMime = 'audio/mp4';
-        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-          selectedMime = 'audio/ogg';
-        } else {
-          selectedMime = '';
-        }
-      }
-    }
-
-    this.mimeType = selectedMime;
     try {
-      this.mediaRecorder = selectedMime
-        ? new MediaRecorder(stream, { mimeType: selectedMime })
-        : new MediaRecorder(stream);
-
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          this.audioChunks.push(event.data);
-        }
+      if(typeof MediaRecorder==='undefined')throw new Error('Gravação de áudio não suportada.');
+      const selectedMime=['audio/webm','audio/mp4','audio/ogg'].find(type=>MediaRecorder.isTypeSupported(type));
+      const recorder=selectedMime?new MediaRecorder(stream,{mimeType:selectedMime}):new MediaRecorder(stream);
+      this.mediaRecorder=recorder;
+      this.mimeType=recorder.mimeType||selectedMime||'audio/webm';
+      const chunks:Blob[]=[];this.audioChunks=chunks;
+      recorder.ondataavailable=event=>{
+        if(this.mediaRecorder===recorder&&event.data?.size>0)chunks.push(event.data);
       };
-
-      this.mediaRecorder.start(100);
-      console.log('[Transcrição] início da gravação');
-    } catch (err) {
-      console.error('Erro ao iniciar MediaRecorder:', err);
+      recorder.start(100);
+    } catch(err) {
+      this.stop();
+      throw err;
     }
   }
 
   public stopAndGetBlob(): Promise<Blob | null> {
-    return new Promise((resolve) => {
-      if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
-        const blob = this.audioChunks.length > 0
-          ? new Blob(this.audioChunks, { type: this.mimeType || 'audio/webm' })
-          : null;
-        resolve(blob);
-        return;
-      }
-
-      this.mediaRecorder.onstop = () => {
-        const blob = new Blob(this.audioChunks, { type: this.mimeType || 'audio/webm' });
-        this.audioChunks = [];
-        this.mediaRecorder = null; // Fix memory leak
-        resolve(blob);
-      };
-
-      try {
-        this.mediaRecorder.stop();
-      } catch (e) {
-        resolve(null);
-      }
-    });
+    const recorder=this.mediaRecorder;
+    if(this.pendingStop?.recorder===recorder)return this.pendingStop.promise;
+    if(!recorder||recorder.state==='inactive'){
+      const blob=this.audioChunks.length?new Blob(this.audioChunks,{type:this.mimeType}):null;
+      this.audioChunks=[];this.mediaRecorder=null;
+      return Promise.resolve(blob);
+    }
+    const chunks=this.audioChunks,mimeType=this.mimeType;
+    let resolve!:(blob:Blob|null)=>void;
+    const promise=new Promise<Blob|null>(settle=>{resolve=settle;});
+    let settled=false;
+    const finish=(blob:Blob|null)=>{
+      if(settled)return;settled=true;
+      globalThis.clearTimeout(timer);
+      recorder.ondataavailable=null;recorder.onstop=null;recorder.onerror=null;
+      if(this.mediaRecorder===recorder){this.mediaRecorder=null;this.audioChunks=[];}
+      if(this.pendingStop?.recorder===recorder)this.pendingStop=null;
+      resolve(blob);
+    };
+    const timer=globalThis.setTimeout(()=>finish(null),5000);
+    this.pendingStop={recorder,promise,finish};
+    recorder.onstop=()=>finish(chunks.length?new Blob(chunks,{type:mimeType}):null);
+    recorder.onerror=()=>finish(null);
+    try{recorder.stop();}catch{finish(null);}
+    return promise;
   }
 
   public stop() {
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      try {
-        this.mediaRecorder.stop();
-      } catch (e) {}
-    }
-    this.mediaRecorder = null;
-    this.audioChunks = [];
+    const recorder=this.mediaRecorder;
+    this.pendingStop?.finish(null);
+    this.mediaRecorder=null;this.audioChunks=[];
+    if(!recorder)return;
+    recorder.ondataavailable=null;recorder.onstop=null;recorder.onerror=null;
+    if(recorder.state!=='inactive')try{recorder.stop();}catch{/* Already ended. */}
   }
 }
 
@@ -675,6 +585,7 @@ export class SpeechRecognizer {
     onError?: (err: any) => void;
     onEnd?: () => void;
   }) {
+    if(this.isStarted)return;
     try {
       stopSpeaking();
       this.isIntentionalStop = false;
@@ -687,9 +598,9 @@ export class SpeechRecognizer {
       this.onSpeechEnd = callbacks?.onSpeechEnd || null;
       this.onAudioEnd = callbacks?.onAudioEnd || null;
 
-      if (!this.recognition) {
-        this.recognition = this.createInstance();
-      }
+      // A stopped instance can still emit result/end events. Give each capture
+      // its own native object so those events cannot reach a newer listener.
+      this.recognition = this.createInstance();
 
       if (!this.recognition) {
         throw new Error('SpeechRecognition não suportado');
@@ -796,11 +707,14 @@ export class SpeechRecognizer {
   }
 
   stop() {
+    this.currentInstanceId++;
+    this.isIntentionalStop=true;
+    this.isStarted=false;
+    const recognition=this.recognition;
+    this.recognition=null;
     try {
-      this.isIntentionalStop = true;
-      this.isStarted = false;
-      if (this.recognition) {
-        this.recognition.stop();
+      if (recognition) {
+        recognition.stop();
       }
     } catch (e) {
       if (this.onError) this.onError(e);

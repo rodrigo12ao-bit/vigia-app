@@ -1,11 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { GoogleGenAI, Type, Modality, StartSensitivity, EndSensitivity, ThinkingLevel } from '@google/genai';
 import { WebSocketServer } from 'ws';
-import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
-import { installSecurity, allowedOrigin, consumeTicket, demoMode, identity, runtime, realAiAccess } from './server/security';
+import { installSecurity, allowedOrigin, consumeTicket, demoMode, identity, runtime, realAiAccess,authenticateApiRequest,apiOriginGuard } from './server/security';
 import { realAi, realAiConfig, aiErrorResponse } from './server/realAi';
 import { connectRealVoice } from './server/realVoice';
 import {connectGeminiVoice} from './server/geminiVoice';
@@ -16,13 +15,13 @@ import {installSchoolRoutes} from './server/school';
 import {installAlertRoutes} from './server/alerts';
 import {installPrivacyRoutes} from './server/privacy';
 import { isEmergency, emergencyReply as legacyEmergencyReply,adultEmergencyReply, validQuiz, validScenario } from './server/safety';
-import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/prompts.js';
+import { VIGIA_LIVE_BASE_PROMPT, VIGIA_TEXT_BASE_PROMPT } from './src/data/prompts';
 import {VIGIA_ADULT_TEXT_PROMPT,VIGIA_ADULT_VOICE_PROMPT} from './src/data/promptsAdult';
 import {educationalPlanSchema,validEducationalPlan} from './server/educationalPlan';
 import {createAiAdmission} from './server/aiAdmission';
-import {installApiBoundary,publicRequestError} from './server/apiBoundary';
+import {installApiBoundary,publicRequestError,apiResponseHeaders} from './server/apiBoundary';
+import {createAuthenticatedApiLimiter} from './server/apiRateLimit';
 
-dotenv.config();
 const emergencyReply=runtime.adultAudience?adultEmergencyReply:legacyEmergencyReply;
 const aiAdmission=createAiAdmission({demo:demoMode,isEmergency,emergencyReply});
 
@@ -43,25 +42,10 @@ const INJECTED_KNOWLEDGE_PROMPT = `\n\n=== BASE EDUCATIVA DE APOIO ===\nVocê de
 
 const VIGIA_LIVE_SYSTEM_INSTRUCTION = (runtime.adultAudience?VIGIA_ADULT_VOICE_PROMPT:VIGIA_LIVE_BASE_PROMPT) + INJECTED_KNOWLEDGE_PROMPT;
 
-// Rate limiting: protege as rotas de API contra abuso e esgotamento de cota do Gemini
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // janela de 1 minuto
-  max: demoMode ? 600 : 120, // máximo 30 requisições por IP por minuto
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    reply: 'Muitas requisições. Aguarde um momento e tente novamente.',
-    avatarState: 'serious',
-    interactiveOptions: ['Tentar novamente em instantes'],
-    suggestedFollowUps: [],
-  },
-
-});
-installApiBoundary(app,apiLimiter);
+app.use('/api',apiResponseHeaders,apiOriginGuard);
+installApiBoundary(app,createAuthenticatedApiLimiter({demo:demoMode,authenticate:authenticateApiRequest}));
 app.use('/api', aiAdmission.validate);
-installSecurity(app,{skipApiHeaders:true});
-const uidLimiter = rateLimit({ windowMs: 60000, limit: req=>/\/api\/(chat|analyze-scenario|generate-quiz|transcribe|tts|speak|live-ticket)/.test(req.originalUrl)?(demoMode?120:20):(demoMode?300:120), keyGenerator: req => identity(req), standardHeaders: true, legacyHeaders: false });
-app.use('/api', uidLimiter);
+installSecurity(app,{skipApiHeaders:true,skipAuthentication:true,skipOriginCheck:true});
 installSalaRoutes(app);
 installLearningRoutes(app);
 installAdventureRoutes(app);

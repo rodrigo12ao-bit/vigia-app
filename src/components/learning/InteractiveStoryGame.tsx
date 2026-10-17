@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Sparkles, ArrowRight, BookOpen, CheckCircle2 } from 'lucide-react';
 import { LevelData } from '../../types';
@@ -20,24 +20,31 @@ export const InteractiveStoryGame: React.FC<InteractiveStoryGameProps> = ({
   const [currentNodeKey, setCurrentNodeKey] = useState<string>('start');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mistakesCount, setMistakesCount] = useState(0);
+  const transition=useRef<ReturnType<typeof setTimeout>|null>(null),transitionLocked=useRef(false);
+  const [transitioning,setTransitioning]=useState(false);
+  useEffect(()=>()=>{if(transition.current!==null)clearTimeout(transition.current);},[]);
 
   const currentNode = nodes[currentNodeKey];
 
   const handleSelectChoice = (choice: any) => {
+    if(transitionLocked.current)return;
     setFeedback(choice.feedback);
 
     if (choice.isCorrect) {
+      transitionLocked.current=true;setTransitioning(true);
       if (onSpeak) {
         onSpeak(`Muito bem! ${choice.feedback}`);
       }
       if (choice.nextScenario === 'victory') {
         // Complete story!
-        setTimeout(() => {
+        transition.current=setTimeout(() => {
+          transition.current=null;
           const stars = mistakesCount === 0 ? 3 : 2;
           onComplete(stars, 80);
         }, 1200);
       } else {
-        setTimeout(() => {
+        transition.current=setTimeout(() => {
+          transition.current=null;transitionLocked.current=false;setTransitioning(false);
           setCurrentNodeKey(choice.nextScenario);
           setFeedback(null);
         }, 1000);
@@ -87,6 +94,7 @@ export const InteractiveStoryGame: React.FC<InteractiveStoryGameProps> = ({
           <button
             key={idx}
             onClick={() => handleSelectChoice(choice)}
+            disabled={transitioning}
             className="w-full text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-orange-400 bg-white hover:bg-orange-50/50 font-bold text-xs sm:text-sm text-slate-800 transition-all flex items-start gap-3 shadow-sm hover:scale-[1.01] active:scale-95"
           >
             <span className="w-7 h-7 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-xs shrink-0 mt-0.5">

@@ -1,7 +1,7 @@
 import type {Request,Response,RequestHandler} from 'express';
 
 const aiPaths=new Set(['/chat','/analyze-scenario','/transcribe','/tts','/generate-quiz']);
-const routePath=(request:Request)=>request.path.replace(/^\/api(?=\/)/,'');
+const routePath=(request:Request)=>request.path.replace(/^\/api(?=\/)/i,'').replace(/\/$/,'').toLowerCase();
 function validBody(request:Request,demo:boolean){
   const body=request.body,path=routePath(request);
   if(!body||typeof body!=='object'||Array.isArray(body))return false;

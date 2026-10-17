@@ -2,20 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { discoverPwaUpdates, type PwaUpdateStatus } from '../lib/pwaUpdates';
 
 export const PWAPrompt: React.FC<{visible?:boolean;onBeforeUpdate?:()=>Promise<void>}> = ({visible=true,onBeforeUpdate}) => {
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [checkStatus, setCheckStatus] = useState<PwaUpdateStatus>('idle');
+  const discovery = React.useRef<ReturnType<typeof discoverPwaUpdates> | null>(null);
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    onRegisteredSW(_url, registered) {
+      if (registered) setRegistration(registered);
+    },
     onRegisterError(error) {
+      setCheckStatus('error');
       console.error('SW registration error', error);
     },
   });
 
+  useEffect(() => {
+    if (!registration) return;
+    const watcher = discoverPwaUpdates(registration, {
+      window, document, online: () => navigator.onLine,
+      onAvailable: () => setNeedRefresh(true), onStatus: setCheckStatus,
+    });
+    discovery.current = watcher;
+    return () => {
+      watcher.dispose();
+      if (discovery.current === watcher) discovery.current = null;
+    };
+  }, [registration, setNeedRefresh]);
+
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [installing,setInstalling]=useState(false);
+  const [installError,setInstallError]=useState('');
+  const installLock=React.useRef(false);
   const [updating,setUpdating]=useState(false);
   const [updateError,setUpdateError]=useState('');
   const updateLock=React.useRef(false);
@@ -32,26 +56,30 @@ export const PWAPrompt: React.FC<{visible?:boolean;onBeforeUpdate?:()=>Promise<v
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
+      setInstallError('');
     };
+    const handleInstalled=()=>{setIsInstallable(false);setDeferredPrompt(null);setInstallError('');};
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled',handleInstalled);
     
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstallable(false);
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);window.removeEventListener('appinstalled',handleInstalled);};
   }, []);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setIsInstallable(false);
-    }
-    setDeferredPrompt(null);
+    if (!deferredPrompt||installLock.current) return;
+    const prompt=deferredPrompt;
+    installLock.current=true;setInstalling(true);setInstallError('');
+    // A browser installation event can only be used once, even if declined.
+    setDeferredPrompt(null);setIsInstallable(false);
+    try {await prompt.prompt();await prompt.userChoice;}
+    catch {setInstallError('Não foi possível abrir a instalação. Tente novamente pelo menu do navegador.');}
+    finally {installLock.current=false;setInstalling(false);}
   };
 
   const closeRefresh = () => {
@@ -68,6 +96,28 @@ export const PWAPrompt: React.FC<{visible?:boolean;onBeforeUpdate?:()=>Promise<v
   return (
     <div className={needRefresh?'relative z-30 shrink-0 px-3 py-2':'fixed bottom-4 right-4 z-[9999] flex flex-col gap-3 items-end'}>
       <AnimatePresence>
+        {visible && !needRefresh && (
+          <div className="bg-slate-900 border border-slate-600 rounded-2xl p-3 w-72 text-white">
+            <button
+              type="button"
+              onClick={() => { void discovery.current?.check(true); }}
+              disabled={!registration || checkStatus === 'checking' || updating}
+              aria-busy={checkStatus === 'checking'}
+              className="w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-60 text-white font-bold px-3 py-2 rounded-xl text-xs"
+            >
+              {checkStatus === 'checking' ? 'Verificando…' : 'Buscar atualização'}
+            </button>
+            <p role="status" className="text-xs text-slate-300 mt-2">
+              {checkStatus === 'current' ? 'Versão atual.'
+                : checkStatus === 'offline' ? 'Sem conexão. Tente quando estiver online.'
+                : checkStatus === 'error' ? 'Não foi possível verificar agora. Tente novamente.'
+                : checkStatus === 'available' ? 'Há uma nova versão disponível.'
+                : checkStatus === 'checking' ? 'Verificando a versão do aplicativo…'
+                : 'Verifique se há uma nova versão da Vigia.'}
+            </p>
+          </div>
+        )}
+        {visible&&installError&&<p role="alert" className="bg-white border border-amber-300 rounded-2xl p-3 w-72 text-sm text-slate-900">{installError}</p>}
         {/* Nova versão (Update) */}
         {needRefresh && (
           <motion.div 
@@ -133,13 +183,14 @@ export const PWAPrompt: React.FC<{visible?:boolean;onBeforeUpdate?:()=>Promise<v
                 <Download className="w-5 h-5 text-indigo-200" />
                 <h3 className="font-bold text-sm">Instalar Vigia</h3>
               </div>
-              <button onClick={() => setIsInstallable(false)} className="text-indigo-300 hover:text-white cursor-pointer">
+              <button aria-label="Fechar aviso de instalação" onClick={() => setIsInstallable(false)} className="text-indigo-300 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-xs text-indigo-100 mb-3">Instale o aplicativo na sua tela inicial para acesso rápido e modo offline.</p>
             <button 
               onClick={handleInstall}
+              disabled={installing}
               className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-2 rounded-xl text-xs transition-colors cursor-pointer"
             >
               Instalar App

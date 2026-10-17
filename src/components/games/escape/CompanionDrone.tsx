@@ -30,7 +30,7 @@ export const CompanionDrone = () => {
 
       {/* Personagem Premium */}
       <group position={[0, 0, 0]} scale={[1.5, 1.5, 1.5]}>
-         <PremiumAvatarModel state="idle" isSpeaking={isSpeaking} isListening={!isSpeaking} />
+         <PremiumAvatarModel modelUrl="/model/avatar_1.glb" state="idle" isSpeaking={isSpeaking} isListening={!isSpeaking} />
       </group>
     </group>
   );

@@ -56,7 +56,7 @@ import { GeminiLiveSession } from '../utils/geminiLive';
 import {getAiAccess,getAiStatus} from '../lib/api';
 import {recordingToWave} from '../utils/audioWave';
 import {auth} from '../lib/firebaseAuth';
-import {createConversationMemory,queueConversationSnapshot,mergeSavedSession,type ConversationMemory,type ConversationMetadata} from '../lib/conversationState';
+import {createConversationMemory,queueConversationSnapshot,mergeSavedSession,updateConversationDraft,subscribeConversationDraft,type ConversationMemory,type ConversationMetadata} from '../lib/conversationState';
 import {
   loadSessions,
   saveSession,
@@ -84,7 +84,7 @@ interface ChatTabProps {
   onSendMessage: (
     text: string,
     image?: { data: string; mimeType: string }
-  ) => void;
+  ) => boolean | Promise<boolean>;
   isLoading: boolean;
   avatarState: AvatarState;
   isSpeaking: boolean;
@@ -274,7 +274,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const voiceTurnHandler=useRef(onVoiceTurn);voiceTurnHandler.current=onVoiceTurn;
   const voiceAllowed=async()=>{try{const access=await getAiAccess();if(!access.voice){setSpeechFeedbackMsg(access.blocked||voiceUnavailable);return false;}return true;}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Voz indisponível.');return false;}};
   const voiceStartLock=useRef(false);
-  const switchToVoice=async()=>{if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
+  const switchToVoice=async()=>{if(isLoading||textSubmission.current){setSpeechFeedbackMsg('Aguarde a resposta de texto antes de iniciar a voz.');return;}if(messages.length>198){setSpeechFeedbackMsg(conversationLimitMessage);return;}if(!voiceConnectionReady())return;if(onlinePreview){setSpeechFeedbackMsg(voiceUnavailable);return;}if(voiceStartLock.current||chatMode==='live')return;voiceStartLock.current=true;if(isAudioMuted)onToggleAudioMute?.();setChatMode('live');};
   useEffect(()=>{voiceStartLock.current=false;},[chatMode]);
   useEffect(()=>onChatModeChange?.(chatMode),[chatMode,onChatModeChange]);
   useEffect(()=>()=>{if(auth.currentUser?.uid===memory.uid)onChatModeChange?.('text');},[memory]);
@@ -305,7 +305,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   memory.flush=flushSession;memory.stageGuest=stageGuestSession;
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [inputText, setInputText] = useState(memory.draft.text);
+  const inputTextRef=useRef(inputText);inputTextRef.current=inputText;
+  const textSubmission=useRef(false);
+  const updateInputText=(text:string)=>{inputTextRef.current=text;updateConversationDraft(memory,{text});setInputText(text);};
   const [interactionState, setInteractionState] = useState<ConversationState>('IDLE');
+  const [isTranscribing,setIsTranscribing]=useState(false);
+  const transcriptionRef=useRef<AbortController|null>(null);
   
   // Derived state from interactionState to preserve JSX backward compatibility
   const isListening = interactionState === 'LISTENING' || interactionState === 'USER_SPEAKING';
@@ -315,14 +320,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   useEffect(() => {
     // No modo Live, a própria GeminiLiveSession é a única autoridade de estado.
     if (chatMode === 'live') return;
-    if (isLoading) {
+    if (isLoading || isTranscribing) {
       setInteractionState('PROCESSING');
     } else if (isSpeaking) {
       setInteractionState('SPEAKING');
     } else if (interactionState === 'PROCESSING' || interactionState === 'SPEAKING') {
       setInteractionState('IDLE');
     }
-  }, [chatMode, isLoading, isSpeaking, interactionState]);
+  }, [chatMode, isLoading, isSpeaking, isTranscribing, interactionState]);
 
   const [micVolume, setMicVolume] = useState(0);
   const [interimSpeech, setInterimSpeech] = useState('');
@@ -353,8 +358,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const imagePreparation=useRef({generation:0,pending:false});
   const [isPreparingImage,setIsPreparingImage]=useState(false);
   const updateSelectedImage=(image:typeof selectedImage)=>{
-    selectedImageRef.current=image;memory.draft.image=image;setSelectedImage(image);
+    selectedImageRef.current=image;updateConversationDraft(memory,{image});setSelectedImage(image);
   };
+  useEffect(()=>subscribeConversationDraft(memory,()=>{
+    if(memoryRef.current!==memory)return;
+    inputTextRef.current=memory.draft.text;selectedImageRef.current=memory.draft.image;
+    setInputText(memory.draft.text);setSelectedImage(memory.draft.image);
+  }),[memory]);
   const cancelImagePreparation=(clearImage=false)=>{
     ++imagePreparation.current.generation;imagePreparation.current.pending=false;setIsPreparingImage(false);
     if(clearImage)updateSelectedImage(null);
@@ -370,6 +380,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const prevLoadingRef = useRef(isLoading);
   const legacyCaptureVersion=useRef(0);
+  const legacyProcessing=useRef(false);
+  const recordingLimitTimer=useRef<number|null>(null);
+  const legacyProcessingTimer=useRef<number|null>(null);
+  const legacyPreparationAbort=useRef<AbortController|null>(null);
 
   const accumulatedTranscriptRef = useRef('');
   const latestFinalRef = useRef('');
@@ -532,7 +546,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     return ()=>{cancelled=true;};
   },[userId,historyAttempt]);
   useEffect(()=>{setCurrentSessionId(memory.metadata.current?.id||null);},[memory]);
-  useEffect(()=>{memory.draft.text=inputText;memory.draft.image=selectedImage;},[memory,inputText,selectedImage]);
   useEffect(()=>()=>{
     if(auth.currentUser?.uid!==memory.uid)return;
     void flushSession().catch(()=>onHistoryError?.('Não foi possível salvar a última conversa. Ela permanece aberta neste aparelho; tente salvar novamente antes de atualizar.'));
@@ -716,6 +729,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const stopListening = () => {
     ++legacyCaptureVersion.current;
+    legacyProcessing.current=false;
+    legacyPreparationAbort.current?.abort();legacyPreparationAbort.current=null;
+    if(recordingLimitTimer.current!==null){window.clearTimeout(recordingLimitTimer.current);recordingLimitTimer.current=null;}
+    if(legacyProcessingTimer.current!==null){window.clearTimeout(legacyProcessingTimer.current);legacyProcessingTimer.current=null;}
+    transcriptionRef.current?.abort();transcriptionRef.current=null;setIsTranscribing(false);
     if (silenceBufferTimerRef.current) {
       window.clearTimeout(silenceBufferTimerRef.current);
       silenceBufferTimerRef.current = null;
@@ -775,18 +793,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleAutoSubmitRecordedSpeech = (rawText: string) => {
+  const handleAutoSubmitRecordedSpeech = async (rawText: string) => {
     const text = rawText.trim();
-    if (isSendingRef.current || isLoadingRef.current) return;
+    if (isSendingRef.current || isLoadingRef.current || imagePreparation.current.pending) return false;
 
     if (!text || /^[^a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]+$/.test(text)) {
       setSpeechFeedbackMsg('Não consegui ouvir. Pode falar novamente?');
       setTimeout(() => setSpeechFeedbackMsg(null), 3000);
-      return;
-    }
-
-    if (text.toLowerCase() === lastSentPromptRef.current.toLowerCase()) {
-      return;
+      return false;
     }
 
     isSendingRef.current = true;
@@ -794,27 +808,35 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     setSpeechFeedbackMsg(null);
 
     stopListening();
-    onSendMessage(text);
-
-    setTimeout(() => {
-      isSendingRef.current = false;
-    }, 1000);
+    const image=selectedImageRef.current;
+    try{
+      let sent=false;
+      try{sent=await onSendMessage(text,image?{data:image.data,mimeType:image.mimeType}:undefined);}catch{/* Preserve the recognized draft below. */}
+      if(memoryRef.current!==memory||auth.currentUser?.uid!==userId)return false;
+      if(!sent){
+        if(!memory.draft.text.trim())updateConversationDraft(memory,{text});
+        if(componentActive.current)setSpeechFeedbackMsg('Não foi possível concluir o envio. Sua fala está preservada para tentar novamente.');
+      }else if(memory.draft.image===image){updateConversationDraft(memory,{image:null});}
+      return sent;
+    }finally{isSendingRef.current=false;}
   };
 
   const startListeningWithPermission = async (isRestart = false) => {
     // Live capture belongs exclusively to GeminiLiveSession.
     const legacyMode=()=>chatModeRef.current==='text'&&!liveSessionRef.current;
     if(!legacyMode())return;
-    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
+    if(messages.length>198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
     const captureVersion=++legacyCaptureVersion.current;
-    const captureCurrent=()=>captureVersion===legacyCaptureVersion.current&&legacyMode();
+    const captureCurrent=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId&&captureVersion===legacyCaptureVersion.current&&legacyMode();
     if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!await voiceAllowed())return;
-    const useProviderTranscription=['adult-synthetic','local-synthetic','adult-gemini'].includes((await getAiStatus()).ai?.mode||'');
+    let useProviderTranscription=false;
+    try{useProviderTranscription=['adult-synthetic','local-synthetic','adult-gemini'].includes((await getAiStatus()).ai?.mode||'');}
+    catch{if(captureCurrent())setSpeechFeedbackMsg('Não foi possível verificar a voz. Verifique a conexão e tente novamente.');return;}
     if(!captureCurrent())return;
     // STATE MACHINE BLOCKER
-    if (interactionState === 'PROCESSING' || isLoading) {
+    if (isLoadingRef.current || transcriptionRef.current || textSubmission.current) {
       console.warn('Cannot start listening while processing');
       return;
     }
@@ -824,6 +846,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     }
 
     setMicPermissionError(false);
+    stopMicStream();
+    lastSentPromptRef.current='';
 
     latestFinalRef.current = '';
     latestInterimRef.current = '';
@@ -874,18 +898,36 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if (audioRecorderRef.current) {
       try { audioRecorderRef.current.stop(); } catch (e) {}
     }
-    const recorder = new AudioRecorder();
-    recorder.start(stream);
-    audioRecorderRef.current = recorder;
+    const nativeRecognition=!useProviderTranscription&&isSpeechRecognitionSupported()&&!!recognizerRef.current;
+    if(!nativeRecognition){
+      const recorder = new AudioRecorder();
+      try{recorder.start(stream);audioRecorderRef.current = recorder;}
+      catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Gravação indisponível neste aparelho.');stopListening();return;}
+    }
 
     const vad = new VoiceActivityDetector({
       minVoiceDurationMs: 350,
       silenceDurationMs: 900,
       minVolumeThreshold: 0.02,
     });
+    const armRecordingLimit=()=>{
+      if(legacyProcessingTimer.current!==null){window.clearTimeout(legacyProcessingTimer.current);legacyProcessingTimer.current=null;}
+      if(recordingLimitTimer.current!==null)window.clearTimeout(recordingLimitTimer.current);
+      // Leave a one-second margin for the container/decoder under the server's 15 s bound.
+      recordingLimitTimer.current=window.setTimeout(()=>{
+        recordingLimitTimer.current=null;if(!captureCurrent()||legacyProcessing.current)return;
+        if(nativeRecognition){
+          const text=latestFinalRef.current||latestFullRef.current;
+          if(text.trim())void handleAutoSubmitRecordedSpeech(text);
+          else{stopListening();setSpeechFeedbackMsg('Não consegui ouvir uma frase. Toque no microfone para tentar novamente.');}
+        }else if(hasSpeechStartedRef.current){void vad.onSilenceDetected?.();}
+        else{stopListening();setSpeechFeedbackMsg('Não consegui ouvir uma frase. Toque no microfone para tentar novamente.');}
+      },14000);
+    };
+    vad.onError=error=>{if(captureCurrent()){setSpeechFeedbackMsg(error.message);stopListening();}};
 
     vad.onVolumeChange = (vol) => {
-      if(!captureCurrent())return;
+      if(!captureCurrent()||transcriptionRef.current)return;
       setMicVolume(vol);
     };
 
@@ -896,7 +938,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     };
 
     vad.onSilenceDetected = async () => {
-      if(!captureCurrent())return;
+      if(!captureCurrent()||legacyProcessing.current||nativeRecognition)return;
       setInteractionState('LISTENING');
 
       if (!hasSpeechStartedRef.current) return;
@@ -904,64 +946,76 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
       const currentRecorder = audioRecorderRef.current;
       if (!currentRecorder) return;
+      legacyProcessing.current=true;setIsTranscribing(true);
+      const preparation=new AbortController();legacyPreparationAbort.current=preparation;
+      legacyProcessingTimer.current=window.setTimeout(()=>{if(captureCurrent()){setSpeechFeedbackMsg('A preparação da fala demorou demais. Tente novamente ou escreva.');stopListening();}},30000);
+      if(recordingLimitTimer.current!==null){window.clearTimeout(recordingLimitTimer.current);recordingLimitTimer.current=null;}
+      stream?.getAudioTracks().forEach(track=>{track.enabled=false;});
 
-      let audioBlob = await currentRecorder.stopAndGetBlob();
+      let audioBlob:Blob|null=null;
+      try{audioBlob=await currentRecorder.stopAndGetBlob();}
+      catch{if(captureCurrent()){setSpeechFeedbackMsg('Não foi possível gravar a fala. Tente novamente ou escreva.');stopListening();}return;}
       if(!captureCurrent())return;
-      if(audioBlob&&useProviderTranscription){try{audioBlob=await recordingToWave(audioBlob);}catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível preparar o áudio.');stopListening();return;}}
+      if(audioBlob&&useProviderTranscription){try{audioBlob=await recordingToWave(audioBlob,preparation.signal);}catch(error){if(captureCurrent()){setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível preparar o áudio.');stopListening();}return;}}
+      if(!captureCurrent())return;
       const audioSize = audioBlob ? audioBlob.size : 0;
 
       if (audioBlob && audioSize > 100) {
         const reader = new FileReader();
         reader.onloadend = async () => {
           if(!captureCurrent())return;
-          const base64Audio = (reader.result as string).split(',')[1];
+          if(typeof reader.result!=='string'){setSpeechFeedbackMsg('Não foi possível preparar a gravação. Tente novamente.');stopListening();return;}
+          const base64Audio = reader.result.split(',')[1];
+          const controller=new AbortController();transcriptionRef.current=controller;setIsTranscribing(true);
+          stream?.getAudioTracks().forEach(track=>{track.enabled=false;});
+          const deadline=setTimeout(()=>controller.abort(),30000);
           try {
             const resp = await apiFetch('/api/transcribe', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ audio: base64Audio, mimeType: audioBlob.type }),
+              signal:controller.signal,
             });
             const data = await resp.json();
             if(!captureCurrent())return;
             if(!resp.ok || data.status==='unavailable'){setSpeechFeedbackMsg('Transcrição indisponível. Use texto e tente mais tarde.');stopListening();return;}
             const text = (data.text || '').trim();
 
-            if (text && text !== 'NO_SPEECH') {
-              handleAutoSubmitRecordedSpeech(text);
+            if (text && text !== 'NO_SPEECH' && /[a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]/.test(text)) {
+              transcriptionRef.current=null;setIsTranscribing(false);
+              await handleAutoSubmitRecordedSpeech(text);
             } else {
               setSpeechFeedbackMsg('Não consegui ouvir. Pode falar novamente?');
               setTimeout(() => setSpeechFeedbackMsg(null), 3000);
 
-              if (isListeningRef.current && mediaStreamRef.current) {
+              if (captureCurrent() && mediaStreamRef.current) {
+                mediaStreamRef.current.getAudioTracks().forEach(track=>{track.enabled=true;});
                 const nextRecorder = new AudioRecorder();
                 nextRecorder.start(mediaStreamRef.current);
                 audioRecorderRef.current = nextRecorder;
+                legacyProcessing.current=false;armRecordingLimit();
+                setInteractionState('LISTENING');
               }
             }
           } catch (err: any) {
             if(!captureCurrent())return;
             setSpeechFeedbackMsg('Transcrição indisponível. Verifique a conexão e use texto.');
-            setTimeout(() => setSpeechFeedbackMsg(null), 3000);
-
-            if (isListeningRef.current && mediaStreamRef.current) {
-              const nextRecorder = new AudioRecorder();
-              nextRecorder.start(mediaStreamRef.current);
-              audioRecorderRef.current = nextRecorder;
-            }
-          }
+            stopListening();
+          }finally{clearTimeout(deadline);if(transcriptionRef.current===controller){transcriptionRef.current=null;setIsTranscribing(false);}}
         };
         reader.readAsDataURL(audioBlob);
       } else {
-        if (isListeningRef.current && mediaStreamRef.current) {
+        if (captureCurrent() && mediaStreamRef.current) {
           const nextRecorder = new AudioRecorder();
-          nextRecorder.start(mediaStreamRef.current);
-          audioRecorderRef.current = nextRecorder;
+          try{mediaStreamRef.current.getAudioTracks().forEach(track=>{track.enabled=true;});nextRecorder.start(mediaStreamRef.current);audioRecorderRef.current = nextRecorder;legacyProcessing.current=false;setIsTranscribing(false);setInteractionState('LISTENING');armRecordingLimit();}
+          catch{setSpeechFeedbackMsg('Gravação indisponível. Tente novamente ou escreva.');stopListening();}
         }
       }
     };
 
-    vad.start(stream);
-    vadRef.current = vad;
+    try{vad.start(stream);vadRef.current = vad;}
+    catch(error){setSpeechFeedbackMsg(error instanceof Error?error.message:'Microfone indisponível. Use texto.');vad.stop();stopListening();return;}
+    armRecordingLimit();
 
     if (!useProviderTranscription && !recognizerRef.current && isSpeechRecognitionSupported()) {
       try {
@@ -1018,6 +1072,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           }
         },
         onError: (err: any) => {
+          if(!captureCurrent())return;
           const errCode = err?.error || err;
           // Ignore normal non-error events like silence pause or user abort
           if (errCode === 'no-speech' || errCode === 'aborted') {
@@ -1028,8 +1083,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({
           } else {
             console.warn('Aviso do reconhecimento de voz:', errCode);
           }
+          setSpeechFeedbackMsg('O reconhecimento de voz foi interrompido. Tente novamente ou escreva sua mensagem.');stopListening();
         },
-        onEnd: () => {},
+        onEnd: () => {
+          if(!captureCurrent())return;
+          const final=latestFinalRef.current||latestFullRef.current;
+          if(/[a-zA-Z0-9áàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ]/.test(final))void handleAutoSubmitRecordedSpeech(final);
+          else{stopListening();setSpeechFeedbackMsg('A escuta terminou. Toque no microfone para falar novamente.');}
+        },
       });
     }
   };
@@ -1051,24 +1112,41 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     cancelImagePreparation(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(imagePreparation.current.pending||switchLock.current||!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
+    if(textSubmission.current||imagePreparation.current.pending||switchLock.current||!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
     const image=selectedImageRef.current;
-    if (!inputText.trim() || isLoading || historyMutation.current) return;
-    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
+    const draft=inputTextRef.current;
+    if ((!draft.trim()&&!image) || isLoading || historyMutation.current) return;
+    if(messages.length>198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
 
     const imageToSend = image
       ? { data: image.data, mimeType: image.mimeType }
       : undefined;
 
-    onSendMessage(inputText.trim(), imageToSend);
-    setInputText('');
-    cancelImagePreparation(true);
+    textSubmission.current=true;
+    stopListening();
+    try {
+      const sent=await onSendMessage(draft.trim(), imageToSend);
+      if(memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
+      if(!sent){setSpeechFeedbackMsg('A mensagem não foi concluída. O texto e a imagem continuam disponíveis para tentar novamente.');return;}
+      if(!componentActive.current){
+        const patch:Partial<ConversationMemory['draft']>={};
+        if(memory.draft.text===draft)patch.text='';
+        if(memory.draft.image===image)patch.image=null;
+        updateConversationDraft(memory,patch);
+        return;
+      }
+      if(inputTextRef.current===draft)updateInputText('');
+      if(selectedImageRef.current===image&&!imagePreparation.current.pending)cancelImagePreparation(true);
+      setSpeechFeedbackMsg(null);
+    } catch(error) {
+      if(componentActive.current&&memoryRef.current===memory)setSpeechFeedbackMsg(error instanceof Error?error.message:'Não foi possível enviar. Seu rascunho foi preservado.');
+    } finally {textSubmission.current=false;}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode!==229) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -1092,7 +1170,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
       if(!next&&liveUnavailable){setLiveUnavailable(false);setSpeechFeedbackMsg(null);setLiveRetryAt(0);}
       return;
     }
-    if(messages.length>=198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
+    if(messages.length>198){setSpeechFeedbackMsg(conversationLimitMessage);return;}
     if(!voiceConnectionReady()){setShowPermissionPrompt(false);return;}
     if(onlinePreview){setShowPermissionPrompt(false);setSpeechFeedbackMsg(voiceUnavailable);return;}
     if(!isListening&&!await voiceAllowed())return;
@@ -1141,7 +1219,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
   memory.stopAudio=()=>{endLiveConversation();stopListening();};
   useEffect(()=>{
-    if(messages.length<198)return;
+    if(messages.length<=198)return;
     if(chatModeRef.current==='live')endLiveConversation();
     if(isListeningRef.current)stopListening();
     setSpeechFeedbackMsg(conversationLimitMessage);
@@ -1149,6 +1227,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
 
   const handleNewChat = async () => {
     if(switchLock.current)return;
+    if(!memory.historyReady&&messages.some(message=>message.role==='user')){setSpeechFeedbackMsg('Recarregue o histórico antes de trocar de conversa. O conteúdo aberto foi preservado.');return;}
     if (inputText.trim()||selectedImageRef.current||imagePreparation.current.pending) {
       if (!window.confirm('Você tem uma mensagem não enviada. Deseja iniciar um novo chat mesmo assim?')) {
         return;
@@ -1157,7 +1236,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if(isLoading)return;
     cancelImagePreparation();
     endLiveConversation();
+    stopListening();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
+    if(!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
     restoredMessages.current=null; sessionMetadata.current=null;
     onResetChat?.();
     setCurrentSessionId(null);
@@ -1169,10 +1250,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   // Switch to a chat session
   const handleSelectSession = async (session: ChatSession) => {
     if(isLoading || switchLock.current)return;
+    if(!memory.historyReady&&messages.some(message=>message.role==='user')){setSpeechFeedbackMsg('Recarregue o histórico antes de trocar de conversa. O conteúdo aberto foi preservado.');return;}
     if((inputText.trim()||selectedImageRef.current||imagePreparation.current.pending)&&!window.confirm('Há uma mensagem não enviada. Deseja abrir outra conversa? O texto digitado será preservado; imagens serão removidas após a troca.'))return;
     cancelImagePreparation();
     endLiveConversation();
+    stopListening();
     switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
+    if(!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
     restoredMessages.current=session.messages;
     sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
     onLoadSession?.(session.messages,sessionMetadata.current,session.updatedAt);
@@ -2206,7 +2290,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   <div className="flex-1 min-w-0 bg-slate-950 border border-slate-800 focus-within:border-indigo-500 rounded-2xl p-1.5 sm:p-2 transition-all">
                     <textarea
                       value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
+                      onChange={(e) => updateInputText(e.target.value)}
+                      aria-label="Mensagem para a Vigia"
+                      maxLength={4000}
                       onKeyDown={handleKeyDown}
                       placeholder={selectedImage ? "Descreva ou pergunte algo sobre esta imagem..." : "Converse com a Vigia..."}
                       rows={1}
@@ -2245,7 +2331,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                   {/* Send Message Button */}
                   <button
                     type="submit"
-                    disabled={!inputText.trim()||isLoading||isPreparingImage}
+                    disabled={(!inputText.trim()&&!selectedImage)||isLoading||isPreparingImage}
                     className="p-2.5 sm:p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
                     title="Enviar mensagem"
                   >

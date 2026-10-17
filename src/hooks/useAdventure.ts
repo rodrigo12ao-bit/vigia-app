@@ -14,7 +14,7 @@ export function useAdventure(uid:string|undefined,stars:number,onGuestPoints:(n:
  }
  useEffect(()=>{
   const v=++generation.current;busy.current=false;blocked.current=false;setState(emptyAdventure());setPending(0);setNotice('');stopActivityFeedback();
-  try{const raw=localStorage.getItem(adventureKey(uid));const saved=raw?JSON.parse(raw):{state:emptyAdventure(),earned:[],pending:[]};normalizeAdventure(saved.state);if(!Array.isArray(saved.earned)||!Array.isArray(saved.pending)||saved.pending.length>100)throw Error();for(const p of saved.pending)activityKey(p.claim);cache.current=saved;setState(saved.state);setPending(saved.pending.length);}catch{blocked.current=true;cache.current={state:emptyAdventure(),earned:[],pending:[]};setNotice('O registro anterior da aventura foi preservado e precisa de revisão.');return ()=>{++generation.current;};}
+  try{const raw=localStorage.getItem(adventureKey(uid));const saved=raw?JSON.parse(raw):{state:emptyAdventure(),earned:[],pending:[]};const state=normalizeAdventure(saved.state);if(!Array.isArray(saved.earned)||saved.earned.some((key:unknown)=>typeof key!=='string')||!Array.isArray(saved.pending)||saved.pending.length>100)throw Error();for(const p of saved.pending){activityKey(p.claim);if(!Number.isFinite(p.points)||p.points<0||p.points>100)throw Error();}cache.current={...saved,state};setState(state);setPending(saved.pending.length);}catch{blocked.current=true;cache.current={state:emptyAdventure(),earned:[],pending:[]};setNotice('O registro anterior da aventura foi preservado e precisa de revisão.');return ()=>{++generation.current;};}
   let unsubscribe=()=>{};
   if(uid){void import('../lib/firebase').then(({db,doc,onSnapshot})=>{
    if(v!==generation.current||auth.currentUser?.uid!==uid)return;

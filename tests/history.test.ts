@@ -37,6 +37,21 @@ test('fila lenta de uma conta não bloqueia outra conta nem o visitante',async()
 });
 test('histórico inválido falha sem apagar o conteúdo original',async()=>{const {store,local}=fixture();local.set(guestHistoryKey,'{broken');await assert.rejects(store.load());assert.equal(local.get(guestHistoryKey),'{broken');});
 
+test('campos inválidos do histórico não chegam à interface nem sobrescrevem o registro',async()=>{
+  for(const malformed of [
+    {...session(),title:42}, {...session(),updatedAt:'invalid'},
+    {...session(),messages:[{...session().messages[0],content:null}]},
+    {...session(),messages:[{...session().messages[0],timestamp:'invalid'}]},
+    {...session(),messages:[session().messages[0],session().messages[0]]},
+    {...session(),messages:[{...session().messages[0],suggestedFollowUps:[null]}]},
+  ]){
+    const {store,local}=fixture(),original=JSON.stringify([malformed]);local.set(guestHistoryKey,original);
+    await assert.rejects(store.load(),/Histórico inválido/);
+    await assert.rejects(store.save(session('next')),/Histórico inválido/);
+    assert.equal(local.get(guestHistoryKey),original);
+  }
+});
+
 test('gravação e exclusão preservam registro corrompido e a fila aceita operação posterior',async()=>{
   const {store,local}=fixture();local.set(guestHistoryKey,'{broken');
   const results=await Promise.allSettled([store.save(session('one')),store.remove('two')]);

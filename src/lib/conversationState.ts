@@ -16,6 +16,7 @@ export interface ConversationMemory {
   queuedMessages:ChatMessage[]|null;
   updatedAt:number;
   draft:{text:string;image:ConversationImage|null};
+  draftListeners?:Set<()=>void>;
   flush?:()=>Promise<void>;
   flushing?:Promise<void>;
   stageGuest?:(session:ChatSession)=>void;
@@ -24,6 +25,14 @@ export interface ConversationMemory {
 }
 export function createConversationMemory(uid?:string):ConversationMemory {
   return {uid,historyReady:false,metadata:{current:null},restoredMessages:{current:null},pendingSave:{current:null},queuedMessages:null,updatedAt:0,draft:{text:'',image:null}};
+}
+export function updateConversationDraft(memory:ConversationMemory,patch:Partial<ConversationMemory['draft']>){
+  Object.assign(memory.draft,patch);
+  for(const listener of memory.draftListeners||[])listener();
+}
+export function subscribeConversationDraft(memory:ConversationMemory,listener:()=>void){
+  const listeners=memory.draftListeners||(memory.draftListeners=new Set());listeners.add(listener);listener();
+  return ()=>{listeners.delete(listener);};
 }
 export function mergeSavedSession(sessions:ChatSession[],saved:ChatSession):ChatSession[] {
   return [...sessions.filter(session=>session.id!==saved.id),saved].sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt));

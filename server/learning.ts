@@ -7,6 +7,7 @@ export class PublicError extends Error {constructor(message:string,public status
 export function apiRoute(app:Express,path:string,action:(uid:string,data:any,authTime:number)=>Promise<any>){
  app.post(path,async(req,res)=>{try{
   if(!res.locals.firebaseUser)throw new PublicError('Entre na sua conta para continuar.',401);
+  if(req.body!==undefined&&(!req.body||typeof req.body!=='object'||Array.isArray(req.body)))throw new PublicError('Conteúdo inválido.');
   const uid=res.locals.uid;
   if(req.body?.ownerUid && req.body.ownerUid!==uid)throw new PublicError('A conta mudou. Reabra esta tela.',403);
   res.json(await action(uid,req.body||{},res.locals.authTime||0));

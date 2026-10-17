@@ -200,3 +200,9 @@ test('provedor que ignora abort não libera resposta nem voz após o prazo total
  const f=fixture({speechStream:async function*(){await new Promise(r=>setTimeout(r,12));yield Buffer.alloc(200);}},{turnTimeoutMs:3});
  f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'),false);assert.equal(f.socket.sent.find(p=>p.type==='speech_unavailable')?.code,'timeout');assert.equal(f.socket.readyState,1);f.socket.close();
 });
+
+test('fluxo de síntese sem PCM preserva a resposta e informa voz indisponível',async()=>{
+ const f=fixture({speechStream:async function*(){}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();
+ assert.ok(f.socket.sent.some(p=>p.type==='reply_ready'));assert.ok(f.socket.sent.some(p=>p.type==='speech_unavailable'));
+ assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'),false);assert.equal(f.socket.sent.at(-1).type,'turn_complete');assert.equal(f.socket.readyState,1);f.socket.close();
+});

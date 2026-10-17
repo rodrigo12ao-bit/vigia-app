@@ -137,6 +137,11 @@ export class GeminiLiveSession {
   private pendingAudioChunks=0;
   private outputResumePromise:Promise<void>|null=null;
   private interruptAckTimer:ReturnType<typeof globalThis.setTimeout>|null=null;
+  private connectionTimer:ReturnType<typeof globalThis.setTimeout>|null=null;
+  private microphoneCaptureToken:number|null=null;
+  private resampleTail:number|null=null;
+  private resamplePosition=0;
+  private resampleSourceRate=0;
 
   constructor(callbacks: GeminiLiveCallbacks) {
     this.callbacks = callbacks;
@@ -149,7 +154,16 @@ export class GeminiLiveSession {
     const token = ++this.sessionToken;
     this.stopped = false;
     this.cleanupDone = false;
+    this.microphonePaused=false;
+    this.playbackFailure=false;
+    this.nativeAudio=this.streamedSpeech=false;
+    this.speechOutput='cloud';
     this.setState('connecting');
+    this.connectionTimer=globalThis.setTimeout(()=>{
+      if(!this.isCurrent(token)||this.state!=='connecting')return;
+      this.callbacks.onError?.('A conexão de voz demorou demais. Tente novamente ou continue por texto.');
+      this.stop();this.callbacks.onClose?.();
+    },20000);
 
     this.startPromise = this.startInternal(token).finally(() => {
       if (this.sessionToken === token) this.startPromise = null;
@@ -226,7 +240,13 @@ export class GeminiLiveSession {
         this.pendingAudioChunks=0;this.clearInterruptAck();this.synchronizeCapture();
         this.ws = null;
         this.releaseWebSocketTelemetry();
-        void this.cleanupResources();
+        this.startPromise=null;
+        this.setState('stopping');
+        const closedToken=this.sessionToken;
+        void this.cleanupResources().finally(()=>{
+          if(this.sessionToken!==closedToken)return;
+          this.setState('idle');this.callbacks.onAvatarStateChange?.('idle');
+        });
         if (notify) this.callbacks.onClose?.();
       };
     } catch (error) {
@@ -235,7 +255,6 @@ export class GeminiLiveSession {
       this.setState('error');
       this.callbacks.onAvatarStateChange?.('serious');
       this.callbacks.onError?.(error instanceof Error?error.message:'Não foi possível conectar ao modo ao vivo.');
-      await this.cleanupResources();
       this.stop();this.callbacks.onClose?.();
     }
   }
@@ -254,6 +273,8 @@ export class GeminiLiveSession {
     if(this.awaitingInterruptAck&&['processing','input_transcription','output_transcription','audio_chunk','reply_ready','turn_complete','speech_unavailable','speech_on_device'].includes(payload.type))return;
     switch (payload.type) {
       case 'open':
+        if(this.connectionTimer)globalThis.clearTimeout(this.connectionTimer);
+        this.connectionTimer=null;
         this.streamedSpeech=payload.mode==='streamed-speech';
         this.nativeAudio=payload.mode==='native-audio'||this.streamedSpeech;
         console.log('[GeminiLive] Sessão Gemini Live confirmada pelo backend');
@@ -351,7 +372,8 @@ export class GeminiLiveSession {
   }
 
   private async startMicrophoneCapture(token: number): Promise<void> {
-    if (this.mediaStream || !this.isCurrent(token)) return;
+    if (this.mediaStream || this.microphoneCaptureToken===token || !this.isCurrent(token)) return;
+    this.microphoneCaptureToken=token;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -370,7 +392,6 @@ export class GeminiLiveSession {
       }
 
       this.mediaStream = stream;
-      this.microphonePaused=false;
       this.synchronizeCapture();
       stream.getAudioTracks().forEach(track=>{track.onended=()=>{if(!this.isCurrent(token))return;this.callbacks.onError?.('O microfone foi desconectado. Verifique o aparelho e tente novamente.');this.stop();this.callbacks.onClose?.();};});
       this.streamTracked = true;
@@ -409,7 +430,7 @@ export class GeminiLiveSession {
 
         if (!this.isCurrent(token)) return;
         const worklet = new AudioWorkletNode(inputCtx, 'vigia-pcm-processor');
-        worklet.port.onmessage = (event) => this.processInputPCM(event.data);
+        worklet.port.onmessage = (event) => {if(this.isCurrent(token))this.processInputPCM(event.data);};
         this.mediaSourceNode.connect(worklet);
         this.processorNode = worklet;
         usedWorklet = true;
@@ -420,7 +441,7 @@ export class GeminiLiveSession {
       if (!usedWorklet) {
         const scriptNode = inputCtx.createScriptProcessor(2048, 1, 1);
         scriptNode.onaudioprocess = (event) => {
-          this.processInputPCM(event.inputBuffer.getChannelData(0));
+          if(this.isCurrent(token))this.processInputPCM(event.inputBuffer.getChannelData(0));
         };
         this.mediaSourceNode.connect(scriptNode);
         scriptNode.connect(inputCtx.destination);
@@ -430,7 +451,7 @@ export class GeminiLiveSession {
       console.log('[GeminiLive] Captura de áudio iniciada');
       await inputCtx.resume();
       await this.resumeOutputContext();
-      if(this.isCurrent(token)&&this.state==='connecting'){this.setState('listening');this.callbacks.onAvatarStateChange?.('listening');}
+      if(this.isCurrent(token)&&this.state==='connecting'){this.setState(this.microphonePaused?'idle':'listening');this.callbacks.onAvatarStateChange?.(this.microphonePaused?'idle':'listening');}
     } catch (error) {
       if (!this.isCurrent(token)) return;
       console.error('[GeminiLive] Falha ao acessar microfone:', error);
@@ -439,6 +460,8 @@ export class GeminiLiveSession {
       this.callbacks.onError?.('Permissão de microfone negada ou microfone indisponível.');
       this.stop();
       this.callbacks.onClose?.();
+    } finally {
+      if(this.microphoneCaptureToken===token)this.microphoneCaptureToken=null;
     }
   }
 
@@ -492,17 +515,28 @@ export class GeminiLiveSession {
   }
 
   private resampleLinear(input: Float32Array, sourceRate: number, targetRate: number): Float32Array {
+    if(!input.length)return new Float32Array();
+    if(this.resampleSourceRate!==sourceRate){this.resetResampler();this.resampleSourceRate=sourceRate;}
     const ratio = sourceRate / targetRate;
-    const length = Math.max(1, Math.floor(input.length / ratio));
-    const output = new Float32Array(length);
-    for (let index = 0; index < length; index += 1) {
-      const sourceIndex = index * ratio;
-      const left = Math.floor(sourceIndex);
-      const right = Math.min(left + 1, input.length - 1);
-      const fraction = sourceIndex - left;
-      output[index] = input[left] * (1 - fraction) + input[right] * fraction;
+    const prefix=this.resampleTail===null?0:1;
+    const samples=new Float32Array(input.length+prefix);
+    if(prefix)samples[0]=this.resampleTail!;
+    samples.set(input,prefix);
+    const output:number[]=[];
+    // Keep the fractional phase and the final sample across worklet frames.
+    // Rounding each 128-sample frame independently shortens 44.1/48 kHz input.
+    while(this.resamplePosition<samples.length-1){
+      const left=Math.floor(this.resamplePosition),fraction=this.resamplePosition-left;
+      output.push(samples[left]*(1-fraction)+samples[left+1]*fraction);
+      this.resamplePosition+=ratio;
     }
-    return output;
+    this.resamplePosition-=samples.length-1;
+    this.resampleTail=samples[samples.length-1];
+    return Float32Array.from(output);
+  }
+
+  private resetResampler():void{
+    this.resampleTail=null;this.resamplePosition=0;this.resampleSourceRate=0;
   }
 
   private float32ToBase64Pcm16(samples: number[]): string {
@@ -597,12 +631,13 @@ export class GeminiLiveSession {
     if(context.state==='running')return Promise.resolve();
     if(this.outputResumePromise)return this.outputResumePromise;
     let timer:ReturnType<typeof globalThis.setTimeout>;
-    this.outputResumePromise=Promise.race([
+    const resumePromise=Promise.race([
       context.resume(),
       new Promise<never>((_,reject)=>{timer=globalThis.setTimeout(()=>reject(new Error('O navegador não ativou o som. Toque em voz novamente ou continue por texto.')),3000);}),
     ]).then(()=>{if(context!==this.outputAudioCtx||context.state!=='running')throw new Error('O navegador não ativou o som. Toque em voz novamente ou continue por texto.');})
-      .finally(()=>{globalThis.clearTimeout(timer);this.outputResumePromise=null;});
-    return this.outputResumePromise;
+      .finally(()=>{globalThis.clearTimeout(timer);if(this.outputResumePromise===resumePromise)this.outputResumePromise=null;});
+    this.outputResumePromise=resumePromise;
+    return resumePromise;
   }
 
   private reportPlaybackUnavailable():void{
@@ -623,7 +658,7 @@ export class GeminiLiveSession {
 
   private setInputSuppressed(suppressed:boolean):void{
     this.inputSuppressed=suppressed;
-    if(suppressed)this.pcmBuffer=[];
+    if(suppressed){this.pcmBuffer=[];this.resetResampler();}
     this.synchronizeCapture();
   }
 
@@ -684,13 +719,13 @@ export class GeminiLiveSession {
   }
 
   public pauseMicrophone(paused:boolean):void{
-    if(!this.mediaStream||this.stopped)return;
+    if(this.stopped)return;
     const wasCapturing=!this.microphonePaused&&!this.inputSuppressed;
     if(!paused&&this.microphonePaused&&this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'resume_input'}));
-    this.microphonePaused=paused;this.pcmBuffer=[];
+    this.microphonePaused=paused;this.pcmBuffer=[];this.resetResampler();
     this.synchronizeCapture();
     if(paused&&wasCapturing&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'audio_stream_end'}));
-    if(this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
+    if(this.mediaStream&&this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
   }
 
   public setSpeechOutput(mode:'device'|'cloud'):boolean{
@@ -747,6 +782,8 @@ export class GeminiLiveSession {
     this.clearInterruptAck();
     this.synchronizeCapture();
     this.sessionToken += 1;
+    this.startPromise=null;
+    const stoppedToken=this.sessionToken;
     this.setState('stopping');
 
     const socket = this.ws;
@@ -768,6 +805,7 @@ export class GeminiLiveSession {
     }
 
     void this.cleanupResources().finally(() => {
+      if(this.sessionToken!==stoppedToken)return;
       this.setState('idle');
       this.callbacks.onAvatarStateChange?.('idle');
     });
@@ -782,6 +820,9 @@ export class GeminiLiveSession {
   private async cleanupResources(): Promise<void> {
     if (this.cleanupDone) return;
     this.cleanupDone = true;
+    this.outputResumePromise=null;
+    if(this.connectionTimer)globalThis.clearTimeout(this.connectionTimer);
+    this.connectionTimer=null;
     this.clearInterruptAck();
     this.devicePlaybackPending=false;
     this.pendingAudioChunks=0;
@@ -789,6 +830,7 @@ export class GeminiLiveSession {
     this.awaitingInterruptAck=false;
     this.stopAudioPlayback();
     this.pcmBuffer = [];
+    this.resetResampler();
 
     if (this.processorNode) {
       try {

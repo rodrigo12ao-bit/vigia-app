@@ -28,12 +28,20 @@ export function installSchoolRoutes(app:Express){
   return {role:a.role,classes:classList,students,reports:[...reports.values()],invites:invites.docs.map(d=>({id:d.id,...d.data()})).filter(i=>(i as any).status==='pending_guardian_approval'),enrollments:pendingEnrollments};
  });
  apiRoute(app,'/api/school/create',async(uid,data)=>{
-  if((await authority(uid)).role!=='educador')throw new PublicError('Somente um educador verificado pode criar turmas.',403);
   if(typeof data.name!=='string'||!data.name.trim()||data.name.length>60)throw new PublicError('Use um nome curto para a turma.');
-  const db=adminDb();if((await db.collection('classrooms').where('teacherUid','==',uid).limit(10).get()).size>=10)throw new PublicError('Limite de turmas atingido.');
+  const db=adminDb();
   const ref=db.collection('classrooms').doc();const code='TURMA-'+randomBytes(16).toString('hex').toUpperCase();
   const row={name:data.name.trim(),teacherUid:uid,code,studentUids:[],createdAt:new Date().toISOString()};
-  const batch=db.batch();batch.create(ref,row);batch.create(db.doc('classroom_codes/'+code),{classroomId:ref.id});await batch.commit();return {id:ref.id,...row};
+  await db.runTransaction(async tx=>{
+   // Updating the same authority document serializes parallel creations even
+   // when the classrooms query is initially empty; all reads precede writes.
+   const teacher=await tx.get(db.doc('sala_authorities/'+uid));
+   if(teacher.data()?.role!=='educador')throw new PublicError('Somente um educador verificado pode criar turmas.',403);
+   const classes=await tx.get(db.collection('classrooms').where('teacherUid','==',uid).limit(10));
+   if(classes.size>=10)throw new PublicError('Limite de turmas atingido.');
+   tx.update(teacher.ref,{classroomUpdatedAt:new Date().toISOString()});
+   tx.create(ref,row);tx.create(db.doc('classroom_codes/'+code),{classroomId:ref.id});
+  });return {id:ref.id,...row};
  });
  apiRoute(app,'/api/school/join',async(uid,data)=>{
   const db=adminDb(),a=await authority(uid);if(!runtime.adultAudience&&(a.role!=='infantil'||!a.guardianUid))throw new PublicError('A entrada na turma precisa de um responsável vinculado.');

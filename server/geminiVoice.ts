@@ -65,8 +65,8 @@ export function connectGeminiVoice(client:WebSocket,instruction:string,env:NodeJ
    if(!interrupted&&c.outputTranscription?.text){output+=c.outputTranscription.text;if(output.length>1500){fail('A resposta de voz ficou longa demais. Tente uma pergunta mais curta.');return;}}
    for(const part of interrupted?[]:c.modelTurn?.parts||[]){
     const a=part.inlineData;if(!a)continue;
-    if(!/^audio\/(?:pcm|L16);.*rate=24000/.test(a.mimeType||'')||typeof a.data!=='string'||!/^[A-Za-z0-9+/]+={0,2}$/.test(a.data)){fail('O Gemini retornou áudio inválido.');return;}
-    const pcm=Buffer.from(a.data,'base64');if(!pcm.length||pcm.length%2||(bytes+=pcm.length)>1500000){fail('O Gemini retornou áudio inválido.');return;}audio.push(pcm);
+    if(!/^audio\/(?:pcm|L16);(?:[^;]*;)*rate=24000(?:;|$)/i.test(a.mimeType||'')||typeof a.data!=='string'||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(a.data)){fail('O Gemini retornou áudio inválido.');return;}
+    const pcm=Buffer.from(a.data,'base64');if(!pcm.length||pcm.length%2||pcm.toString('ascii',0,4)==='RIFF'||(bytes+=pcm.length)>1500000){fail('O Gemini retornou áudio inválido.');return;}audio.push(pcm);
    }
    if(c.generationComplete)generated=true;
    release();
@@ -87,7 +87,7 @@ export function connectGeminiVoice(client:WebSocket,instruction:string,env:NodeJ
   try{
    const p=JSON.parse(raw.toString());
    if(p.type==='realtime_audio'){
-    if(typeof p.pcmBase64!=='string'||p.pcmBase64.length>12000||!/^[A-Za-z0-9+/]+={0,2}$/.test(p.pcmBase64))throw Error();
+    if(typeof p.pcmBase64!=='string'||p.pcmBase64.length>12000||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(p.pcmBase64))throw Error();
     const b=Buffer.from(p.pcmBase64,'base64');if(!b.length||b.length%2)throw Error();
     if((frameBytes+=b.length)>128000)throw Error();
     forward({realtimeInput:{audio:{data:p.pcmBase64,mimeType:'audio/pcm;rate=16000'}}});

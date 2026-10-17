@@ -9,7 +9,7 @@ if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(tag || '')) throw new Error('Identificador
 const root = path.resolve(__dirname, '..');
 const target = path.join(root, 'dist', 'netlify', 'source-' + tag);
 const manifestPath = path.join(root, 'artifacts', 'netlify-source-' + tag + '.json');
-const allow = ['src','server','public','netlify','package.json','package-lock.json','tsconfig.json','vite.config.ts','index.html','firebase-applet-config.json','server.ts','netlify.toml','scripts/build-netlify.cjs'];
+const allow = ['src','server','public','netlify','package.json','package-lock.json','tsconfig.json','vite.config.ts','index.html','firebase-applet-config.json','server.ts','netlify.toml','scripts/build-netlify.cjs','scripts/copy-public-assets.cjs'];
 const records = [];
 const forbiddenName = name => /^\.env(?:\.|$)/i.test(name) || /^(?:\.git|\.tools|node_modules|artifacts)$/i.test(name) || /\.(?:pem|key|p12|pfx)$/i.test(name);
 const privateMaterial = /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-(?:proj-)?[A-Za-z0-9_-]{40,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/;

@@ -32,6 +32,7 @@ interface ProfileModalProps {
   completedGamesCount: number;
   isGuest: boolean;
   onSignOut: () => void;
+  onAccountDeleted:(deletedUid:string)=>void|Promise<void>;
   onResetProgress: () => void;
   onOpenBadges?:()=>void;
 }
@@ -48,6 +49,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   completedGamesCount,
   isGuest,
   onSignOut,
+  onAccountDeleted,
   onResetProgress,
   onOpenBadges,
 }) => {
@@ -193,7 +195,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
 
-            {userId&&<AccountDataControls uid={userId} role={userRole||'infantil'} onDeleted={onSignOut}/>}
+            {userId&&<AccountDataControls uid={userId} role={userRole||'infantil'} onDeleted={onAccountDeleted}/>}
             {onOpenBadges&&<button className="vigia-link" onClick={onOpenBadges}>Ver todas as medalhas</button>}
             {/* Reset Confirmation Box */}
             {showConfirmReset ? (

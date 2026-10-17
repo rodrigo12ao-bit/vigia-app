@@ -66,13 +66,13 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
       // Complete generation and output moderation precede text and audio release.
       const reply=voiceText(response.text);
       send({type:'output_transcription',text:reply});
+      verifiedReply=true;
       history.push({role:'user',content:input},{role:'assistant',content:reply});
       while (history.length > 12) history.shift();
       if(streaming){
         // Only literal speech of the complete, safety-checked text is streamed.
         // Save that verified text even if the listener interrupts its playback.
         send({type:'reply_ready'});
-        verifiedReply=true;
         if(turnSpeechOutput==='device'){
           // The listener explicitly selected device synthesis. Only the complete,
           // checked answer is sent; no cloud TTS or alternative answer is requested.
@@ -81,18 +81,21 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
           send({type:'speech_on_device',text:reply});
         }else{
           speaking=true;
+          let speechBytes=0;
           for await(const pcm of ai.speechStream!(reply,abort.signal)){
             if(!active())return;
             if(abort.signal.aborted)throw abort.signal.reason;
-            if(!Buffer.isBuffer(pcm)||!pcm.length||pcm.length%2)throw Error('Invalid speech PCM');
+            if(!Buffer.isBuffer(pcm)||!pcm.length||pcm.length%2||pcm.toString('ascii',0,4)==='RIFF'||(speechBytes+=pcm.length)>2400000)throw Error('Invalid speech PCM');
             speechProgress();
             speaking=playbackPending=true;
             for(let offset=0;offset<pcm.length;offset+=24000)send({type:'audio_chunk',pcmBase64:pcm.subarray(offset,offset+24000).toString('base64')});
           }
+          if(!speechBytes)throw Error('Empty speech PCM');
         }
       }else{
         const audio=await ai.speech(reply,abort.signal);if(!active())return;
         if(abort.signal.aborted)throw abort.signal.reason;
+        if(!Buffer.isBuffer(audio.pcm)||!audio.pcm.length||audio.pcm.length%2||audio.pcm.length>2400000||audio.sampleRate!==24000||audio.pcm.toString('ascii',0,4)==='RIFF')throw Error('Invalid speech PCM');
         for(let offset=0;offset<audio.pcm.length;offset+=24000)send({type:'audio_chunk',pcmBase64:audio.pcm.subarray(offset,offset+24000).toString('base64')});
       }
       send({type:'turn_complete'});
@@ -100,9 +103,9 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
       if (active()) {
         const timedOut=abort.signal.aborted&&abort.signal.reason?.message==='voice_turn_timeout';
         const failure=timedOut?{code:'timeout',error:'A resposta demorou demais. Tente novamente quando a conexão estiver melhor.'}:aiErrorResponse(error).body;
-        if(streaming&&verifiedReply){
+        if(verifiedReply){
           // Text is complete and checked; a speech failure must not discard this session.
-          inputPaused=true;playbackPending=false;interruptChunks=[];clearAudio();
+          inputPaused=!!streaming;playbackPending=false;interruptChunks=[];clearAudio();
           send({type:'speech_unavailable',code:failure.code,message:timedOut?'A voz demorou demais. A resposta em texto está disponível.':failure.error,...(typeof (error as any)?.retryAfterMs==='number'?{retryAfterMs:(error as any).retryAfterMs}:{})});
           send({type:'turn_complete'});
         }else{send({type:'error',code:failure.code,message:failure.error});ws.close(1011);}
@@ -135,7 +138,7 @@ export function connectRealVoice(ws: WebSocket, ai: AiEngine, instruction: strin
       } else if (payload.type === 'audio_stream_end') {
         if (!busy) void turn();
       } else if (payload.type === 'realtime_audio') {
-        if (typeof payload.pcmBase64 !== 'string' || payload.pcmBase64.length>12000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(payload.pcmBase64)) { ws.close(1008,'Áudio inválido'); return; }
+        if (typeof payload.pcmBase64 !== 'string' || payload.pcmBase64.length>12000 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payload.pcmBase64)) { ws.close(1008,'Áudio inválido'); return; }
         const chunk = Buffer.from(payload.pcmBase64,'base64');
         if (!chunk.length || chunk.length%2) { ws.close(1008,'Áudio inválido'); return; }
         if(streaming&&(frameBytes+=chunk.length)>128000){ws.close(1008,'Limite de áudio');return;}

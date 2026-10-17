@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import type { Express, Request } from 'express';
+import type { Express, Request, RequestHandler } from 'express';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import {runtimeConfig} from './runtime';
 import {canUseRealAi,realAiConfig} from './realAi';
 import {apiResponseHeaders} from './apiBoundary';
+import {isEmergency} from './safety';
 
 export const runtime = runtimeConfig();
 export const demoMode = runtime.demo;
@@ -35,13 +36,24 @@ export function consumeTicket(ticket: string) {
   const item = tickets.get(ticket); tickets.delete(ticket);
   return item && item.expires > Date.now() ? item.uid : null;
 }
-export function installSecurity(app: Express,options:{skipApiHeaders?:boolean}={}) {
+export const apiOriginGuard:RequestHandler=(req,res,next)=>{
+  if(req.method!=='GET'&&req.method!=='HEAD'&&!allowedOrigin(req.headers.origin))return void res.status(403).json({error:'Origem não permitida.'});
+  next();
+};
+export async function authenticateApiRequest(req:Request){
+  if(req.headers.authorization?.startsWith('Bearer ')){
+    const token=await trustedAuth().verifyIdToken(req.headers.authorization.slice(7));
+    if((await adminDb().doc('account_tombstones/'+token.uid).get()).exists)throw Error('Conta encerrada.');
+    return {uid:token.uid,authTime:token.auth_time||0,firebaseUser:true};
+  }
+  const token=/(?:^|;\s*)vigia_session=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie||'')?.[1];
+  if(!token||!guests.has(token)||guests.get(token)!.expires<Date.now())throw Error('Sessão inválida.');
+  return {uid:`guest:${token}`,authTime:0,firebaseUser:false};
+}
+export function installSecurity(app: Express,options:{skipApiHeaders?:boolean;skipAuthentication?:boolean;skipOriginCheck?:boolean}={}) {
   app.disable('x-powered-by');
   if(!options.skipApiHeaders)app.use('/api',apiResponseHeaders);
-  app.use('/api', (req, res, next) => {
-    if (req.method !== 'GET' && !allowedOrigin(req.headers.origin)) return res.status(403).json({ error: 'Origem não permitida.' });
-    next();
-  });
+  if(!options.skipOriginCheck)app.use('/api',apiOriginGuard);
   app.get('/api/status', (_req, res) => { const ai=realAiConfig(); res.json({ demo: demoMode, audience:runtime.adultAudience?'18plus':'legacy',localDemo:demoMode&&!runtime.preview, realAI:!demoMode&&ai.enabled, firebase: localFirebase ? 'emulator' : runtime.cloud?'cloud':'disabled', ai:{mode:demoMode?'simulation':runtime.localReal||runtime.adultLive?ai.scope:'unavailable',provider:demoMode?null:ai.provider,blocked:demoMode?null:ai.blocked,consentVersion:ai.consentVersion,voice:!demoMode&&ai.enabled} }); });
   app.post('/api/session', (_req, res) => {
     for (const [key, item] of guests) if (item.expires < Date.now()) {guests.delete(key);adultGuests.delete('guest:'+key);}
@@ -51,17 +63,9 @@ export function installSecurity(app: Express,options:{skipApiHeaders?:boolean}={
     res.setHeader('Set-Cookie', `vigia_session=${token}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=3600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
     res.json({ expiresIn: 3600 });
   });
-  app.use('/api', async (req, res, next) => {
+  if(!options.skipAuthentication)app.use('/api', async (req, res, next) => {
     try {
-      if (req.headers.authorization?.startsWith('Bearer ')) {
-        const token = await trustedAuth().verifyIdToken(req.headers.authorization.slice(7));
-        if((await adminDb().doc('account_tombstones/'+token.uid).get()).exists)throw Error('Conta encerrada.');
-        res.locals.uid = token.uid; res.locals.authTime=token.auth_time||0;res.locals.firebaseUser = true;
-      } else {
-        const token = /(?:^|;\s*)vigia_session=([a-f0-9]{64})(?:;|$)/.exec(req.headers.cookie || '')?.[1];
-        if (!token || !guests.has(token) || guests.get(token)!.expires < Date.now()) throw new Error();
-        res.locals.uid = `guest:${token}`;
-      }
+      Object.assign(res.locals,await authenticateApiRequest(req));
       next();
     } catch { res.status(401).json({ error: 'Entre novamente ou inicie uma sessão de visitante.' }); }
   });
@@ -102,11 +106,11 @@ export async function realAiAccess(uid:string,firebaseUser:boolean) {
 export function installRealAiAccess(app:Express) {
   app.get('/api/ai-access',async(req,res)=>{try{const config=realAiConfig();const allowed=await realAiAccess(identity(req),!!res.locals.firebaseUser);res.json({allowed,voice:allowed,provider:demoMode?null:config.provider,blocked:demoMode?'Voz indisponível no modo de simulação.':config.blocked||(!allowed?config.provider==='local'?'Use uma conta fictícia ou a opção visitante nesta avaliação local.':'Entre com a conta adulta fictícia autorizada para este teste.':null)});}catch{res.status(503).json({allowed:false,voice:false,blocked:'Não foi possível verificar a conta de teste.'});}});
   app.use('/api',async(req,res,next)=>{
-    if(demoMode || !['/chat','/analyze-scenario','/generate-quiz','/transcribe','/tts','/live-ticket'].includes(req.path))return next();
+    const path=req.path.toLowerCase().replace(/\/$/,'');
+    if(demoMode || !['/chat','/analyze-scenario','/generate-quiz','/transcribe','/tts','/live-ticket'].includes(path))return next();
     try {
       // Public emergency directions remain available without sending data to a provider.
-      const {isEmergency}=await import('./safety');
-      if(['/chat','/analyze-scenario'].includes(req.path)&&isEmergency(req.body?.message||req.body?.scenario||''))return next();
+      if(['/chat','/analyze-scenario'].includes(path)&&isEmergency(req.body?.message||req.body?.scenario||''))return next();
       const config=realAiConfig();
       if(!config.enabled)return res.status(503).json({status:'unavailable',code:'configuration_blocked',error:config.blocked});
       if(!await realAiAccess(identity(req),!!res.locals.firebaseUser))return res.status(403).json({status:'unavailable',code:'audience_blocked',error:config.provider==='local'?'Use uma conta fictícia nesta avaliação local.':'IA real restrita à conta adulta fictícia autorizada. O uso infantil ainda não foi liberado.'});

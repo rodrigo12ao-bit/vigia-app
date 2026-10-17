@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import fs from 'node:fs';
+import {createRequire} from 'node:module';
 import {defineConfig} from 'vite';
+const publicAssets=createRequire(import.meta.url)(path.resolve('scripts/copy-public-assets.cjs'));
 
 export default defineConfig(({mode}) => {
   const shellFiles=new Set(['index.html','icons/icon.svg','manifest.webmanifest']);
@@ -13,6 +15,9 @@ export default defineConfig(({mode}) => {
     plugins: [
       react(), 
       tailwindcss(),
+      {name:'vigia-copy-public-assets',writeBundle(options){
+        publicAssets.copyPublicAssets(path.resolve('public'),path.resolve(options.dir||'dist/public'));
+      }},
       {name:'vigia-loading-graph',generateBundle(_options,bundle){
         report.chunks=Object.values(bundle).filter(item=>item.type==='chunk').map(item=>({fileName:item.fileName,name:item.name,isEntry:item.isEntry,imports:item.imports,dynamicImports:item.dynamicImports,modules:Object.keys(item.modules).map(id=>id.replace(/\\/g,'/').replace(process.cwd().replace(/\\/g,'/')+'/',''))}));
         const collect=(name:string)=>{if(shellFiles.has(name))return;shellFiles.add(name);const item=bundle[name];if(item?.type==='chunk'){for(const dependency of item.imports)collect(dependency);for(const css of (item as any).viteMetadata?.importedCss||[])shellFiles.add(css);}};
@@ -62,9 +67,9 @@ export default defineConfig(({mode}) => {
               options:{cacheName:'vigia-public-assets-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:80,maxAgeSeconds:60*60*24*30}},
             },
             {
-              urlPattern:({url,sameOrigin})=>sameOrigin&&/^\/model\/avatar-preview-(?:female|male)\.png$/.test(url.pathname),
+              urlPattern:({url,sameOrigin})=>sameOrigin&&/^\/model\/(?:avatar-preview-(?:female|male)|vigia-original-(?:preview|head))\.png$/.test(url.pathname),
               handler:'StaleWhileRevalidate',
-              options:{cacheName:'vigia-avatar-previews-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:2,maxAgeSeconds:60*60*24*30}},
+              options:{cacheName:'vigia-avatar-previews-v1',cacheableResponse:{statuses:[200]},expiration:{maxEntries:4,maxAgeSeconds:60*60*24*30}},
             },
             {
               // Não cachear as rotas da API Gemini ou Firebase Firestore para garantir dados frescos/segurança
@@ -98,6 +103,7 @@ export default defineConfig(({mode}) => {
       },
     },
     build: {
+      copyPublicDir: false,
       outDir: 'dist/public',
       chunkSizeWarningLimit: 1200,
       rollupOptions: {
