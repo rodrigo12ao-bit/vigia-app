@@ -50,6 +50,43 @@ test('status shares the pending request and starts its 30 s cache only after the
   h.advance(1001);await h.getAiStatus();assert.equal(h.count('/api/status'),2);
 });
 
+test('a confirmed adult guest session removes one preparation request without skipping consent or request checks',async t=>{
+  const phases=[];
+  const h=await harness(t,{handler:({path,options})=>{
+    if(path==='/api/session'){
+      assert.deepEqual(JSON.parse(options.body),{adultAccess:{confirmed:true,version:'isolated-adult-version'}});
+      return response(200,{expiresIn:3600,adultAccess:true});
+    }
+    if(path==='/api/chat'){
+      assert.equal(options.headers.get('X-Vigia-AI-Consent'),'isolated-consent');
+      assert.equal('onPhase' in options,false);
+    }
+  }});
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}',onPhase:phase=>phases.push(phase)})).status,200);
+  assert.deepEqual(h.calls.map(call=>call.path),['/api/status','/api/session','/api/chat']);
+  assert.deepEqual(phases,['configuration','session','request']);
+});
+
+test('an older server still gets a separate adult declaration and a missing declaration creates no session',async t=>{
+  const phases=[],h=await harness(t);
+  await h.apiFetch('/api/chat',{method:'POST',body:'{}',onPhase:phase=>phases.push(phase)});
+  assert.deepEqual(h.calls.map(call=>call.path),['/api/status','/api/session','/api/adult-access','/api/chat']);
+  assert.ok(phases.includes('adult-access'));
+  const blocked=await harness(t);blocked.session.clear();
+  await assert.rejects(blocked.apiFetch('/api/chat',{method:'POST',body:'{}'}),/18 anos/);
+  assert.equal(blocked.count('/api/session'),0);assert.equal(blocked.count('/api/chat'),0);
+});
+
+test('expired combined guest sessions renew once and reconfirm the new token',async t=>{
+  let sessions=0,chats=0;
+  const h=await harness(t,{handler:({path,options})=>{
+    if(path==='/api/session'){sessions++;assert.equal(JSON.parse(options.body).adultAccess.confirmed,true);return response(200,{adultAccess:true});}
+    if(path==='/api/chat'&&++chats===1)return response(401,{error:expired});
+  }});
+  assert.equal((await h.apiFetch('/api/chat',{method:'POST',body:'{}'})).status,200);
+  assert.equal(sessions,2);assert.equal(chats,2);assert.equal(h.count('/api/adult-access'),0);
+});
+
 test('a stale status refresh runs in parallel without holding the next text POST',async t=>{
   const pending=deferred();let request=0;
   const h=await harness(t,{handler:({path})=>path==='/api/status'&&++request===2?pending.promise:undefined});

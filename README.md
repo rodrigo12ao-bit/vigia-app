@@ -1,5 +1,87 @@
 # Vigia — Aprender com a Vigia
 
+## Conversa por texto e voz — 23/11/2026
+
+Esta revisão continua a versão `df9c716b22244b1f29d602dda3c5179dd147b48b` da
+branch `review/vigia-20261123`. O código está preparado para atualização conjunta
+do frontend e do servidor. **As alterações desta seção ainda não foram
+publicadas no aplicativo em produção.** Os registros de versões mais antigas
+abaixo são históricos e não certificam esta revisão.
+
+### Voz única e espera menor no caminho da resposta
+
+- A conversa oferece uma única voz neural, **Aoede**, com o mesmo estilo em
+  português brasileiro para conversar e ouvir mensagens. Foram removidos os
+  seletores “Voz rápida”/“Voz Google” e a troca para a voz do aparelho nesse fluxo.
+  Preferências antigas deixam de alterar a voz. O texto continua disponível se a
+  geração de áudio falhar, com opção de tentar a mesma voz novamente.
+- A leitura de uma mensagem recebe PCM em blocos na própria rota `/api/tts`,
+  quando o navegador suporta Web Audio. A reprodução pode começar antes de o
+  restante do áudio terminar de chegar. Servidores antigos continuam compatíveis
+  com JSON/WAV. O TTS encerra ao receber o evento terminal do provedor, sem
+  esperar o fechamento de uma conexão que já terminou a interação.
+- A tela informa a preparação da voz imediatamente e permite cancelar antes do
+  primeiro áudio. Parar, silenciar ou trocar de conversa cancela a leitura e
+  descarta respostas atrasadas. Uma transmissão parada tem limite de espera;
+  depois de `done`, o áudio já agendado pode terminar normalmente.
+- Na primeira sessão de visitante adulto, a criação da sessão pode receber a
+  declaração explícita já aceita, eliminando **uma requisição sequencial**. O
+  servidor confirma o aceite e mantém a autorização atual em cada operação.
+  O cliente usa a rota anterior quando o servidor ainda não oferece esse recibo.
+- O texto distingue conexão, preparação da conversa e resposta. A voz distingue
+  entendimento da fala, geração da resposta e síntese. O diagnóstico de chat
+  registra somente durações em `Server-Timing`; a telemetria da voz também
+  registra etapas, sem copiar transcrições, respostas ou credenciais.
+
+### Conversa mais natural e qualidade
+
+As instruções priorizam uma resposta direta, continuidade de contexto e detalhes
+quando necessários, sem prefácios ou perguntas automáticas ao final. Foi retirado
+o limite rígido de vinte palavras na voz, que podia comprimir explicações úteis.
+Orientações de segurança continuam apoiadas no manual, com reconhecimento dos
+limites da informação. Validação de formato e proteções de segurança continuam
+antes da liberação de uma resposta; isso não garante que toda resposta factual
+da IA esteja correta.
+
+Histórico recente é enviado em registros JSON escapados, preservando os pares de
+pergunta/resposta e os limites existentes. O raciocínio `minimal` fica explícito
+para o modelo textual compatível; ele **já era o padrão desse modelo**, portanto
+não é apresentado como ganho de velocidade medido. Modelos, limites gratuitos,
+consentimentos, público 18+ e separação dos históricos foram preservados. A
+leitura explicitamente solicitada nas áreas Aprender/Ajuda mantém seu fluxo
+próprio, fora da conversa.
+
+### Evidência de desempenho e limites da validação
+
+O relatório `artifacts/conversation-20261123/verification.json` reúne os comandos,
+resultados e limites da verificação desta revisão. **563 testes passaram em 57
+arquivos, sem falhas**, e as compilações `build:netlify` e `build:publication`,
+incluindo TypeScript e o pacote do servidor, passaram. Os testes automáticos de voz
+usam dados e provedores simulados; não medem qualidade auditiva do Gemini real.
+Os roteiros de navegador foram atualizados e tiveram a sintaxe conferida, mas
+não foram executados: o Chromium deste ambiente estava bloqueado pelo sistema.
+
+Uma medição limitada da **versão pública anterior**, com perguntas fictícias,
+registrou 8.888,2 ms na consulta inicial de configuração e 1.552,2 / 3.093,9 ms
+nos dois pedidos de chat, incluindo transporte e autorização. A segunda pergunta
+usou o histórico da primeira. A conexão WebSocket falhou antes de enviar o turno
+de voz; não houve medição de primeiro áudio ou microfone real. Não houve repetição
+de geração. A causa do primeiro tempo e da falha de transporte não foi isolada.
+O registro está em `artifacts/conversation-20261123/public-ai-baseline.json`.
+Essas amostras não são comparação antes/depois, percentil ou prazo garantido.
+
+A [documentação do Render gratuito](https://render.com/docs/free) informa que
+serviços sem tráfego por quinze minutos podem ser suspensos e levar cerca de um
+minuto para iniciar novamente. As mudanças de código não eliminam essa condição.
+Não foi ativado plano pago ou serviço para manter o servidor artificialmente
+acordado. A latência e a voz desta revisão ainda precisam ser verificadas após
+sua publicação, em navegador e aparelho reais.
+
+Roteiros antigos que verificam os dois seletores de voz permanecem como registros
+da interface anterior. Para esta revisão, use `tests/review-voice-browser.cjs`
+e `tests/voice-autonomous-browser.cjs`; um roteiro histórico não conta como
+validação da nova interface.
+
 ## Revisão de continuidade — 23/11/2026
 
 Esta revisão parte de `a3e0254750cd220aee885600a119c71ec74d30c3`, na branch

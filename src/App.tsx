@@ -104,15 +104,6 @@ export default function App() {
       onError:message=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);setNotice(message);}callbacks.onError?.(message);},
     });
   };
-  const readLocalAloud=(text:string,callbacks:DeviceSpeechCallbacks={}):DeviceSpeechHandle|null=>{
-    if(renderedAccountVersion!==accountVersion.current)return null;
-    return speakDeviceText(text,{
-      onStart:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(true);callbacks.onStart?.();}else callbacks.onCancel?.();},
-      onEnd:()=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);callbacks.onEnd?.();}else callbacks.onCancel?.();},
-      onCancel:()=>{if(renderedAccountVersion===accountVersion.current)setIsSpeaking(false);callbacks.onCancel?.();},
-      onError:message=>{if(renderedAccountVersion===accountVersion.current){setIsSpeaking(false);setNotice(message);}callbacks.onError?.(message);},
-    },{localOnly:true});
-  };
 
   const [isDailyMissionOpen, setIsDailyMissionOpen] = useState(false);
   const [isScenarioAnalyzerOpen, setIsScenarioAnalyzerOpen] = useState(false);
@@ -161,8 +152,11 @@ export default function App() {
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [chatProgress,setChatProgress]=useState('');
   const [avatarState, setAvatarState] = useState<AvatarState>('idle');
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPreparingSpeech,setIsPreparingSpeech]=useState(false);
+  const speechReplayToken=useRef(0);
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [chatMode, setChatMode] = useState<'text' | 'live'>('text');
   const conversationMessages=useRef(messages);conversationMessages.current=messages;
@@ -458,14 +452,21 @@ export default function App() {
   const speakMessage = (text: string) => {
     if(renderedAccountVersion!==accountVersion.current || renderedConversationVersion!==conversationVersion.current)return;
     if(!text.trim())return;
+    // Advance before speakText cancels the previous read: its onEnd must not
+    // clear the new preparation state, even within the same conversation.
+    const replay=++speechReplayToken.current;
+    setIsPreparingSpeech(true);
+    setIsSpeaking(false);
     setIsAudioMuted(false);
     const account=accountVersion.current,conversation=conversationVersion.current;
-    const current=()=>account===accountVersion.current&&conversation===conversationVersion.current;
+    const sameConversation=()=>account===accountVersion.current&&conversation===conversationVersion.current;
+    const current=()=>replay===speechReplayToken.current&&sameConversation();
     speakText(
       text,
       () => {
         if(!current())return;
         const vs = performance.now();
+        setIsPreparingSpeech(false);
         setIsSpeaking(true);
         setDebugInfo((prev) => ({
           ...prev,
@@ -474,7 +475,12 @@ export default function App() {
         }));
       },
       () => {
-        if(!current())return;
+        if(replay!==speechReplayToken.current)return;
+        ++speechReplayToken.current;
+        setIsPreparingSpeech(false);
+        // Cancellation after an account/history switch must clear preparation,
+        // without applying the former conversation's avatar state to the new one.
+        if(!sameConversation())return;
         setIsSpeaking(false);
         setAvatarState((prev) => (prev === 'speaking' || prev === 'explaining' ? 'idle' : prev));
       }
@@ -523,6 +529,7 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    setChatProgress('Conectando ao serviço…');
     setIsLoading(true);
     setAvatarState('thinking');
 
@@ -555,6 +562,10 @@ export default function App() {
 
     try {
       const response = await apiFetch('/api/chat', {
+        onPhase:phase=>{
+          if(!isCurrent()||controller.signal.aborted)return;
+          setChatProgress(phase==='configuration'?'Conectando ao serviço…':phase==='request'?'Preparando a resposta…':'Preparando a conversa…');
+        },
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -641,7 +652,7 @@ export default function App() {
               ? {
                   ...m,
                   content:
-                    `IA indisponível: ${errorMsg} Em perigo real, procure um adulto e ligue 199 (Defesa Civil) ou 193 (Bombeiros).`,
+                    `IA indisponível: ${errorMsg} Em perigo real, ${adultAudience?'afaste-se se for seguro e peça ajuda oficial':'procure um adulto'}: 199 (Defesa Civil) ou 193 (Bombeiros).`,
                   emotion: 'serious',
                 }
               : m
@@ -658,7 +669,7 @@ export default function App() {
       return false;
     } finally {
       clearTimeout(timeout);
-      if(chatAbortRef.current===controller){setIsLoading(false);sendingRef.current=false;chatAbortRef.current=null;}
+      if(chatAbortRef.current===controller){setIsLoading(false);setChatProgress('');sendingRef.current=false;chatAbortRef.current=null;}
     }
   };
 
@@ -790,12 +801,11 @@ export default function App() {
                 messages={messages}
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
+                chatProgress={chatProgress}
                 avatarState={avatarState}
                 isSpeaking={isSpeaking}
+                isPreparingSpeech={isPreparingSpeech}
                 onReplayAudio={speakMessage}
-                onReadDevice={readAloud}
-                onReadLocalDevice={readLocalAloud}
-                onDeviceSpeechConsent={allowDeviceSpeech}
                 onSelectPrompt={handleSelectPrompt}
                 onResetChat={handleResetChat}
                 onLoadSession={handleLoadSession}

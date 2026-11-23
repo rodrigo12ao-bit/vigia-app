@@ -1,0 +1,50 @@
+{
+  "mode": "synthetic-offline",
+  "observedAt": "2026-11-23T17:50:18.174Z",
+  "status": "completed",
+  "injectedDelaysMs": {
+    "understanding": 40,
+    "firstSpeechChunk": 25,
+    "secondSpeechChunk": 15
+  },
+  "networkRequests": 0,
+  "syntheticInputDurationMs": 200,
+  "explicitInputEnd": true,
+  "observedPipelineMs": {
+    "checkedText": 43.9,
+    "firstPcm": 69.5,
+    "serverTurnComplete": 84.9
+  },
+  "providerCalls": [
+    "synthetic_understanding",
+    "synthetic_speech"
+  ],
+  "serverTimingEvents": [
+    {
+      "turn": 1,
+      "pipeline": "multimodal",
+      "stage": "understanding",
+      "durationMs": 41,
+      "elapsedMs": 41
+    },
+    {
+      "turn": 1,
+      "pipeline": "multimodal",
+      "stage": "first_audio",
+      "durationMs": 25,
+      "elapsedMs": 67
+    },
+    {
+      "turn": 1,
+      "pipeline": "multimodal",
+      "stage": "complete",
+      "durationMs": 83,
+      "elapsedMs": 83
+    }
+  ],
+  "limitations": [
+    "All provider delays and responses are artificial; these are not Gemini or public-site latency measurements.",
+    "Input is a synthetic tone and ends explicitly. No speech-recognition quality, VAD wall-clock delay or microphone is measured.",
+    "First PCM is server output, not audible playback. No browser, AudioContext or device is used."
+  ]
+}

@@ -1,0 +1,76 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> vigia-app@1.0.0-beta.1 build:publication
+> npm run typecheck && node scripts/build-publication.cjs
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> vigia-app@1.0.0-beta.1 typecheck
+> tsc --noEmit
+
+vite v6.4.6 building for publication...
+transforming...
+✓ 2789 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/publication/public/manifest.webmanifest                            0.41 kB
+dist/publication/public/index.html                                      2.19 kB │ gzip:   1.09 kB
+dist/publication/public/assets/AuthModal-CxlZh92q.css                   1.20 kB │ gzip:   0.47 kB
+dist/publication/public/assets/App-8ejEkrhg.css                        10.69 kB │ gzip:   2.91 kB
+dist/publication/public/assets/index-Bevb62PQ.css                     175.33 kB │ gzip:  26.69 kB
+dist/publication/public/assets/vendor-utils-CqkleIqs.js                 0.12 kB │ gzip:   0.13 kB
+dist/publication/public/assets/firebase-DregwpAa.js                     1.37 kB │ gzip:   0.64 kB
+dist/publication/public/assets/Avatar-BZC0EYak.js                       2.95 kB │ gzip:   1.47 kB
+dist/publication/public/assets/index-BXWtuYvb.js                        3.05 kB │ gzip:   1.23 kB
+dist/publication/public/assets/salaSeguraService-B9ZcKM60.js            3.44 kB │ gzip:   1.50 kB
+dist/publication/public/assets/HomeTab-CTJvFVa1.js                      3.47 kB │ gzip:   1.43 kB
+dist/publication/public/assets/BadgesModal-BZpmONnw.js                  4.62 kB │ gzip:   1.80 kB
+dist/publication/public/assets/LegalModals-BLofi_AC.js                  4.69 kB │ gzip:   2.10 kB
+dist/publication/public/assets/index-CeHQWRci.js                        4.85 kB │ gzip:   2.23 kB
+dist/publication/public/assets/HelpTab-d0ssh6Fn.js                      5.08 kB │ gzip:   2.05 kB
+dist/publication/public/assets/workbox-window.prod.es5-BBnX5xw4.js      5.75 kB │ gzip:   2.36 kB
+dist/publication/public/assets/EmergencyNumbersCard-DTGmcIhW.js         6.94 kB │ gzip:   2.41 kB
+dist/publication/public/assets/dailyMissionsData-BhVXP4Yc.js            7.08 kB │ gzip:   3.12 kB
+dist/publication/public/assets/DynamicAIQuizModal-DBfNy_9S.js           7.63 kB │ gzip:   3.02 kB
+dist/publication/public/assets/TopicsTab-Ck4zxYYC.js                    8.13 kB │ gzip:   2.49 kB
+dist/publication/public/assets/GameHubTab-CBnHBiSo.js                   9.26 kB │ gzip:   2.80 kB
+dist/publication/public/assets/useLearning-DcyG8nzs.js                  9.32 kB │ gzip:   3.51 kB
+dist/publication/public/assets/SchoolDashboard-CJm18E_7.js              9.72 kB │ gzip:   3.30 kB
+dist/publication/public/assets/topics-DAmBaSGq.js                      10.02 kB │ gzip:   3.94 kB
+dist/publication/public/assets/DailyMissionModal-DUK-BM0b.js           10.39 kB │ gzip:   3.29 kB
+dist/publication/public/assets/ProfileModal-DyKeRDdX.js                11.25 kB │ gzip:   3.96 kB
+dist/publication/public/assets/ScenarioAnalyzerModal-C4ZDCgQ9.js       11.82 kB │ gzip:   4.10 kB
+dist/publication/public/assets/AuthModal-Bt6ecT4B.js                   16.79 kB │ gzip:   4.98 kB
+dist/publication/public/assets/LearningCenter-Bsh31AX0.js              21.13 kB │ gzip:   7.05 kB
+dist/publication/public/assets/SalaSeguraTab-Dt5KQOwY.js               22.70 kB │ gzip:   6.58 kB
+dist/publication/public/assets/geminiLive-Cs7oaNYc.js                  24.38 kB │ gzip:   6.98 kB
+dist/publication/public/assets/vendor-lucide-BPTI9cHh.js               35.55 kB │ gzip:   7.80 kB
+dist/publication/public/assets/vendor-firebase-core-DJmjVBRA.js        42.27 kB │ gzip:   9.30 kB
+dist/publication/public/assets/LearningTrailMap-Dhua3G4p.js            78.33 kB │ gzip:  18.27 kB
+dist/publication/public/assets/ChatTab-B71VSGTk.js                     79.88 kB │ gzip:  22.76 kB
+dist/publication/public/assets/vendor-firebase-auth-DodbUaJM.js       127.50 kB │ gzip:  25.84 kB
+dist/publication/public/assets/vendor-motion-BisUq8KL.js              129.35 kB │ gzip:  42.53 kB
+dist/publication/public/assets/App-DWBAQq_J.js                        132.16 kB │ gzip:  44.80 kB
+dist/publication/public/assets/vendor-react-7kqsRsp0.js               147.15 kB │ gzip:  47.49 kB
+dist/publication/public/assets/index-TQjNny0z.js                      150.11 kB │ gzip:  46.08 kB
+dist/publication/public/assets/vendor-firebase-store-POjB9afs.js      378.54 kB │ gzip:  93.27 kB
+dist/publication/public/assets/graphics-Avatar3D-BXWn5dKK.js          952.88 kB │ gzip: 259.48 kB
+dist/publication/public/assets/graphics-EscapeGame-Dmq6z87Y.js      2,173.22 kB │ gzip: 798.82 kB
+
+(!) Some chunks are larger than 1200 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.37s
+
+PWA v1.3.0
+mode      generateSW
+precache  10 entries (323.65 KiB)
+files generated
+  dist/publication/public/sw.js
+  dist/publication/public/workbox-da8595b4.js
+
+  dist/publication/server/server.cjs  252.1kb
+
+⚡ Done in 20ms
+Publicação verificada: df9c716b2224 • /assets/index-CeHQWRci.js

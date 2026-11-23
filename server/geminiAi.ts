@@ -2,13 +2,16 @@ import {createHash} from 'node:crypto';
 import {setTimeout as providerDelay} from 'node:timers/promises';
 import {AiUnavailable,decodeAudio,realAiConfig,type AiEngine,type VoiceTurnRequest,type VoiceTurnResult} from './realAi';
 import {readPcmWave} from './localAi';
-import {geminiLiteralSpeech} from './geminiLiteralSpeech';
+import {geminiLiteralSpeech,GEMINI_VOICE_NAME,GEMINI_SPEECH_STYLE} from './geminiLiteralSpeech';
 import {isEmergency,adultEmergencyReply} from './safety';
 import {voiceText} from './voiceText';
 
 export const GEMINI_ADULT_CONSENT='2026-10-13-gemini-adults-free-v1';
 const streamTtsModels=['gemini-3.8-flash-lite-tts','gemini-3.8-flash-tts'] as const;
 type StreamTtsModel=typeof streamTtsModels[number];
+function rejectAborted(signal?:AbortSignal){
+ if(signal?.aborted)throw new AiUnavailable(signal.reason?.name==='TimeoutError'?'timeout':'cancelled',signal.reason?.name==='TimeoutError'?'O tempo de resposta terminou. Tente novamente.':'A solicitação foi cancelada.');
+}
 export function verifiedFreeGemini(env:NodeJS.ProcessEnv){return !!env.GEMINI_API_KEY&&env.GEMINI_FREE_KEY_SHA256===createHash('sha256').update(env.GEMINI_API_KEY).digest('hex');}
 export class GeminiAi implements AiEngine {
  readonly provider='gemini';
@@ -32,6 +35,7 @@ export class GeminiAi implements AiEngine {
   return new AiUnavailable('quota_unavailable',model.endsWith('-tts')?'A cota gratuita de voz foi atingida. Você pode continuar por texto.':'A cota gratuita do Gemini foi atingida. Aguarde antes de tentar novamente. Nenhum serviço pago foi ativado.',503,retryAfterMs);
  }
  private async generate(parts:any[],config:any={},model='gemini-3.5-flash-lite',signal?:AbortSignal){
+  rejectAborted(signal);
   const c=realAiConfig(this.env);if(!c.enabled||c.provider!=='gemini')throw new AiUnavailable('configuration_blocked',c.blocked||'Gemini não habilitado.');
   if(!['gemini-3.5-flash-lite','gemini-3.8-flash-lite-tts'].includes(model))throw new AiUnavailable('configuration_blocked','Modelo sem validação da modalidade gratuita.');
   this.checkQuota(model);
@@ -40,10 +44,16 @@ export class GeminiAi implements AiEngine {
   try{
    let response!:Response;
    const requestSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000);
-   const requestOptions={method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],...(config.systemInstruction?{systemInstruction:{parts:[{text:config.systemInstruction}]}}:{}),generationConfig:{temperature:0.3,maxOutputTokens:1200,...Object.fromEntries(Object.entries(config).filter(([k])=>['responseMimeType','responseSchema','responseModalities','speechConfig','maxOutputTokens'].includes(k)))},safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH','HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT'].map(category=>({category,threshold:'BLOCK_MEDIUM_AND_ABOVE'}))}),signal:requestSignal};
+   // Flash-Lite already defaults to minimal thinking. Pin that supported level
+   // explicitly, without sending thinking settings to TTS or deprecated sampling
+   // parameters. This preserves the current quality/latency policy; it is not a
+   // measured speed-up. https://ai.google.dev/gemini-api/docs/thinking?generate-content=true
+   const generationConfig={maxOutputTokens:1200,...Object.fromEntries(Object.entries(config).filter(([k])=>['responseMimeType','responseSchema','responseModalities','speechConfig','maxOutputTokens'].includes(k))),...(model==='gemini-3.5-flash-lite'?{thinkingConfig:{thinkingLevel:'minimal'}}:{})};
+   const requestOptions={method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],...(config.systemInstruction?{systemInstruction:{parts:[{text:config.systemInstruction}]}}:{}),generationConfig,safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH','HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT'].map(category=>({category,threshold:'BLOCK_MEDIUM_AND_ABOVE'}))}),signal:requestSignal};
    try{
     for(let attempt=0;attempt<2;attempt++){
      response=await this.transport(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,requestOptions);
+     if(requestSignal.aborted){await response.body?.cancel().catch(()=>{});rejectAborted(requestSignal);}
      if(attempt===0&&[500,502,503,504].includes(response.status)&&!requestSignal.aborted){
       await response.body?.cancel().catch(()=>{});
       await providerDelay(700,undefined,{signal:requestSignal});
@@ -51,8 +61,11 @@ export class GeminiAi implements AiEngine {
      }
      break;
     }
-   }catch{throw new AiUnavailable('network_unavailable','Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.');}
+   }catch{rejectAborted(requestSignal);throw new AiUnavailable('network_unavailable','Não foi possível conectar ao Gemini. Verifique a conexão e tente novamente.');}
    const body=await response.json().catch(()=>({}));
+   // Cancellation also invalidates a late JSON body from an otherwise successful
+   // transport. No cancelled text, transcript or unary speech may escape.
+   rejectAborted(requestSignal);
    if(response.status===429)throw this.quotaError(model,response,body);
    if(!response.ok){console.warn('Gemini indisponível',model,response.status);throw new AiUnavailable('provider_unavailable','O Gemini está indisponível no momento.');}
    const candidate=body.candidates?.[0];
@@ -71,6 +84,7 @@ export class GeminiAi implements AiEngine {
   return {text};
  }};
  async transcribe(audio:string,mime:string,signal?:AbortSignal){
+  rejectAborted(signal);
   const {bytes,extension}=decodeAudio(audio,mime),{pcm,rate}=readPcmWave(bytes);
   if(extension!=='wav'||rate!==16000||pcm.length>480000)throw new AiUnavailable('invalid_audio','Grave até 15 segundos no formato do Vigia.',400);
   let energy=0;for(let i=0;i<pcm.length;i+=2)energy+=(pcm.readInt16LE(i)/32768)**2;
@@ -110,7 +124,7 @@ export class GeminiAi implements AiEngine {
   // Retry one incomplete generation; never accept truncated audio or retry safety/quota failures.
   let parts:any[]=[];
   for(let attempt=0;attempt<2;attempt++){
-   try{parts=await this.generate([{text,speechMetadata:{style:'Português brasileiro, voz clara, natural e acolhedora.'}}],{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice:'Kore'}},maxOutputTokens:2000},'gemini-3.8-flash-lite-tts',signal);break;}
+   try{parts=await this.generate([{text,speechMetadata:{style:GEMINI_SPEECH_STYLE}}],{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{voice:GEMINI_VOICE_NAME}},maxOutputTokens:2000},'gemini-3.8-flash-lite-tts',signal);break;}
    catch(error){if(!(error instanceof AiUnavailable)||error.code!=='incomplete_response'||attempt===1||signal?.aborted)throw error;}
   }
   const data=parts.find(p=>p.inlineData)?.inlineData;
@@ -125,14 +139,15 @@ export class GeminiAi implements AiEngine {
   try{
    if(signal.aborted)throw new AiUnavailable('cancelled','A reprodução de voz foi cancelada.');
    this.checkQuota(model);
-   const response=await this.transport('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({model,store:false,input:[{type:'user_input',content:[{type:'text',text,annotations:[{type:'speech_metadata',style:'Português brasileiro, voz natural, simpática e animada, com ritmo fluido e acolhedor. Em avisos de segurança, voz calma e séria.'}]}]}],response_format:{type:'audio',mime_type:'audio/l16',sample_rate:24000},generation_config:{speech_config:[{voice:'Aoede'}]},stream:true}),signal});
+   const response=await this.transport('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'x-goog-api-key':this.env.GEMINI_API_KEY!,'Content-Type':'application/json'},body:JSON.stringify({model,store:false,input:[{type:'user_input',content:[{type:'text',text,annotations:[{type:'speech_metadata',style:GEMINI_SPEECH_STYLE}]}]}],response_format:{type:'audio',mime_type:'audio/l16',sample_rate:24000},generation_config:{speech_config:[{voice:GEMINI_VOICE_NAME}]},stream:true}),signal});
    if(signal.aborted)throw new AiUnavailable('cancelled','A reprodução de voz foi cancelada.');
    if(response.status===429)throw this.quotaError(model,response,await response.json().catch(()=>({})));
    if(!response.ok||!response.body)throw new AiUnavailable('provider_unavailable','A síntese de voz está indisponível.');
-   reader=response.body.getReader();const decoder=new TextDecoder();let buffer='',bytes=0,complete=false;
+   reader=response.body.getReader();const decoder=new TextDecoder();let buffer='',bytes=0;
    while(true){
-    const {done,value}=await reader.read();if(done)break;
+    const {done,value}=await reader.read();
     if(signal.aborted)throw new AiUnavailable('cancelled','A reprodução de voz foi cancelada.');
+    if(done)throw new AiUnavailable('incomplete_response','A voz não foi concluída. Tente novamente.');
     buffer=(buffer+decoder.decode(value,{stream:true})).replace(/\r\n/g,'\n');
     if(buffer.length>3000000)throw new AiUnavailable('invalid_response','Áudio de resposta grande demais.');
     let end:number;while((end=buffer.indexOf('\n\n'))>=0){
@@ -140,11 +155,19 @@ export class GeminiAi implements AiEngine {
      const data=packet.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('\n');
      if(!data||data==='[DONE]')continue;
      let e:any;try{e=JSON.parse(data);}catch{throw new AiUnavailable('invalid_response','A voz retornou dados inválidos.');}
+     if(!e||typeof e!=='object'||Array.isArray(e))throw new AiUnavailable('invalid_response','A voz retornou dados inválidos.');
      if(['error','interaction.failed'].includes(e.event_type)){
       if(e.error?.code===429||e.error?.status==='RESOURCE_EXHAUSTED')throw this.quotaError(model,response,{error:e.error});
       throw new AiUnavailable('provider_unavailable','A voz foi interrompida pelo serviço. Tente novamente.');
      }
-     if(e.event_type==='interaction.completed')complete=true;
+     if(e.event_type==='interaction.completed'){
+      if((e.interaction?.status!==undefined&&e.interaction.status!=='completed')||!bytes)throw new AiUnavailable('incomplete_response','A voz não foi concluída. Tente novamente.');
+      // This is the terminal SSE event, including when optional protobuf fields
+      // are absent. Do not wait for an idle connection's EOF before finishing the
+      // spoken turn. No unvalidated text is streamed by this literal TTS path.
+      // https://ai.google.dev/gemini-api/docs/streaming#event-interaction-completed
+      return;
+     }
      if(e.event_type==='step.delta'&&e.delta?.type==='audio'){
       const a=e.delta;if(typeof a.data!=='string'||a.data.length>3000000||!/^[A-Za-z0-9+/]+={0,2}$/.test(a.data)||(a.mime_type&&!/^audio\/(?:l16|pcm)(?:;|$)/i.test(a.mime_type))||(a.sample_rate&&a.sample_rate!==24000))throw new AiUnavailable('invalid_response','Formato de voz inválido.');
       const pcm=Buffer.from(a.data,'base64');if(!pcm.length||pcm.length%2||pcm.toString('ascii',0,4)==='RIFF'||(bytes+=pcm.length)>2400000)throw new AiUnavailable('invalid_response','Áudio gerado inválido.');
@@ -153,7 +176,6 @@ export class GeminiAi implements AiEngine {
      }
     }
    }
-   if(!complete||!bytes)throw new AiUnavailable('incomplete_response','A voz não foi concluída. Tente novamente.');
   }finally{await reader?.cancel().catch(()=>{});}
  }
  async *speechStream(text:string,signal?:AbortSignal):AsyncGenerator<Buffer>{

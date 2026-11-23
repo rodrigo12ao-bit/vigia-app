@@ -1,0 +1,120 @@
+{
+  "scope": "Published application baseline; local changes have NOT been deployed.",
+  "origin": "https://vigia-app.onrender.com",
+  "startedAt": "2026-11-23T18:04:15.898Z",
+  "status": "stopped",
+  "limits": {
+    "chatPosts": 2,
+    "voiceTextTurns": 1,
+    "operationTimeoutMs": 55000,
+    "generationRetries": 0
+  },
+  "attempted": {
+    "chatPosts": 2,
+    "voiceTextTurns": 0
+  },
+  "preparation": [
+    {
+      "stage": "status",
+      "method": "GET",
+      "path": "/api/status",
+      "headersMs": 8886,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 8888.2
+    },
+    {
+      "stage": "guest-session",
+      "method": "POST",
+      "path": "/api/session",
+      "headersMs": 233.5,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 234
+    },
+    {
+      "stage": "adult-declaration",
+      "method": "POST",
+      "path": "/api/adult-access",
+      "headersMs": 242,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 242.7
+    },
+    {
+      "stage": "voice-ticket",
+      "method": "POST",
+      "path": "/api/live-ticket",
+      "headersMs": 240.8,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 242.8
+    }
+  ],
+  "chats": [
+    {
+      "question": "Em um exemplo fictício, o que devo colocar em uma mochila de emergência? Responda em até três frases.",
+      "historyMessagesSent": 0,
+      "stage": "chat-1",
+      "method": "POST",
+      "path": "/api/chat",
+      "headersMs": 1551.6,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 1552.2,
+      "reply": "A mochila de emergência deve conter água potável, alimentos não perecíveis e lanterna com pilhas. Inclua também documentos importantes em saco plástico e um estojo de primeiros socorros. Esses itens ajudam a garantir o suprimento básico nos primeiros momentos fora de casa.",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    },
+    {
+      "question": "Continuando esse exemplo: como devo guardar os documentos para protegê-los?",
+      "historyMessagesSent": 2,
+      "stage": "chat-2",
+      "method": "POST",
+      "path": "/api/chat",
+      "headersMs": 3093.3,
+      "httpStatus": 200,
+      "serverTiming": null,
+      "totalMs": 3093.9,
+      "reply": "Guarde os documentos importantes protegidos dentro de um saco plástico vedado. Isso evita que eles molhem ou estraguem em caso de chuva ou umidade. Essa é uma medida prática para manter seus registros seguros ao sair rapidamente.",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    }
+  ],
+  "voice": {
+    "protocol": "stream-v1",
+    "input": "Em um exemplo fictício, onde devo guardar a lanterna da mochila de emergência?",
+    "inputKind": "text-only",
+    "events": [],
+    "serverTimingEvents": [],
+    "pcmBytes": 0,
+    "audioChunks": 0,
+    "totalConnectionMs": 5.5,
+    "transportError": {
+      "type": "unknown",
+      "code": null
+    }
+  },
+  "limitations": [
+    "Only fictional prevention questions and a text-input voice turn. No microphone or personal data.",
+    "First PCM means bytes received over WebSocket, not audible playback or voice quality.",
+    "Chat totalMs includes transport and server authorization. It is not isolated model-generation time; server timings are recorded only when supplied.",
+    "Individual observations of the old public version; not a controlled before/after comparison or a latency percentile.",
+    "Any provider retries or free TTS alternatives are governed by the existing published server; this script never retries a generation."
+  ],
+  "runtime": {
+    "realAI": true,
+    "demo": false,
+    "audience": "18plus",
+    "provider": "gemini",
+    "mode": "adult-gemini",
+    "voice": true,
+    "blocked": false
+  },
+  "acceptedConsentVersion": "2026-10-13-gemini-adults-free-v1",
+  "stopReason": {
+    "stage": "voice",
+    "code": "websocket_failure"
+  },
+  "finishedAt": "2026-11-23T18:04:30.161Z"
+}

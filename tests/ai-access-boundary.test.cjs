@@ -23,3 +23,23 @@ test('variações de maiúsculas e barra final conservam acesso adulto e consent
  assert.equal((await post('/CHAT/',{message:'Mochila'},GEMINI_ADULT_CONSENT)).status,200);
  assert.equal((await post('/CHAT/',{message:'tem fogo na minha casa'})).status,200,'Orientação emergencial permanece local e não depende do consentimento ao fornecedor.');
 });
+
+test('declaração combinada aplica-se somente ao novo visitante e nunca substitui consentimento ou identidade',async t=>{
+ const app=express();app.use(express.json());installSecurity(app);
+ app.post('/api/chat',(_request,response)=>response.json({reached:true}));
+ const server=await new Promise(resolve=>{const listening=app.listen(0,'127.0.0.1',()=>resolve(listening));});
+ t.after(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
+ const root='http://127.0.0.1:'+server.address().port;
+ const post=(path,body={},cookie='',consent='')=>fetch(root+'/api'+path,{method:'POST',headers:{Origin:'http://localhost:3000','Content-Type':'application/json',...(cookie?{Cookie:cookie}:{}),...(consent?{'X-Vigia-AI-Consent':consent}:{})},body:JSON.stringify(body)});
+ const old=await post('/session'),oldCookie=old.headers.get('set-cookie').split(';')[0];
+ assert.equal((await post('/chat',{message:'Mochila'},oldCookie,GEMINI_ADULT_CONSENT)).status,403);
+ for(const adultAccess of [{confirmed:false,version:ADULT_ACCESS_VERSION},{confirmed:'true',version:ADULT_ACCESS_VERSION},{confirmed:true,version:'old'},null]){
+  const denied=await post('/session',{adultAccess});assert.equal(denied.status,403);assert.equal(denied.headers.has('set-cookie'),false);
+ }
+ const combined=await post('/session',{adultAccess:{confirmed:true,version:ADULT_ACCESS_VERSION},uid:'someone-else'});
+ assert.equal(combined.status,200);assert.equal((await combined.json()).adultAccess,true);
+ const freshCookie=combined.headers.get('set-cookie').split(';')[0];assert.notEqual(freshCookie,oldCookie);
+ assert.equal((await post('/chat',{message:'Mochila'},freshCookie)).status,428);
+ assert.equal((await post('/chat',{message:'Mochila'},freshCookie,GEMINI_ADULT_CONSENT)).status,200);
+ assert.equal((await post('/chat',{message:'Mochila'},oldCookie,GEMINI_ADULT_CONSENT)).status,403);
+});

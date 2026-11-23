@@ -12,6 +12,11 @@ type LiveState =
   | 'stopping'
   | 'error';
 
+export type VoiceProcessingStage = 'transcribing' | 'thinking' | 'synthesizing';
+const processingStages=new Set<VoiceProcessingStage>(['transcribing','thinking','synthesizing']);
+const timingStages=new Set(['input','understanding','transcription','response','first_audio','complete','failed']);
+const timingPipelines=new Set(['text','multimodal','legacy']);
+
 type ResourceType = 'streams' | 'inputContexts' | 'outputContexts' | 'websockets';
 
 const telemetryRoot = window as typeof window & {
@@ -79,6 +84,7 @@ export interface GeminiLiveCallbacks {
   context?: string;
   onAvatarStateChange?: (state: AvatarState) => void;
   onStateChange?: (state: LiveState) => void;
+  onProcessingStageChange?: (stage: VoiceProcessingStage | null) => void;
   onInputTranscription?: (text: string) => void;
   onOutputTranscription?: (text: string) => void;
   onTurnComplete?: () => void;
@@ -87,7 +93,6 @@ export interface GeminiLiveCallbacks {
   onMicrophoneActivityChange?: (active: boolean) => void;
   onError?: (errorMsg: string) => void;
   onSpeechUnavailable?: (message: string, retryAfterMs?: number) => void;
-  onDeviceSpeech?: (text: string) => void;
   onClose?: () => void;
 }
 
@@ -106,6 +111,7 @@ export class GeminiLiveSession {
   private callbacks: GeminiLiveCallbacks;
 
   private state: LiveState = 'idle';
+  private processingStage:VoiceProcessingStage|null=null;
   private startPromise: Promise<void> | null = null;
   private sessionToken = 0;
   private stopped = false;
@@ -127,8 +133,6 @@ export class GeminiLiveSession {
   private muted=false;
   private outputGain:GainNode|null=null;
   private lastInputLevelEmit = 0;
-  private speechOutput:'cloud'|'device'='cloud';
-  private devicePlaybackPending=false;
   private inputSuppressed=false;
   private lastCaptureActive=false;
   private awaitingInterruptAck=false;
@@ -157,7 +161,6 @@ export class GeminiLiveSession {
     this.microphonePaused=false;
     this.playbackFailure=false;
     this.nativeAudio=this.streamedSpeech=false;
-    this.speechOutput='cloud';
     this.setState('connecting');
     this.connectionTimer=globalThis.setTimeout(()=>{
       if(!this.isCurrent(token)||this.state!=='connecting')return;
@@ -264,13 +267,21 @@ export class GeminiLiveSession {
   }
 
   private setState(state: LiveState): void {
+    if(state!=='processing')this.setProcessingStage(null);
     if (this.state === state) return;
     this.state = state;
     this.callbacks.onStateChange?.(state);
   }
 
+  private setProcessingStage(stage:VoiceProcessingStage|null):void{
+    if(this.processingStage===stage)return;
+    this.processingStage=stage;
+    this.callbacks.onProcessingStageChange?.(stage);
+  }
+
   private handleServerPayload(payload: any): void {
-    if(this.awaitingInterruptAck&&['processing','input_transcription','output_transcription','audio_chunk','reply_ready','turn_complete','speech_unavailable','speech_on_device'].includes(payload.type))return;
+    if(this.stopped||!payload||typeof payload!=='object')return;
+    if(this.awaitingInterruptAck&&['processing','voice_timing','input_transcription','output_transcription','audio_chunk','reply_ready','turn_complete','speech_unavailable','speech_on_device'].includes(payload.type))return;
     switch (payload.type) {
       case 'open':
         if(this.connectionTimer)globalThis.clearTimeout(this.connectionTimer);
@@ -286,8 +297,9 @@ export class GeminiLiveSession {
           this.playbackFailure=false;
           this.callbacks.onInputTranscription?.(payload.text);
           if (this.state !== 'assistantSpeaking') {
-            if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
+            if(this.streamedSpeech)this.setInputSuppressed(true);
             this.setState('processing');
+            this.setProcessingStage('thinking');
             this.callbacks.onAvatarStateChange?.('thinking');
           }
         }
@@ -295,9 +307,19 @@ export class GeminiLiveSession {
 
       case 'processing':
         this.playbackFailure=false;
-        if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
+        if(this.streamedSpeech)this.setInputSuppressed(true);
         this.setState('processing');
+        this.setProcessingStage(processingStages.has(payload.stage)?payload.stage:'thinking');
         this.callbacks.onAvatarStateChange?.('thinking');
+        return;
+
+      case 'voice_timing':
+        // Server durations exclude capture, transport and audible playback. Do
+        // not mix clocks or copy transcript/unknown fields into the diagnostic log.
+        if(Number.isSafeInteger(payload.turn)&&payload.turn>0&&timingPipelines.has(payload.pipeline)&&timingStages.has(payload.stage)
+          &&Number.isSafeInteger(payload.durationMs)&&payload.durationMs>=0&&Number.isSafeInteger(payload.elapsedMs)&&payload.elapsedMs>=0){
+          Telemetry.log('SERVER_VOICE_STAGE',{turn:payload.turn,pipeline:payload.pipeline,stage:payload.stage,durationMs:payload.durationMs,elapsedMs:payload.elapsedMs});
+        }
         return;
 
       case 'output_transcription':
@@ -340,13 +362,13 @@ export class GeminiLiveSession {
         return;
       }
       case 'speech_output':
-        if(payload.mode==='cloud'||payload.mode==='device')this.speechOutput=payload.mode;
+        // An older backend may acknowledge an obsolete device preference.
+        // Always ask for the same server voice; never delegate to the browser.
+        if(payload.mode==='device')this.setSpeechOutput('cloud');
         return;
       case 'speech_on_device':
-        if(this.speechOutput==='device'&&typeof payload.text==='string'&&payload.text.trim()){
-          this.beginDevicePlayback();
-          this.callbacks.onDeviceSpeech?.(payload.text);
-        }
+        this.handleServerPayload({type:'speech_unavailable',message:'Esta sessão de voz precisa ser reconectada. Tente voz novamente; a resposta continua disponível por texto.'});
+        this.stop();this.callbacks.onClose?.();
         return;
 
       case 'emergency':
@@ -564,7 +586,7 @@ export class GeminiLiveSession {
       this.serverTurnComplete = false;
       this.generation += 1;
       this.playbackChunkCount=0;
-      if(this.streamedSpeech&&this.speechOutput==='cloud')this.setInputSuppressed(true);
+      if(this.streamedSpeech)this.setInputSuppressed(true);
       this.setState('assistantSpeaking');
       this.callbacks.onAvatarStateChange?.('speaking');
     }
@@ -676,7 +698,7 @@ export class GeminiLiveSession {
   }
 
   private finishTurnWhenPlaybackEnds(): void {
-    if (this.stopped || !this.serverTurnComplete || this.activeSources.length > 0 || this.pendingAudioChunks>0 || this.devicePlaybackPending) return;
+    if (this.stopped || !this.serverTurnComplete || this.activeSources.length > 0 || this.pendingAudioChunks>0) return;
 
     console.log('[GeminiLive] Geração e reprodução concluídas');
     if(this.streamedSpeech&&this.ws?.readyState===WebSocket.OPEN)this.ws.send(JSON.stringify({type:'playback_ended'}));
@@ -733,26 +755,12 @@ export class GeminiLiveSession {
     if(this.mediaStream&&this.state!=='assistantSpeaking'&&this.state!=='processing')this.setState(paused?'idle':'listening');
   }
 
-  public setSpeechOutput(mode:'device'|'cloud'):boolean{
+  // Compatibility for callers that retained the old preference API. Neither
+  // argument can change the voice or select a device synthesizer.
+  public setSpeechOutput(_legacyMode:'device'|'cloud'):boolean{
     if(!this.streamedSpeech||this.stopped||this.ws?.readyState!==WebSocket.OPEN)return false;
-    try{this.ws.send(JSON.stringify({type:'speech_output',mode}));}catch{return false;}
-    this.speechOutput=mode;
+    try{this.ws.send(JSON.stringify({type:'speech_output',mode:'cloud'}));}catch{return false;}
     return true;
-  }
-
-  public beginDevicePlayback():void{
-    this.devicePlaybackPending=true;
-    this.pauseMicrophone(true);
-  }
-
-  public finishDevicePlayback(resumeInput:boolean):void{
-    this.devicePlaybackPending=false;
-    this.pendingAudioChunks=0;
-    this.serverTurnComplete=false;
-    if(this.stopped)return;
-    if(resumeInput){this.pauseMicrophone(false);this.setState('listening');}
-    else this.setState('idle');
-    this.callbacks.onAvatarStateChange?.(resumeInput?'listening':'idle');
   }
 
   public interruptPlayback():void{
@@ -829,7 +837,6 @@ export class GeminiLiveSession {
     if(this.connectionTimer)globalThis.clearTimeout(this.connectionTimer);
     this.connectionTimer=null;
     this.clearInterruptAck();
-    this.devicePlaybackPending=false;
     this.pendingAudioChunks=0;
     this.inputSuppressed=false;
     this.awaitingInterruptAck=false;

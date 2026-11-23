@@ -66,13 +66,19 @@ export function installSecurity(app: Express,options:{skipApiHeaders?:boolean;sk
   if(!options.skipApiHeaders)app.use('/api',apiResponseHeaders);
   if(!options.skipOriginCheck)app.use('/api',apiOriginGuard);
   app.get('/api/status', (_req, res) => { const ai=realAiConfig(); res.json({ demo: demoMode, audience:runtime.adultAudience?'18plus':'legacy',localDemo:demoMode&&!runtime.preview, realAI:!demoMode&&ai.enabled, firebase: localFirebase ? 'emulator' : runtime.cloud?'cloud':'disabled', ai:{mode:demoMode?'simulation':runtime.localReal||runtime.adultLive?ai.scope:'unavailable',provider:demoMode?null:ai.provider,blocked:demoMode?null:ai.blocked,consentVersion:ai.consentVersion,voice:!demoMode&&ai.enabled} }); });
-  app.post('/api/session', (_req, res) => {
+  app.post('/api/session', (req, res) => {
+    // The explicit declaration can travel with first guest-session creation.
+    // Existing clients may still use the separate adult-access route. Every
+    // protected request continues checking the server's current declaration.
+    const declaration=req.body?.adultAccess;
+    if(declaration!==undefined&&(!runtime.adultAudience||declaration?.confirmed!==true||declaration?.version!==ADULT_ACCESS_VERSION))return res.status(403).json({error:'Confirme que tem 18 anos ou mais para acessar o Vigia.'});
     for (const [key, item] of guests) if (item.expires < Date.now()) {guests.delete(key);adultGuests.delete('guest:'+key);}
     if (guests.size >= 1000) return res.status(503).json({ error: 'Sessões indisponíveis.' });
     const token = randomBytes(32).toString('hex');
     guests.set(token, { expires: Date.now() + 60 * 60 * 1000 });
+    if(declaration)adultGuests.add('guest:'+token);
     res.setHeader('Set-Cookie', `vigia_session=${token}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=3600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
-    res.json({ expiresIn: 3600 });
+    res.json({ expiresIn: 3600,...(declaration?{adultAccess:true}:{}) });
   });
   if(!options.skipAuthentication)app.use('/api', async (req, res, next) => {
     try {

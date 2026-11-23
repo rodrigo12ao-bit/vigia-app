@@ -1,0 +1,42 @@
+Local review: 1 test files. Emulators and optional Edge runtime are separate suites: api.test.ts, sala.test.ts, school.test.ts, adventure-api.test.ts, firestore.rules.test.ts, edge-runtime.test.cjs.
+✔ TTS por partes usa modelo gratuito, texto literal verificado, Aoede e store false (9.858353ms)
+✔ PCM chega antes da conclusão e evento terminal finaliza o turno sem esperar EOF da conexão (5.253453ms)
+✔ conclusão SSE com estado não concluído ou sem áudio não libera sucesso nem fallback (3.745329ms)
+✔ streaming rejeita projeto não verificado, taxa inválida, WAV, bytes ímpares e conclusão ausente (2.55824ms)
+✔ cota percorre somente dois TTS gratuitos; cancelamento não repete nem ativa serviço pago (3.239789ms)
+✔ cota do Lite usa TTS Flash literal com Aoede; cooldown é individual e não abre Live (3.090588ms)
+✔ dois TTS em cota só então usam Live, com o mesmo sinal e texto e sem renovar prazo (0.91838ms)
+✔ segurança, erro HTTP, desconexão e falha incompleta não selecionam outro TTS nem Live (2.484109ms)
+✔ voz envia áudio por partes apenas depois da resposta textual completa verificada (22.619418ms)
+✔ moderação, resposta inválida e emergência impedem síntese e resposta pronta (41.087286ms)
+✔ interromper aborta áudio pendente, conserva texto verificado e ignora fragmentos tardios (41.411206ms)
+✔ fala sustentada interrompe a síntese e conserva o início da nova gravação (23.901769ms)
+✔ nova fala interrompe também áudio ainda em reprodução depois da síntese terminar (22.475563ms)
+✔ 429 respeita Retry-After e pausa somente TTS sem repetir chamadas nem expor metadados (2.863752ms)
+✔ RetryInfo e falha429 dentro do fluxo mantêm cooldown sem repetição automática (0.746426ms)
+✔ falha apenas da voz conserva resposta e contexto; microfone aguarda retomada explícita (61.650327ms)
+✔ prazo total interrompe geração lenta sem inventar texto; síntese lenta preserva texto já verificado (40.980317ms)
+✔ primeiro PCM dentro de20s permite fala ativa terminar além do antigo prazo (2.30245ms)
+✔ stream parado após primeiro PCM expira por inatividade sem repetir a fala (1.193909ms)
+✔ PCM contínuo não renova o teto absoluto de45s contado desde processing (3.435669ms)
+✔ interrupção e fechamento cancelam stream e todos os seus prazos sem eventos tardios (1.33019ms)
+✔ budgets curtos de primeiro áudio, inatividade e total são injetáveis sem ampliar STT (1.559831ms)
+✔ emergência digitada fornece entrada e orientação para salvar uma vez, sem geração de IA (0.306755ms)
+✔ cota antes de áudio usa uma leitura gratuita do mesmo texto; cooldown evita repetir TTS (1.237212ms)
+✔ cota depois de áudio parcial e cancelamento não disparam outra voz nem repetem a fala (2.893246ms)
+✔ falha de correspondência na alternativa gratuita mantém indisponibilidade sem resposta pronta (1.420014ms)
+✔ cota também na leitura gratuita bloqueia repetição de conexões e informa espera (2.009868ms)
+✔ preferência device de cliente antigo usa a única voz cloud depois da resposta verificada (21.238952ms)
+✔ preferência antiga mantém contexto nas próximas falas e não altera a voz cloud (41.945172ms)
+✔ preferência device antiga não contorna erro de geração, texto inválido, emergência ou limite do protocolo (41.581267ms)
+✔ preferência antiga não muda síntese já iniciada; fechamento cancela geração pendente (81.878362ms)
+✔ provedor que ignora abort não libera resposta nem voz após o prazo total (61.707755ms)
+✔ fluxo de síntese sem PCM preserva a resposta e informa voz indisponível (19.818549ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 886.701344

@@ -4,7 +4,7 @@ const {readFileSync}=require('node:fs');
 const {transform}=require('esbuild');
 
 // Browser speech and recording are simulated: no microphone, provider or network.
-const source=readFileSync('src/utils/speech.ts','utf8').replace("import { apiFetch, getAiStatus } from '../lib/api';",'const apiFetch=async()=>{throw Error("Network forbidden in isolated test");};const getAiStatus=async()=>null;');
+const source=readFileSync('src/utils/speech.ts','utf8').replace("import { apiFetch } from '../lib/api';",'const apiFetch=async()=>{throw Error("Network forbidden in isolated test");};const getAiStatus=async()=>null;');
 const bundle=transform(source,{loader:'ts',format:'cjs',define:{'import.meta.env.MODE':'"test"'}});
 async function harness({voices=[{lang:'pt-BR',name:'Voz local',localService:true}],recordingSupported=true}={}){
   const spoken=[],recorders=[],recognitions=[],listeners=new Set(),events=[];

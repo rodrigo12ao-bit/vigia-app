@@ -1,0 +1,61 @@
+Local review: 4 test files. Emulators and optional Edge runtime are separate suites: api.test.ts, sala.test.ts, school.test.ts, adventure-api.test.ts, firestore.rules.test.ts, edge-runtime.test.cjs.
+✔ contexto usa seis turnos recentes completos e mantém todo histórico original (2.35013ms)
+✔ boas-vindas, respostas vazias e falas órfãs não viram turnos completos (0.293294ms)
+✔ orçamento UTF-8 conta sistema, pergunta inteira, wrappers e instrução visual (0.505318ms)
+✔ não inclui turnos antigos se o último turno completo exceder o orçamento (0.243821ms)
+✔ uma pergunta que não cabe é rejeitada sem truncar e limites inválidos falham (1.274698ms)
+✔ falas com quebras de linha e papéis falsos continuam dados do mesmo turno e contam no orçamento (1.487873ms)
+✔ Gemini exige 18+ e verificação do plano gratuito da mesma chave (1.989226ms)
+Gemini indisponível gemini-3.5-flash-lite 403
+Gemini indisponível gemini-3.5-flash-lite 422
+✔ falha HTTP temporária tenta uma vez com o mesmo pedido e mantém filtros de segurança (707.030877ms)
+Gemini indisponível gemini-3.5-flash-lite 503
+Gemini: resposta incompleta gemini-3.5-flash-lite MAX_TOKENS
+Gemini: resposta incompleta gemini-3.8-flash-lite-tts OTHER
+Gemini: resposta incompleta gemini-3.8-flash-lite-tts OTHER
+Gemini: resposta incompleta gemini-3.8-flash-lite-tts OTHER
+✔ cota, permissão e segurança não repetem; duas falhas temporárias encerram; abortar impede repetição (705.634448ms)
+✔ texto e imagem usam o modelo gratuito fixado, sem ferramentas ou cache de conversas (1.172576ms)
+✔ cota, rede, bloqueio e respostas incompletas retornam falha sem simulação (1.21511ms)
+✔ silêncio não chama a API e áudio comprimido não contorna limite de duração (43.925749ms)
+✔ síntese aceita somente PCM24k do modelo TTS gratuito (1.206757ms)
+✔ TTS estável usa fala literal e metadados; WAV é desembrulhado uma vez e taxa incorreta é rejeitada (1.173017ms)
+✔ Flash-Lite mantém pensamento minimal e esquema sem aceitar sampling depreciado ou configuração de outro modelo (0.58092ms)
+✔ cancelamento antes da chamada ou resposta tardia invalida texto, transcrição e leitura sem nova tentativa (1.853345ms)
+✔ cancelamento durante leitura do JSON impede liberar corpo tardio mesmo após HTTP200 (0.449546ms)
+✔ síntese repete uma resposta incompleta uma vez, sem repetir cota ou bloqueio (1.517708ms)
+✔ leitura literal usa conexão privada, modelo gratuito, somente texto completo e Aoede (5.081125ms)
+✔ público infantil, chave sem prova gratuita, configuração paga e texto inválido não abrem conexão (0.699897ms)
+✔ áudio permanece bufferizado até a última transcrição e generationComplete (1.097836ms)
+✔ JSON UTF-8 em frames binários é aceito; PCM bruto e UTF-8 inválido são bloqueados (3.020263ms)
+✔ transcrição opcional vazia aguarda texto; vazia na conclusão ou tipos inválidos bloqueiam áudio (3.458742ms)
+✔ normalização aceita apenas apresentação; conserva números, acentos e sinais (0.610845ms)
+✔ qualquer mudança de palavras, números ou instruções bloqueia todo o áudio (4.312055ms)
+✔ transcrição literal com áudio curtíssimo ou somente silêncio não libera voz (1.528012ms)
+✔ PCM insuficiente em generationComplete aguarda o turno completo e revalida áudio tardio (0.744322ms)
+✔ esperar turnComplete não libera silêncio, transcrição alterada, áudio parcial ou timeout (11.056173ms)
+✔ geração ausente, transcrição ausente, interrupção e desconexão não liberam voz (1.62042ms)
+✔ PCM, taxa, tamanho, transcrição e eventos inválidos falham antes da reprodução (124.938759ms)
+✔ cota não tenta novamente nem muda para serviço pago (0.341786ms)
+✔ cancelamento antes e durante a leitura fecha a conexão e ignora áudio tardio (0.760997ms)
+✔ prazo inclui conexão e geração e não pode ultrapassar 15 segundos (10.347343ms)
+✔ limite de duas leituras simultâneas é liberado após cancelamento ou sucesso (2.575054ms)
+✔ wrapper de streaming fornece um único PCM somente depois da conferência completa (0.76324ms)
+Gemini: resposta incompleta gemini-3.5-flash-lite MAX_TOKENS
+✔ uma geração multimodal gratuita transcreve e responde com contexto, filtros e JSON completo (6.553014ms)
+✔ voz multimodal bloqueia audiência/chave/plano indevidos antes de qualquer conexão (2.223923ms)
+✔ silêncio, duração/taxa inválida e contexto indevido não consomem chamadas (12.580851ms)
+✔ STOP e segurança completos são obrigatórios; JSON parcial não é usado como resposta (8.074408ms)
+✔ emergência usa orientação fixa antes de expor qualquer resposta proposta pelo modelo (0.848746ms)
+✔ fala incompreensível não é adivinhada pelo histórico; formatação válida é normalizada (0.944198ms)
+✔ cota e cooldown não viram tentativa paga ou transcrição alternativa (1.318523ms)
+✔ mesmo cancelamento cobre toda geração e rejeita uma resposta tardia do transporte (1.192706ms)
+✔ áudio multimodal compartilha o limite de concorrência do texto em vez de abrir outro orçamento (1.454554ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2594.508307

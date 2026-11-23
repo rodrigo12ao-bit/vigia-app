@@ -1,0 +1,53 @@
+Local review: 4 test files. Emulators and optional Edge runtime are separate suites: api.test.ts, sala.test.ts, school.test.ts, adventure-api.test.ts, firestore.rules.test.ts, edge-runtime.test.cjs.
+✔ um POST verifica adulto uma vez e o próximo POST consulta novamente (49.130941ms)
+✔ GET de acesso reutiliza a declaração da requisição sem cache de decisão entre GETs (16.459381ms)
+✔ revogação, tombstone e cabeçalhos forjados não conservam autorização (10.402315ms)
+✔ consentimento continua obrigatório e emergência local continua disponível (5.180322ms)
+✔ WebSocket sem requisição e uma identidade alterada fazem verificações novas (5.4692ms)
+✔ variações de maiúsculas e barra final conservam acesso adulto e consentimento da IA (58.083892ms)
+✔ declaração combinada aplica-se somente ao novo visitante e nunca substitui consentimento ou identidade (21.101201ms)
+✔ status shares the pending request and starts its 30 s cache only after the response (10.642932ms)
+✔ a confirmed adult guest session removes one preparation request without skipping consent or request checks (2.657556ms)
+✔ an older server still gets a separate adult declaration and a missing declaration creates no session (2.217304ms)
+✔ expired combined guest sessions renew once and reconfirm the new token (1.921796ms)
+✔ a stale status refresh runs in parallel without holding the next text POST (3.540333ms)
+✔ status hints older than 60 s wait for refresh and never remain indefinitely stale (1.315609ms)
+✔ online invalidates a recent status and a failed background refresh can be retried (1.132077ms)
+✔ cached status cannot bypass a changed consent: 428 is returned once and the next action asks again (1.067151ms)
+✔ a cached configuration never replaces fresh authorization of the text POST (0.8106ms)
+✔ explicit connection verification refreshes immediately and shares the pending read (0.525028ms)
+✔ a text connection failure invalidates status without replaying the failed write (0.727988ms)
+✔ a failed status request can be requested again (0.457037ms)
+✔ simultaneous voice access checks share one GET without caching the completed decision (1.99181ms)
+✔ a failed shared access check is evicted so the next action performs a fresh GET (1.085457ms)
+✔ access checks never share identities and an old result cannot evict the new pending check (1.24915ms)
+✔ cancelling a slow status releases the caller without consent, session or final request (0.89067ms)
+✔ a request already cancelled does not start even the preflight (0.385311ms)
+✔ account changes during status cannot request consent or use the old token (0.374965ms)
+✔ account changes during token retrieval cannot confirm adulthood or send the request (1.211164ms)
+✔ an expired guest request renews identity and adult access once before reaching the handler (0.957728ms)
+✔ a 401 while confirming adulthood renews the stale guest cookie rather than looping forever (0.751714ms)
+✔ concurrent stale requests share one renewal and one fresh adult confirmation (2.442888ms)
+✔ a second expired-session response is returned without an unbounded replay (1.029946ms)
+✔ a second 401 during adult confirmation fails after a single renewal (0.814537ms)
+✔ ambiguous 503 failure never replays a write (0.473661ms)
+✔ ambiguous unknown-401 failure never replays a write (0.556755ms)
+✔ ambiguous network failure never replays a write (0.376698ms)
+✔ authenticated 401 does not turn into a guest session or replay the write (0.401535ms)
+✔ cancellation while waiting on /api/session prevents the final request (1.669553ms)
+✔ cancellation while waiting on /api/adult-access prevents the final request (0.690673ms)
+✔ cancelling a pending response prevents even a later expired-session renewal (0.89813ms)
+✔ HTTP reading emits the first PCM before synthesis finishes and preserves ordered sample boundaries (5.500737ms)
+✔ a provider failure before PCM keeps HTTP error handling available (0.687418ms)
+✔ a failure after PCM has one terminal error and never repeats synthesis or reports done (0.293425ms)
+✔ malformed, oversized or missing PCM never becomes a completed reading (0.615081ms)
+✔ backpressure pauses generation and cancellation releases the reader without queued late audio (1.812524ms)
+✔ an already cancelled request does not start the provider (0.21641ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1488.033853

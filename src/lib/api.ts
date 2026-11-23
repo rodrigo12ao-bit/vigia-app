@@ -1,13 +1,14 @@
 import { auth } from './firebaseAuth';
 import {isEmergency} from '../../server/safety';
 import {adultAccessVersion,adultAudience,hasAdultAccessDeclaration} from './audience';
-let guestSession: Promise<void> | undefined;
+interface GuestSessionReceipt {adultAccess:boolean;}
+let guestSession: Promise<GuestSessionReceipt> | undefined;
 export interface AiStatus {demo:boolean;realAI:boolean;localDemo?:boolean;audience?:string;ai?:{mode:string;provider:string|null;blocked:string|null;consentVersion:string;voice:boolean};}
-interface AdultSession {promise:Promise<void>;guest?:Promise<void>;}
+interface AdultSession {promise:Promise<void>;guest?:Promise<GuestSessionReceipt>;}
 const adultSessions=new Map<string,AdultSession>();
 const expiredSessionMessage='Entre novamente ou inicie uma sessão de visitante.';
 class GuestSessionExpired extends Error {
-  constructor(readonly session:Promise<void>){super(expiredSessionMessage);}
+  constructor(readonly session:Promise<GuestSessionReceipt>){super(expiredSessionMessage);}
 }
 function checkRequest(uid:string|undefined,signal?:AbortSignal|null) {
   if(signal?.aborted)throw signal.reason||new DOMException('Operação cancelada.','AbortError');
@@ -26,14 +27,20 @@ function waitForRequest<T>(pending:Promise<T>,uid:string|undefined,signal?:Abort
     if(signal?.aborted)abort();
   });
 }
-function ensureGuestSession():Promise<void> {
+function ensureGuestSession(confirmAdult=false):Promise<GuestSessionReceipt> {
   if(!guestSession){
-    const pending=fetch('/api/session',{method:'POST',credentials:'same-origin'}).then(response=>{if(!response.ok)throw Error('Sessão indisponível.');}).catch(error=>{if(guestSession===pending)guestSession=undefined;throw error;});
+    const declared=confirmAdult&&hasAdultAccessDeclaration();
+    const pending=fetch('/api/session',{method:'POST',credentials:'same-origin',...(declared?{headers:{'Content-Type':'application/json'},body:JSON.stringify({adultAccess:{confirmed:true,version:adultAccessVersion}})}:{})}).then(async response=>{
+      if(!response.ok)throw Error('Sessão indisponível.');
+      const receipt=await response.json().catch(()=>null);
+      // Older servers ignore the new body and do not return this confirmation.
+      return {adultAccess:declared&&receipt?.adultAccess===true};
+    }).catch(error=>{if(guestSession===pending)guestSession=undefined;throw error;});
     guestSession=pending;
   }
   return guestSession;
 }
-function forgetGuestSession(expired:Promise<void>) {
+function forgetGuestSession(expired:Promise<GuestSessionReceipt>) {
   // A late 401 from an old request must not discard a newer shared renewal.
   if(guestSession===expired)guestSession=undefined;
   if(adultSessions.get('guest')?.guest===expired)adultSessions.delete('guest');
@@ -43,7 +50,7 @@ async function isExpiredSession(response:Response):Promise<boolean> {
   const body=await response.clone().json().catch(()=>null);
   return body?.error===expiredSessionMessage;
 }
-function ensureAdultSession(key:string,headers:Headers,guest?:Promise<void>):Promise<void> {
+function ensureAdultSession(key:string,headers:Headers,guest?:Promise<GuestSessionReceipt>):Promise<void> {
   let entry=adultSessions.get(key);
   if(!entry||entry.guest!==guest){
     const adultHeaders=new Headers(headers);adultHeaders.set('Content-Type','application/json');
@@ -99,8 +106,11 @@ export async function getAiAccess(){
   }
   return waitForRequest(aiAccessRequest.promise,uid);
 }
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(options.headers);
+export type ApiRequestPhase='configuration'|'session'|'adult-access'|'request';
+export interface ApiFetchOptions extends RequestInit {onPhase?:(phase:ApiRequestPhase)=>void;}
+export async function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  const {onPhase,...requestOptions}=options;
+  const headers = new Headers(requestOptions.headers);
   const user = auth.currentUser;
   const uid=user?.uid,signal=options.signal;
   checkRequest(uid,signal);
@@ -108,6 +118,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   let emergency=false;
   if(['/api/chat','/api/analyze-scenario'].includes(path)&&typeof options.body==='string'){try{const body=JSON.parse(options.body);emergency=isEmergency(body.message||body.scenario||'');}catch{}}
   if(!emergency&&['/api/chat','/api/analyze-scenario','/api/generate-quiz','/api/transcribe','/api/tts','/api/live-ticket'].includes(path)) {
+    onPhase?.('configuration');
     status=await waitForRequest(getAiStatus(),uid,signal);
     checkRequest(uid,signal);
     if(!status.demo&&status.ai?.blocked)throw new Error(status.ai.blocked);
@@ -124,19 +135,21 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   if(user)headers.set('Authorization',`Bearer ${await waitForRequest(user.getIdToken(),uid,signal)}`);
   checkRequest(uid,signal);
   const requiresAdult=adultAudience&&!['/api/status','/api/adult-access','/api/session'].includes(path);
-  if(requiresAdult&&!status)status=await waitForRequest(getAiStatus(),uid,signal);
+  if(requiresAdult&&!status){onPhase?.('configuration');status=await waitForRequest(getAiStatus(),uid,signal);}
   checkRequest(uid,signal);
   const confirmAdult=requiresAdult&&status?.audience==='18plus';
   if(confirmAdult&&!hasAdultAccessDeclaration())throw Error('O Vigia é exclusivo para pessoas de 18 anos ou mais.');
   for(let attempt=0;attempt<2;attempt++){
-    let guest:Promise<void>|undefined;
+    let guest:Promise<GuestSessionReceipt>|undefined;
+    let guestAdultConfirmed=false;
     try{
       checkRequest(uid,signal);
-      if(!user){guest=ensureGuestSession();await waitForRequest(guest,uid,signal);}
+      if(!user){onPhase?.('session');guest=ensureGuestSession(confirmAdult);guestAdultConfirmed=(await waitForRequest(guest,uid,signal)).adultAccess;}
       checkRequest(uid,signal);
-      if(confirmAdult)await waitForRequest(ensureAdultSession(uid||'guest',headers,guest),uid,signal);
+      if(confirmAdult&&!guestAdultConfirmed){onPhase?.('adult-access');await waitForRequest(ensureAdultSession(uid||'guest',headers,guest),uid,signal);}
       checkRequest(uid,signal);
-      const response=await waitForRequest(fetch(path,{...options,headers,credentials:'same-origin'}),uid,signal);
+      onPhase?.('request');
+      const response=await waitForRequest(fetch(path,{...requestOptions,headers,credentials:'same-origin'}),uid,signal);
       if([401,403,428,503].includes(response.status))invalidateAiStatus();
       if(response.status===401){
         if(user)adultSessions.delete(uid!);

@@ -1,0 +1,46 @@
+{
+  "mode": "public-readonly",
+  "observedAt": "2026-11-23T17:50:34.630Z",
+  "origin": "https://vigia-aplicativo-18plus.netlify.app",
+  "observations": [
+    {
+      "path": "/",
+      "method": "GET",
+      "headersMs": 6859.7,
+      "status": 200,
+      "contentType": "text/html; charset=UTF-8",
+      "serverTiming": null,
+      "totalMs": 6861.7,
+      "bytes": 2517,
+      "frontendEntry": "/assets/index-CtqcL0zC.js"
+    },
+    {
+      "path": "/api/status",
+      "method": "GET",
+      "headersMs": 1423,
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "serverTiming": null,
+      "totalMs": 1464.3,
+      "bytes": 214,
+      "runtime": {
+        "demo": false,
+        "realAI": true,
+        "audience": "18plus",
+        "provider": "gemini",
+        "mode": "adult-gemini",
+        "voice": true,
+        "blocked": false
+      }
+    }
+  ],
+  "requestsAttempted": 2,
+  "credentialUse": false,
+  "providerCalls": 0,
+  "limitations": [
+    "One observation per path; no retries, background warming, login, account data, AI generation or WebSocket connection.",
+    "A slow first request is not proof of a cold start. No uptime or deployment state is inferred.",
+    "This observes the published version, not unpublished workspace changes. It cannot measure answer quality or audible voice.",
+    "The page request precedes the status request and can affect server availability. These observations are not a controlled host comparison."
+  ]
+}

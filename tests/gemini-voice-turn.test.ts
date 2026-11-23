@@ -26,6 +26,7 @@ test('uma geração multimodal gratuita transcreve e responde com contexto, filt
  assert.deepEqual(body.generationConfig.responseSchema.required,['input','reply']);
  assert.equal(body.generationConfig.responseMimeType,'application/json');
  assert.equal(body.generationConfig.maxOutputTokens,600);
+ assert.deepEqual(body.generationConfig.thinkingConfig,{thinkingLevel:'minimal'});assert.equal(body.generationConfig.temperature,undefined);
  assert.ok(body.safetySettings.every((s:any)=>s.threshold==='BLOCK_MEDIUM_AND_ABOVE'));
  assert.equal(body.tools,undefined);assert.equal(body.cachedContent,undefined);
 });

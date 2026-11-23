@@ -8,8 +8,9 @@ const {createHash}=require('node:crypto');
 // microphone input are simulated. This file never imports server code or .env.
 const publicDir=path.resolve('dist/netlify/public');
 const root='http://localhost:3137';
-const prefix=process.env.VIGIA_VOICE_EVIDENCE_PREFIX||'artifacts/voice-autonomous-final-20261017';
+const prefix=process.env.VIGIA_VOICE_EVIDENCE_PREFIX||`artifacts/voice-autonomous-${Date.now()}`;
 if(!/^artifacts\/voice-autonomous[-_a-zA-Z0-9]+$/.test(prefix))throw Error('Evidence prefix must stay in the isolated voice artifact directory.');
+if(fs.existsSync(prefix+'.json'))throw Error('Use a new evidence prefix to preserve earlier results.');
 fs.mkdirSync('artifacts',{recursive:true});
 const report={url:root,scope:'Desktop e celular emulado. Frontend Netlify local, microfone fictício do Chrome, HTTP/WS/síntese simulados, toda solicitação externa bloqueada. Sem IA, Firebase ou dados reais.',results:[],requests:[],blockedExternal:[]};
 let browser,page,stage,label;
@@ -45,7 +46,7 @@ async function saved(input,reply){
   await page.waitForFunction(({input,reply})=>JSON.parse(localStorage.getItem('vigia_guest_chat_sessions_v1')||'[]').some(session=>session.messages.filter(message=>message.content===input).length===1&&session.messages.filter(message=>message.content===reply).length===1),{timeout:10000},{input,reply});
 }
 async function cloudReply(input,reply,bytes=24000){
-  await emit([{type:'processing'},{type:'input_transcription',text:input},{type:'output_transcription',text:reply},{type:'reply_ready'},{type:'audio_chunk',pcmBase64:Buffer.alloc(bytes).toString('base64')},{type:'turn_complete'}]);
+  await emit([{type:'processing',stage:'thinking'},{type:'input_transcription',text:input},{type:'output_transcription',text:reply},{type:'reply_ready'},{type:'processing',stage:'synthesizing'},{type:'audio_chunk',pcmBase64:Buffer.alloc(bytes).toString('base64')},{type:'turn_complete'}]);
 }
 async function endCall(){await page.click('[title="Encerrar"]');await clickButton('Sim, encerrar');await clean();await page.waitForFunction(()=>!Array.from(document.querySelectorAll('h3')).some(heading=>heading.textContent==='Encerrar a conversa por voz?'));}
 async function startVoice(expected){
@@ -63,7 +64,9 @@ async function startVoice(expected){
     report.startedAt=new Date().toISOString();
     await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(3137,'127.0.0.1',resolve);});
     const puppeteer=(await import('puppeteer')).default;
-    browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
+    const executablePath=[process.env.CHROME_PATH,'/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome','C:/Program Files/Google/Chrome/Application/chrome.exe'].filter(Boolean).find(file=>fs.existsSync(file));
+    assert.ok(executablePath,'Set CHROME_PATH to an installed supported browser.');
+    browser=await puppeteer.launch({executablePath,headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
     for(const mobile of [false,true]){
       label=mobile?'celular':'desktop';stage='opening';
       const context=await browser.createBrowserContext();page=await context.newPage();
@@ -89,6 +92,7 @@ async function startVoice(expected){
       });
       await page.evaluateOnNewDocument(()=>{
         localStorage.setItem('vigia_mic_explained:guest','true');
+        localStorage.setItem('vigia_voice_preference:guest','local');
         window.review={sockets:[],tracks:[],contexts:[],gains:[],sources:[],frames:0,speech:[],rejectMic:false,captureCalls:0,localVoices:true,voiceListeners:new Set()};
         const NativeContext=window.AudioContext;
         window.AudioContext=class extends NativeContext{
@@ -112,7 +116,7 @@ async function startVoice(expected){
           emit(message){if(this.readyState===1)this.onmessage?.({data:JSON.stringify(message)});}
           send(data){const message=JSON.parse(data);this.sent.push(message);if(message.type==='realtime_audio')window.review.frames++;
             if(message.type==='interrupt')setTimeout(()=>{this.interruptAckCount=(this.interruptAckCount||0)+1;this.emit({type:'interrupted'});},0);
-            if(message.type==='speech_output')setTimeout(()=>this.emit({type:'speech_output',mode:message.mode}),0);
+            if(message.type==='speech_output')setTimeout(()=>this.emit({type:'speech_output',mode:'cloud'}),0);
           }
           close(){if(this.readyState===3)return;this.readyState=3;this.onclose?.();}
         };
@@ -126,7 +130,7 @@ async function startVoice(expected){
       console.log('Loaded local frontend for '+label);
       await page.waitForSelector('[aria-label="Acesso para adultos"]');await page.click('input[type="checkbox"]');await clickButton('Continuar');
       await page.waitForSelector('[aria-label="Boas-vindas à Vigia"]');await clickButton('Explorar como visitante');
-      await page.click('[title="Conversa & Voz"]');await page.waitForSelector('textarea');
+      await page.click('[data-section="chat"]');await page.waitForSelector('textarea');
       const textInput='Pergunta exclusiva do canal texto.',textReply='Resposta exclusiva do canal texto.',draft='Rascunho preservado no canal texto.';
       await page.type('textarea',textInput);await page.click('[title="Enviar mensagem"]');
       for(let attempt=0;!heldTextRequest&&attempt<50;attempt++)await wait(50);
@@ -134,17 +138,10 @@ async function startVoice(expected){
       await page.focus('textarea');await page.keyboard.down('Control');await page.keyboard.press('KeyA');await page.keyboard.up('Control');await page.keyboard.type(draft);
       await startVoice(1);passed('inicia uma sessão e um microfone fictício');
       const autonomousInput='Pergunta autônoma em voz.',autonomousReply='Resposta autônoma em voz.';
-      await page.waitForFunction(()=>window.review.sockets[0].sent.some(message=>message.type==='speech_output'&&message.mode==='device'));
-      await emit([{type:'processing'},{type:'input_transcription',text:autonomousInput},{type:'output_transcription',text:autonomousReply},{type:'reply_ready'},{type:'speech_on_device',text:autonomousReply},{type:'turn_complete'}]);
-      await page.waitForFunction(()=>window.review.speech.length===1);await paused();
-      assert.equal(await page.evaluate(()=>window.review.speech[0].text),autonomousReply);
-      assert.ok(await page.evaluate(()=>window.review.speech[0].utterance.voice.localService&&window.review.speech[0].utterance.voice.lang==='pt-BR'));
-      const activeOutputChanges=await page.evaluate(()=>window.review.sockets[0].sent.filter(message=>message.type==='speech_output').length);
-      await clickButton('Voz Google');assert.equal(await page.evaluate(()=>window.review.sockets[0].sent.filter(message=>message.type==='speech_output').length),activeOutputChanges,'A preference change must not replace a current verified spoken answer.');
-      await page.evaluate(()=>window.review.speech[0].end());await active();await saved(autonomousInput,autonomousReply);
-      passed('voz rápida local portuguesa é escolhida automaticamente e só lê a resposta verificada');
-      await clickButton('Voz Google');await page.waitForFunction(()=>window.review.sockets[0].sent.some(message=>message.type==='speech_output'&&message.mode==='cloud'));
-      assert.equal(await page.evaluate(()=>localStorage.getItem('vigia_voice_preference:guest')),'google');await page.evaluate(()=>{window.review.speech=[];});
+      await cloudReply(autonomousInput,autonomousReply);await paused();
+      assert.equal(await page.evaluate(()=>window.review.speech.length),0);
+      await active();await saved(autonomousInput,autonomousReply);
+      passed('voz do servidor reproduz a resposta verificada com texto ainda em andamento');
       holdTextResponse=false;await heldTextRequest.respond({status:200,contentType:'application/json',body:JSON.stringify({reply:textReply,avatarState:'explaining',status:'ok'})});
       await saved(textInput,textReply);
       assert.ok(await page.evaluate(({autonomousInput,textInput})=>{const sessions=JSON.parse(localStorage.getItem('vigia_guest_chat_sessions_v1')||'[]'),voice=sessions.find(session=>session.id.startsWith('voice:')),text=sessions.find(session=>!session.id.startsWith('voice:'));return voice.messages.some(message=>message.content===autonomousInput)&&!voice.messages.some(message=>message.content===textInput)&&text.messages.some(message=>message.content===textInput)&&!text.messages.some(message=>message.content===autonomousInput);},{autonomousInput,textInput}));
@@ -180,20 +177,13 @@ async function startVoice(expected){
       await saved(unavailableInput,unavailableReply);
       await clickButton('Tentar voz novamente');await active();assert.equal(await page.evaluate(()=>window.review.sockets.length),1);passed('falha da síntese conserva histórico e respeita retomada explícita');
 
-      stage='device speech';const deviceInput='Pergunta fictícia para leitura local.',deviceReply='Confira a lanterna antes de guardar.';
-      await emit([{type:'processing'},{type:'input_transcription',text:deviceInput},{type:'output_transcription',text:deviceReply},{type:'reply_ready'},{type:'speech_unavailable',message:'Leitura fictícia disponível no aparelho.'},{type:'turn_complete'}]);
-      await page.click('[title="Silenciar"]');await page.waitForSelector('[title="Áudio Mutado"]');
-      await clickButton('Usar voz do aparelho');await page.waitForFunction(()=>window.review.speech.length===1);await paused();
-      assert.ok(await page.evaluate(()=>window.review.speech[0].paused));assert.equal(await page.evaluate(()=>window.review.speech[0].text),deviceReply);
-      await page.waitForSelector('[title="Silenciar"]');assert.equal(await page.$eval('[title="Silenciar"]',button=>button.getAttribute('aria-pressed')),'false');
-      await page.waitForFunction(()=>document.querySelector('[data-avatar-speaking="true"]'));passed('recuperação explícita com voz rápida ativa som e movimento de boca coerentes');
-      await page.evaluate(()=>window.review.speech[0].end());await active();await saved(deviceInput,deviceReply);passed('voz do aparelho lê só o texto verificado e retoma uma vez');
-
-      await clickButton('Voz rápida');await page.waitForFunction(()=>window.review.sockets[0].sent.filter(message=>message.type==='speech_output').at(-1)?.mode==='device');
-      stage='device error';await emit([{type:'processing'},{type:'input_transcription',text:'Pergunta fictícia para erro local.'},{type:'output_transcription',text:'Resposta fictícia preservada no erro local.'},{type:'reply_ready'},{type:'speech_on_device',text:'Resposta fictícia preservada no erro local.'},{type:'turn_complete'}]);
-      await page.waitForFunction(()=>window.review.speech.length===2);await page.evaluate(()=>window.review.speech[1].error({error:'synthesis-failed'}));await paused();
-      await page.waitForFunction(()=>document.body.innerText.includes('não conseguiu ler'));passed('erro de leitura mantém microfone pausado e texto disponível');
-      await clickButton('Voz Google');
+      stage='single server voice';
+      assert.equal(await page.$('[aria-label="Tipo de voz"]'),null);
+      assert.ok(await page.evaluate(()=>!Array.from(document.querySelectorAll('button')).some(button=>['Voz rápida','Voz Google','Usar voz do aparelho'].includes(button.textContent.trim()))));
+      assert.equal(await page.evaluate(()=>window.review.speech.length),0);
+      assert.ok(await page.evaluate(()=>window.review.sockets.every(socket=>!socket.sent.some(message=>message.type==='speech_output'&&message.mode==='device'))));
+      assert.equal(await page.evaluate(()=>localStorage.getItem('vigia_voice_preference:guest')),null);
+      passed('conversa usa apenas a voz do servidor e remove a preferência local antiga');
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
       await bounded(page.screenshot({path:prefix+'-'+label+'.png',fullPage:true}));if(mobile)await bounded(page.screenshot({path:prefix+'.png',fullPage:true}));
       stage='end call';await endCall();passed('encerrar fecha microfone, conexões e contextos de áudio');
@@ -222,15 +212,14 @@ async function startVoice(expected){
       await clean();assert.equal(apiCalls.filter(value=>value==='/api/transcribe').length,0);passed('ditado sem MediaRecorder mostra erro e libera o microfone');
       stage='new independent call';await startVoice(6);await page.click('[title="Iniciar uma nova conversa por voz"]');await active();
       assert.equal(await page.evaluate(()=>window.review.sockets.length),7);
-      assert.equal(await page.$eval('[aria-label="Tipo de voz"] button:nth-child(2)',button=>button.getAttribute('aria-pressed')),'true');
-      assert.ok(await page.evaluate(()=>!window.review.sockets.at(-1).sent.some(message=>message.type==='speech_output'&&message.mode==='device')));passed('preferência de Voz Google permanece na nova sessão da mesma conta');
+      assert.equal(await page.$('[aria-label="Tipo de voz"]'),null);
+      assert.ok(await page.evaluate(()=>!window.review.sockets.at(-1).sent.some(message=>message.type==='speech_output'&&message.mode==='device')));passed('nova conversa mantém a voz única sem escolha por aparelho');
       const nextInput='Segunda conversa independente em voz.',nextReply='Segunda resposta independente em voz.';
       await cloudReply(nextInput,nextReply);await active();await saved(nextInput,nextReply);
-      await clickButton('Voz rápida');await page.waitForFunction(()=>window.review.sockets.at(-1).sent.filter(message=>message.type==='speech_output').at(-1)?.mode==='device');
       await page.evaluate(()=>{window.review.localVoices=false;for(const listener of window.review.voiceListeners)listener();});
-      await page.waitForFunction(()=>document.querySelector('[aria-label="Tipo de voz"] button')?.disabled&&document.body.innerText.includes('Sem voz local em português'));
-      await page.waitForFunction(()=>window.review.sockets.at(-1).sent.filter(message=>message.type==='speech_output').at(-1)?.mode==='cloud');
-      assert.equal(await page.$eval('[aria-label="Tipo de voz"] button:nth-child(2)',button=>button.getAttribute('aria-pressed')),'true');passed('voz local que desaparece mostra indisponibilidade e usa Google na próxima resposta, sem voz remota do aparelho');
+      assert.equal(await page.$('[aria-label="Tipo de voz"]'),null);
+      assert.equal(await page.evaluate(()=>window.review.speech.length),0);
+      passed('disponibilidade de voz local não altera a voz da conversa');
       await endCall();
       assert.ok(await page.evaluate(()=>JSON.parse(localStorage.getItem('vigia_guest_chat_sessions_v1')||'[]').filter(session=>session.id.startsWith('voice:')).length===2));passed('nova voz cria outro registro sem apagar a voz anterior ou o texto');
       await page.click('[title="Abrir histórico de conversas"]');await page.waitForSelector('[aria-label="Canal do histórico"]',{visible:true});await page.evaluate(()=>document.querySelector('[aria-label="Canal do histórico"] button:nth-child(2)').click());
@@ -249,7 +238,8 @@ async function startVoice(expected){
     report.results.push({name:(label||'setup')+': '+(stage||'voice browser'),status:'failed',error:error.message});report.errorStack=error.stack;console.error(error.stack);process.exitCode=1;
     if(page){report.failureText=await bounded(page.evaluate(()=>document.body.innerText),5000).catch(()=>null);await bounded(page.screenshot({path:prefix+'-failure.png',fullPage:true})).catch(()=>{});}
   }finally{
-    fs.mkdirSync('artifacts',{recursive:true});report.finishedAt=new Date().toISOString();
+    if(fs.existsSync(prefix+'.json'))throw Error('Use a new evidence prefix to preserve earlier results.');
+fs.mkdirSync('artifacts',{recursive:true});report.finishedAt=new Date().toISOString();
     fs.writeFileSync(prefix+'.json',JSON.stringify(report,null,2));
     fs.writeFileSync(prefix+'.txt',report.results.map(result=>result.status.toUpperCase()+' '+result.name+(result.error?' — '+result.error:'')).join('\n')+'\n'+(report.errorStack||'')+'\n'+(report.failureText||''));
     if(browser)await bounded(browser.close(),6000).catch(()=>browser.process()?.kill());

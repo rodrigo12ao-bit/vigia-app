@@ -26,7 +26,8 @@ test('fala de150ms usa uma geração seguida de TTS e mantém todos os eventos s
  const f=fixture();sendAudio(f.socket,voiced(150));sendAudio(f.socket,Buffer.alloc(600*32));await settle();
  assert.deepEqual(f.calls,['voiceTurn','TTS']);assert.equal(f.requests.length,1);
  const captured=readPcmWave(Buffer.from(f.requests[0].audio,'base64'));assert.equal(captured.rate,16000);assert.equal(captured.pcm.length,(150+600)*32);
- assert.deepEqual(f.socket.sent.filter(e=>e.type!=='voice_timing').map(e=>e.type),['open','processing','input_transcription','output_transcription','reply_ready','audio_chunk','turn_complete']);
+ assert.deepEqual(f.socket.sent.filter(e=>e.type!=='voice_timing').map(e=>e.type==='processing'?`${e.type}:${e.stage}`:e.type),['open','processing:thinking','input_transcription','output_transcription','reply_ready','processing:synthesizing','audio_chunk','turn_complete']);
+ assert.deepEqual(f.socket.sent.filter(e=>e.type==='processing'),[{type:'processing',stage:'thinking',turn:1},{type:'processing',stage:'synthesizing',turn:1}]);
  assert.equal(f.socket.sent[0].mode,'streamed-speech');f.socket.close();
 });
 

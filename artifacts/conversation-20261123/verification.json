@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-23",
+  "timezone": "America/Sao_Paulo",
+  "repository": "rodrigo12ao-bit/vigia-app",
+  "baseCommit": "df9c716b22244b1f29d602dda3c5179dd147b48b",
+  "targetBranch": "review/vigia-20261123",
+  "scope": "Text and voice conversation revision. No application deployment, model change, paid-service activation or Firebase production data write.",
+  "changes": [
+    "One conversation voice (Aoede) and shared pt-BR style across streaming, message reading and existing literal fallback; old voice selectors and device-conversation speech removed.",
+    "NDJSON PCM for /api/tts begins playback from first received blocks, with existing JSON/WAV compatibility, bounded payloads, cancellation and backpressure.",
+    "Provider interaction.completed terminates TTS without waiting for an idle HTTP connection EOF.",
+    "Replay preparation is announced immediately and can be cancelled before audio; generation tokens reject callbacks from former reads.",
+    "Client streaming has 75s total network and 30s packet-idle deadlines; successful network completion does not cut scheduled audio.",
+    "New guest-session receipt accepts an already explicit adult declaration and removes one serialized request; older servers retain the previous flow and every protected request still checks current authorization.",
+    "Chat phases and numeric Server-Timing distinguish preparation/generation/validation; voice processing stages and numeric timing preserve content privacy.",
+    "Adult instructions prioritize direct answers and context without repetitive greetings or a rigid twenty-word voice ceiling; factual safety grounding and checks remain.",
+    "Recent history is JSON escaped within existing pair/byte budgets; provider cancellation discards late JSON responses.",
+    "Supported minimal text-model thinking is explicit; this was already the model default and is not a measured speed-up."
+  ],
+  "verification": {
+    "netlifyBuild": {
+      "command": "npm run build:netlify",
+      "status": "passed",
+      "includesTypecheck": true,
+      "evidence": "build.log"
+    },
+    "serverAndFrontendBuild": {
+      "command": "npm run build:publication",
+      "status": "passed",
+      "includesTypecheck": true,
+      "evidence": "build-publication.log",
+      "note": "Built the changed working tree before committing; release metadata records the then-current base HEAD. Build output is not the source ZIP or a production deployment."
+    },
+    "buildWarning": "Existing optional 3D game bundle remains over the Vite chunk-size warning threshold. No measured chat runtime conclusion is drawn from this warning.",
+    "generalSuite": {
+      "command": "npm run test:review",
+      "status": "passed",
+      "testFiles": 57,
+      "tests": 563,
+      "pass": 563,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "evidence": "tests.log",
+      "excludedSuites": [
+        "api.test.ts",
+        "sala.test.ts",
+        "school.test.ts",
+        "adventure-api.test.ts",
+        "firestore.rules.test.ts",
+        "edge-runtime.test.cjs"
+      ]
+    },
+    "initialGeneralRun": {
+      "tests": 563,
+      "pass": 561,
+      "fail": 2,
+      "evidence": "tests-initial.log",
+      "resolution": "Two legacy voice tests expected the old event order. Assertions now require the exact transcribing/thinking/synthesizing phases and preserve text-before-audio and provider-call-order guarantees. No production source change was needed."
+    },
+    "focusedRuns": [
+      {
+        "command": "node scripts/run-review-tests.cjs api-client-recovery.test.cjs ai-access-boundary.test.cjs adult-request-authorization.test.cjs streamed-speech-http.test.cjs",
+        "pass": 44,
+        "evidence": "request-stream-tests.log",
+        "includedInGeneralSuite": true
+      },
+      {
+        "scope": "Gemini provider, context, multimodal turn and literal reading",
+        "pass": 44,
+        "evidence": "gemini-provider-tests.log",
+        "includedInGeneralSuite": true
+      },
+      {
+        "scope": "Gemini TTS and streamed voice protocol",
+        "pass": 33,
+        "evidence": "gemini-stream-tests.log",
+        "includedInGeneralSuite": true
+      }
+    ],
+    "browser": {
+      "status": "not_run",
+      "reason": "Earlier Chromium launch in this environment was blocked: socket() failed: Operation not permitted (1). No bypass or relaunch was attempted.",
+      "scriptsUpdated": [
+        "tests/review-voice-browser.cjs",
+        "tests/voice-autonomous-browser.cjs"
+      ],
+      "syntaxChecks": "passed",
+      "passedBrowserChecks": 0
+    },
+    "independentReview": {
+      "status": "no remaining blocker found",
+      "scope": [
+        "Combined guest adult declaration and per-request authorization",
+        "Shared voice, cancellation and terminal provider event",
+        "HTTP streaming response and client cancellation/deadlines",
+        "Conversation history and migration behavior"
+      ]
+    },
+    "previousFirestoreResults": "No Firestore rules changed in this revision. Previous 14 rules checks and adult/history integrations remain documented under artifacts/review-20261123; they were not rerun or counted in the 563.",
+    "diffWhitespace": {
+      "status": "passed",
+      "note": "Source and documentation checked; raw command logs preserve provider/build output."
+    }
+  },
+  "publicBaseline": {
+    "evidence": "public-ai-baseline.json",
+    "scope": "Published application baseline; local changes have NOT been deployed.",
+    "origin": "https://vigia-app.onrender.com",
+    "configurationMs": 8888.2,
+    "chatRoundTripMs": [
+      1552.2,
+      3093.9
+    ],
+    "chatPosts": 2,
+    "voiceTextTurns": 0,
+    "status": "Two chat calls succeeded; WebSocket transport failed before handshake and before any voice turn was sent.",
+    "notes": [
+      "Questions and history were fictional and used the normal guest, adult declaration, consent and free-provider guards.",
+      "No generation retry was made by the probe.",
+      "Chat values include transport and authorization. Old deployment provided no Server-Timing.",
+      "Neither initial delay nor WebSocket failure was attributed to a specific cause.",
+      "No microphone, audible playback, voice quality, percentile or controlled before/after comparison was measured."
+    ]
+  },
+  "syntheticTiming": {
+    "evidence": "latency-synthetic.json",
+    "status": "artificial provider delays only; not real AI performance"
+  },
+  "publicReadOnly": {
+    "evidence": [
+      "public-readonly-render.json",
+      "public-readonly-netlify.json"
+    ],
+    "status": "Uncontrolled one-shot GET observations of existing public pages/status; not cold-start or hosting comparison results."
+  },
+  "limits": [
+    "New code is not deployed. New-version real text latency, live microphone recognition, audible quality and physical-device UX remain unverified.",
+    "Free Render may spin down after 15 idle minutes and take about one minute to restart. Code changes do not eliminate that hosting behavior; the baseline does not prove a cold start.",
+    "No guarantee of immediate responses, the objectively best voice, or perfect factual correctness is made.",
+    "Normal literal TTS can stream; existing validation-first alternative still waits for verified literal transcript when required.",
+    "Explicit device reading in Aprender/Ajuda remains outside the conversation. The conversation does not offer a second voice or silently switch to device synthesis.",
+    "API Server-Timing begins at Express middleware and excludes network, browser and pre-Express startup time. Emergency shortcut and guard failures may not contain handler timings.",
+    "Source publication uses the previously authorized public GitHub review branch. Production deployment remains separate."
+  ],
+  "sources": [
+    {
+      "url": "https://render.com/docs/free",
+      "supports": "Free-service idle suspension and restart time",
+      "consultedAt": "2026-11-23"
+    },
+    {
+      "url": "https://ai.google.dev/gemini-api/docs/thinking?generate-content=true",
+      "supports": "gemini-3.5-flash-lite supports minimal thinking and already defaults to it",
+      "consultedAt": "2026-11-23"
+    },
+    {
+      "url": "https://ai.google.dev/gemini-api/docs/streaming#event-interaction-completed",
+      "supports": "interaction.completed is a terminal interaction event",
+      "consultedAt": "2026-11-23"
+    },
+    {
+      "url": "https://aistudio.google.com/docs/models/gemini-3.8-flash-lite-tts",
+      "supports": "Existing TTS model documentation",
+      "consultedAt": "2026-11-23"
+    }
+  ],
+  "remotePersistence": {
+    "authorization": "Already explicitly authorized by the user for revised code, tests and reports in this public repository and review branch.",
+    "branchUrl": "https://github.com/rodrigo12ao-bit/vigia-app/tree/review/vigia-20261123",
+    "expectedParent": "df9c716b22244b1f29d602dda3c5179dd147b48b"
+  },
+  "evidenceSha256": {
+    "build-publication.log": "5cb395ea3581a3afb33ba5fa4ef25be0f033b02a57390ffd0339adfd44f37b42",
+    "build.log": "d1d5b5fdec37e0988aa91211974173cd8fb204ab4ffa02273cb99d9741d31fd2",
+    "gemini-provider-tests.log": "bd540fe2f6c948d9fccb14217bf234ea1b5119887e0a2a08b3b62d4a3fd213e3",
+    "gemini-stream-tests.log": "3d05789f51e927bf0ed7d218d5c3f759d46bc307acdf9aa537bf40a81f655e34",
+    "latency-synthetic.json": "d8d6fee4dacf849850d807e0b2aa3060a08ce991a70a10d3a23027ad0274b038",
+    "public-ai-baseline.json": "564901c3511f5fe1ca3b4bf2c5d59fe41ad9ff646c64684969abb2f90d91ab60",
+    "public-readonly-netlify.json": "defafae061441840405ce68d0719d1cfe890665628d0ae521cf5563e8c9a8cac",
+    "public-readonly-render.json": "350bc144fc48f96e9d898eb03785474f4ba999d2bd89d9810c3752fa3f91279b",
+    "request-stream-tests.log": "462d33346b1f41be2a2bc43c9521fbd16babcf9588f0ebb9f45dbc556f3921f1",
+    "tests-initial.log": "79dc00cec4604ccc9bc33a7dc396dd8a55961bd104854fece026b9591959dfed",
+    "tests.log": "99ea6e135b22c2fc51261c08e063995565c1077fd21853e62a9913c54ecc2ae3"
+  },
+  "changedSourceAndTestsSha256": {
+    "README.md": "7fa8768099666321f6e001027bbf7e6bf7c3a0db19b97ece9ca26f8768cc0f6c",
+    "server.ts": "e31e750ee26ee5abd076dae7401d297612e12e6c2e7d6b20022f5117a0ba8022",
+    "server/chatContext.ts": "f1741680265fdfea44968cc26926d172cc74f21f4724a5189acfd59dd7788f79",
+    "server/geminiAi.ts": "6e3dec49fef04db49dc685ae0eaf4f1b7e8188130374713452db5676d3418309",
+    "server/geminiLiteralSpeech.ts": "384a7920e68db6d49b6fa5b1e8465f275bd5e9a9bbaf832f1039aab8afca9daa",
+    "server/realVoice.ts": "202a4d086f6ecc44f1a87cb461737227a2d5173001d88d8cfbc27c7366256c99",
+    "server/security.ts": "47edaa4f3d5616edfb309b1079f9f2e06b80690db1d216b46ac24d8d67d717e0",
+    "server/streamedSpeech.ts": "a62aa681ea39fbfb04712c09c7a3fb916f9275fcf42f1bfaf176ea112ca0467b",
+    "src/App.tsx": "b0b8b31977818475c617623d15533203d22542e4ce43df0fc9c1f1e8c5ad524c",
+    "src/components/ChatTab.tsx": "9be66e805dc876e92d542640a5b9ad613ef2d84f5876e0bea9850e1161bea943",
+    "src/data/promptsAdult.ts": "59f85fd74a1b88193ad8647c0db0ce357972e0ef472201319a9157dd6b04fbbe",
+    "src/lib/api.ts": "89819f87994f07b8f61badfb5b18fc7a9432b3c1e1211707bab5f8cac8ab39f8",
+    "src/lib/voicePreference.ts": "fb2e19f0194272a98f42f46070f58ebbfc94e793ba93b56064ff5cc87f42be54",
+    "src/utils/geminiLive.ts": "000ae18a26ab00a226dcf6f869bb677cf53c1a94f2b29e0b5d2de50e43342796",
+    "src/utils/speech.ts": "ef770c035fa0511c377b1a76335383a0a030726232fc1580d77aacfd28b66e36",
+    "tests/ai-access-boundary.test.cjs": "d499dd131f1930988bdb18a49d2e9828d7c3bbffc23586f202d088fdc37cdded",
+    "tests/api-client-recovery.test.cjs": "b6aa35d01bd11bb5c07ecd693c44d9e09457e5fa7e906e3a935367bd7ff2caed",
+    "tests/chat-context.test.ts": "ef60a41d4b28ccd1f6ef554b8e1471aea1209724919d65aa8816b15981267b89",
+    "tests/chat-voice-experience.test.cjs": "6e384490cae1b9a894044f05fffd88feb9cca1f9064e8220b67ce49769dc2154",
+    "tests/conversation-latency-review.cjs": "04e0afdb1c48652395d8894850732474e21f4c94b022e804d25a0489b8c9789f",
+    "tests/conversation-public-baseline.cjs": "1ea8593f7b92cb3ddf8bc1977ca28747286189f53c7566eb6eb53d0da076b779",
+    "tests/gemini-ai.test.ts": "53bc82a00693e85e97dee57d37f4a211f58c7c21927de369bc9acc46baf732e4",
+    "tests/gemini-literal-speech.test.ts": "b2ab2d78a8d2d330978191faa2945bfbd49033010c2d4f0f435fc112d53a976e",
+    "tests/gemini-live-client.test.cjs": "85650a23e76fa89d16f032ec677732eb465dc5ce3765a48b2fc4daa66842103d",
+    "tests/gemini-speech-stream.test.ts": "725790db92f02a1f0e44cf9e7bf78b0ff1ad00ea75acf8c21a27db399b46e61c",
+    "tests/gemini-voice-turn.test.ts": "fc314c1ee45e7a808d755cc1b43dd6e7db197e19db11364d89a1cc225ccba808",
+    "tests/real-voice-multimodal.test.ts": "ae33e06b67b2ef9f758f1b4a0e89ad7f5e77560a1ffbfc8aa83a51b3f9652960",
+    "tests/real-voice.test.ts": "f4eded0b4dad5836ff5770dfc6cad9b3960760a016b0550604c5f4a488803120",
+    "tests/review-voice-browser.cjs": "37eb350f6abe7fed5a958473a77627ddbc445a377408421103c2cfd5f97dcaa2",
+    "tests/speech-client.test.cjs": "af459f30ae35737f1274249f3dba95f54564a56419ebb444b3d21fbae1652c10",
+    "tests/speech-stream-client.test.cjs": "ab8d4dda9f653b056a2a6092a6a03021813e5c8711045cb21270a392c4f8c1d6",
+    "tests/streamed-speech-http.test.cjs": "496d566873ff276f5115d8539ca00e087771abd6e8e6074756da15bf09a2ac5f",
+    "tests/voice-autonomous-browser.cjs": "ce6c7d61e8226215e684b5689353c97d2a7d852532c93374814c3deed95f688b",
+    "tests/voice-preference.test.cjs": "2d1326172ba75720b51dc95997ad38705d66fe2300f6d6ff992d23bd01906a24"
+  }
+}

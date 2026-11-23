@@ -5,13 +5,13 @@ const {transform}=require('esbuild');
 
 // The browser audio graph and transport are simulated. No browser, network or AI.
 const voiceOriginSource=readFileSync('src/lib/voiceOrigin.ts','utf8').replace(/^export /gm,'');
-const isolatedSource=readFileSync('src/utils/geminiLive.ts','utf8').replace("import { apiFetch } from '../lib/api';",'const apiFetch=async()=>({ok:true,json:async()=>({ticket:"isolated-test-ticket"})});').replace("import {buildVoiceSocketUrl} from '../lib/voiceOrigin';",voiceOriginSource);
+const isolatedSource=readFileSync('src/utils/geminiLive.ts','utf8').replace("import { apiFetch } from '../lib/api';",'const apiFetch=(...args)=>ticketRequest(...args);').replace("import {buildVoiceSocketUrl} from '../lib/voiceOrigin';",voiceOriginSource);
 const bundle=transform(isolatedSource,{loader:'ts',format:'cjs',define:{'import.meta.env.DEV':'false','import.meta.env.VITE_VOICE_ORIGIN':'undefined'}});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const pcm=Buffer.alloc(4800).toString('base64');
 
-async function harness({started=true,capturePromise}={}){
-  const contexts=[],sockets=[],events={states:[],capture:[],speechErrors:[],errors:[],closed:0,captureRequests:0};
+async function harness({started=true,capturePromise,ticketRequest=async()=>({ok:true,json:async()=>({ticket:'isolated-test-ticket'})})}={}){
+  const contexts=[],sockets=[],events={states:[],stages:[],replies:[],turns:0,capture:[],speechErrors:[],errors:[],closed:0,captureRequests:0};
   class Context{
     constructor(){this.currentTime=10;this.state='running';this.destination={};this.sources=[];contexts.push(this);}
     createGain(){return {gain:{value:1,setValueAtTime(){}},connect(){},disconnect(){}};}
@@ -35,8 +35,9 @@ async function harness({started=true,capturePromise}={}){
   const navigator={mediaDevices:{getUserMedia:()=>{events.captureRequests++;return capturePromise||Promise.resolve(stream);}}};
   const module={exports:{}};
   const result=await bundle;
-  new Function('window','WebSocket','navigator','module','exports',result.code)(window,Socket,navigator,module,module.exports);
+  new Function('window','WebSocket','navigator','ticketRequest','module','exports',result.code)(window,Socket,navigator,ticketRequest,module,module.exports);
   const session=new module.exports.GeminiLiveSession({onStateChange:state=>events.states.push(state),onMicrophoneActivityChange:active=>events.capture.push(active),
+    onProcessingStageChange:stage=>events.stages.push(stage),onOutputTranscription:text=>events.replies.push(text),onTurnComplete:()=>events.turns++,
     onSpeechUnavailable:message=>events.speechErrors.push(message),onError:message=>events.errors.push(message),onClose:()=>events.closed++});
   let context,socket;
   if(started){
@@ -44,7 +45,7 @@ async function harness({started=true,capturePromise}={}){
     Object.assign(session,{outputAudioCtx:context,ws:socket,mediaStream:stream,streamedSpeech:true,nativeAudio:true,cleanupDone:false,lastCaptureActive:true});
   }
   const emit=payload=>session.handleServerPayload(payload);
-  return {session,context,socket,contexts,sockets,track,stream,events,emit};
+  return {session,context,socket,contexts,sockets,track,stream,events,emit,telemetry:window.VigiaTelemetry};
 }
 
 test('cloud pauses capture throughout generation and queued playback, then resumes the same stream',async()=>{
@@ -129,15 +130,53 @@ test('manual pause during cloud playback remains paused after the real playback 
   }finally{h.session.stop();await flush();}
 });
 
-test('finishing local device speech releases processing state so the next turn can report processing again',async()=>{
-  const h=await harness();h.session.speechOutput='device';
+test('legacy preference callers can only request cloud and cannot enable device speech',async()=>{
+  const h=await harness();
   try{
-    h.emit({type:'processing'});h.emit({type:'speech_on_device',text:'Resposta verificada fictícia.'});
-    assert.equal(h.track.enabled,false);h.session.finishDevicePlayback(true);
-    assert.equal(h.events.states.at(-1),'listening');assert.equal(h.track.enabled,true);
-    const changes=h.events.states.length;h.emit({type:'processing'});
-    assert.equal(h.events.states.length,changes+1);assert.equal(h.events.states.at(-1),'processing');
+    assert.equal(h.session.setSpeechOutput('device'),true);assert.deepEqual(h.socket.sent.at(-1),{type:'speech_output',mode:'cloud'});
+    h.emit({type:'speech_output',mode:'device'});assert.deepEqual(h.socket.sent.at(-1),{type:'speech_output',mode:'cloud'});
+    h.emit({type:'processing'});assert.equal(h.track.enabled,false);
+    h.emit({type:'audio_chunk',pcmBase64:pcm});await flush();assert.equal(h.context.sources.length,1);
   }finally{h.session.stop();await flush();}
+});
+
+test('an obsolete device response preserves the checked text and closes capture without local playback',async()=>{
+  const h=await harness();
+  h.emit({type:'output_transcription',text:'Resposta completa verificada.'});h.emit({type:'reply_ready'});
+  h.emit({type:'speech_on_device',text:'Resposta completa verificada.'});await flush();
+  assert.deepEqual(h.events.replies,['Resposta completa verificada.']);assert.equal(h.events.turns,1);
+  assert.equal(h.events.speechErrors.length,1);assert.equal(h.events.closed,1);assert.equal(h.track.readyState,'ended');assert.equal(h.context.sources.length,0);
+});
+
+test('progress follows actual server phases and clears when playback starts or the turn is interrupted',async()=>{
+  const h=await harness();
+  try{
+    for(const stage of ['transcribing','thinking','synthesizing'])h.emit({type:'processing',stage,turn:1});
+    assert.deepEqual(h.events.stages,['transcribing','thinking','synthesizing']);
+    h.emit({type:'audio_chunk',pcmBase64:pcm});await flush();assert.equal(h.events.stages.at(-1),null);
+    h.session.interruptPlayback();const length=h.events.stages.length;
+    h.emit({type:'processing',stage:'synthesizing',turn:1});assert.equal(h.events.stages.length,length);
+    h.emit({type:'interrupted'});h.emit({type:'processing',stage:'unknown text supplied by server'});assert.equal(h.events.stages.at(-1),'thinking');
+  }finally{h.session.stop();await flush();}
+});
+
+test('server timing diagnostics accept only schema fields without copying answer content',async()=>{
+  const h=await harness();
+  try{
+    const timing={type:'voice_timing',turn:1,pipeline:'multimodal',stage:'first_audio',durationMs:1500,elapsedMs:4000};
+    h.emit({...timing,text:'private transcript'});
+    const measured=h.telemetry.logs.filter(entry=>entry.event==='SERVER_VOICE_STAGE');assert.equal(measured.length,1);
+    assert.deepEqual(measured[0].meta,{turn:1,pipeline:'multimodal',stage:'first_audio',durationMs:1500,elapsedMs:4000});
+    for(const patch of [{turn:0},{pipeline:'unknown'},{stage:'audible'},{durationMs:NaN},{elapsedMs:-1}])h.emit({...timing,...patch});
+    h.session.interruptPlayback();h.emit(timing);assert.equal(h.telemetry.logs.filter(entry=>entry.event==='SERVER_VOICE_STAGE').length,1);
+  }finally{h.session.stop();await flush();}
+});
+
+test('microphone permission is not requested before the mandatory live ticket is approved',async()=>{
+  let reply;const h=await harness({started:false,ticketRequest:()=>new Promise(resolve=>reply=resolve)});
+  const pending=h.session.start();await flush();assert.equal(h.events.captureRequests,0);assert.equal(h.sockets.length,0);
+  reply({ok:false,json:async()=>({error:'Acesso adulto necessário.'})});await pending;await flush();
+  assert.equal(h.events.captureRequests,0);assert.equal(h.sockets.length,0);assert.match(h.events.errors[0],/Acesso adulto/);assert.equal(h.contexts[0].state,'closed');
 });
 
 test('manual interruption discards old PCM and old turn events until the server acknowledgement',async()=>{

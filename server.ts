@@ -5,7 +5,7 @@ import fs from 'fs';
 import { GoogleGenAI, Type, Modality, StartSensitivity, EndSensitivity, ThinkingLevel } from '@google/genai';
 import { WebSocketServer } from 'ws';
 import { installSecurity, allowedOrigin, consumeTicket, demoMode, identity, runtime, realAiAccess,authenticateApiRequest,apiOriginGuard } from './server/security';
-import { realAi, realAiConfig, aiErrorResponse } from './server/realAi';
+import { realAi, realAiConfig, aiErrorResponse,type AiEngine } from './server/realAi';
 import { connectRealVoice } from './server/realVoice';
 import {connectGeminiVoice} from './server/geminiVoice';
 import { installSalaRoutes } from './server/sala';
@@ -20,6 +20,7 @@ import {VIGIA_ADULT_TEXT_PROMPT,VIGIA_ADULT_VOICE_PROMPT} from './src/data/promp
 import {educationalPlanSchema,validEducationalPlan} from './server/educationalPlan';
 import {createAiAdmission} from './server/aiAdmission';
 import {buildChatContext} from './server/chatContext';
+import {streamCheckedSpeech} from './server/streamedSpeech';
 import {installApiBoundary,publicRequestError,apiResponseHeaders} from './server/apiBoundary';
 import {createAuthenticatedApiLimiter} from './server/apiRateLimit';
 
@@ -27,6 +28,8 @@ const emergencyReply=runtime.adultAudience?adultEmergencyReply:legacyEmergencyRe
 const aiAdmission=createAiAdmission({demo:demoMode,isEmergency,emergencyReply});
 
 const app = express();
+const apiStartedAt=new WeakMap<express.Request,number>();
+app.use('/api',(request,_response,next)=>{apiStartedAt.set(request,performance.now());next();});
 const PORT = Number(process.env.PORT || 3000);
 if (process.env.RENDER === 'true') app.set('trust proxy', 1);
 
@@ -87,6 +90,16 @@ const VIGIA_SYSTEM_INSTRUCTION = (runtime.adultAudience?VIGIA_ADULT_TEXT_PROMPT:
 app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
     let contentsPrompt = '';
     let modelUsed = demoMode ? 'simulation' : realAiConfig().models.text;
+    const handlerStarted=performance.now();
+    let generationMs=0,validationStarted:number|undefined;
+    const writeTimings=()=>{
+      if(res.headersSent||res.destroyed)return;
+      const now=performance.now(),apiStarted=apiStartedAt.get(req)??handlerStarted;
+      const duration=(value:number)=>Math.max(0,value).toFixed(1);
+      // Durations only: prehandler includes parsing and current authorization;
+      // API time excludes browser/network/cold-start time before Express ran.
+      res.setHeader('Server-Timing',`prehandler;dur=${duration(handlerStarted-apiStarted)}, generation;dur=${duration(generationMs)}, validation;dur=${duration(validationStarted===undefined?0:now-validationStarted)}, handler;dur=${duration(now-handlerStarted)}, api;dur=${duration(now-apiStarted)}`);
+    };
 
     try {
       const { message, chatHistory, image, avatarGender, nickname, starsScore, unlockedBadgesCount } = req.body;
@@ -163,12 +176,15 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
               },
             };
 
-            response = await ai.models.generateContent({
-              model: modelUsed,
-              contents: contentsPayload,
-              localInput:{message,history:modelContext.history,readingLevel:req.body.readingLevel},
-              config: callConfig,
-            },signal);
+            const generationStarted=performance.now();
+            try{
+              response = await ai.models.generateContent({
+                model: modelUsed,
+                contents: contentsPayload,
+                localInput:{message,history:modelContext.history,readingLevel:req.body.readingLevel},
+                config: callConfig,
+              },signal);
+            }finally{generationMs+=performance.now()-generationStarted;}
 
             if (response && response.text) {
               lastModelError = '';
@@ -198,6 +214,7 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
       // If all models hit rate limits / quota zero or failed
       if (!response || !response.text) {
         const quotaMessage = 'A Vigia está temporariamente indisponível. Aguarde um momento e tente novamente.';
+        writeTimings();
         return res.status(503).json({
           status: 'unavailable', reply: quotaMessage,
           avatarState: 'serious',
@@ -218,6 +235,7 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
         });
       }
 
+      validationStarted=performance.now();
       const rawText = response.text || '';
       let parsedData;
       try {
@@ -234,6 +252,7 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
       if (!parsedData || ['emergencyTip','challengeOrQuestion','topicIllustration'].some(k=>parsedData[k]!==undefined && typeof parsedData[k]!=='string'))throw new Error('Resposta inválida da IA.');
       if (!parsedData || typeof parsedData.reply !== 'string' || !parsedData.reply.trim() || parsedData.reply.length > 10000 || !['idle','listening','thinking','speaking','explaining','asking','celebrating','serious','closing','alert'].includes(parsedData.avatarState) || !Array.isArray(parsedData.interactiveOptions) || !Array.isArray(parsedData.suggestedFollowUps) || [...parsedData.interactiveOptions,...parsedData.suggestedFollowUps].some(v => typeof v !== 'string')) throw new Error('Resposta inválida da IA.');
 
+      writeTimings();
       return res.json({
         ...parsedData,
         provider:demoMode?'simulation':realAiConfig().provider,model:demoMode?'simulation':realAiConfig().models.text,
@@ -249,6 +268,7 @@ app.post('/api/chat', aiAdmission.wrap(async (req, res, signal) => {
       });
     } catch (error: any) {
       console.error('Chat indisponível.');
+      writeTimings();
       if(!demoMode){const failure=aiErrorResponse(error);return res.status(failure.statusCode).json(failure.body);}
       const errorMessage = error?.message || String(error);
       const is429Err = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('Quota exceeded');
@@ -340,7 +360,11 @@ app.post('/api/transcribe', aiAdmission.wrap(async (req, res, signal) => {
 app.post('/api/tts', aiAdmission.wrap(async (req, res, signal) => {
   try {
     const { text } = req.body;
-    if(!demoMode){const result=await realAi().speech(text,signal);const {pcmWave}=await import('./server/realAi');return res.json({audio:pcmWave(result.pcm,result.sampleRate).toString('base64'),mimeType:'audio/wav',provider:realAiConfig().provider,voiceDisclosure:realAiConfig().provider==='local'?'Voz sintetizada localmente pelo Windows.':'Voz gerada por inteligência artificial.'});}
+    if(!demoMode){
+      const engine:AiEngine=realAi();
+      if(req.headers.accept?.split(',').some(value=>value.trim().split(';')[0]==='application/x-ndjson')&&engine.speechStream)return await streamCheckedSpeech(res,engine,text,signal);
+      const result=await engine.speech(text,signal);const {pcmWave}=await import('./server/realAi');return res.json({audio:pcmWave(result.pcm,result.sampleRate).toString('base64'),mimeType:'audio/wav',provider:realAiConfig().provider,voiceDisclosure:realAiConfig().provider==='local'?'Voz sintetizada localmente pelo Windows.':'Voz gerada por inteligência artificial.'});
+    }
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ error: 'Texto não informado.' });
     }

@@ -1,10 +1,31 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {EventEmitter} from 'node:events';
-import {GeminiAi} from '../server/geminiAi';import {connectRealVoice} from '../server/realVoice';import {AiUnavailable} from '../server/realAi';
+import {GeminiAi} from '../server/geminiAi';import {connectRealVoice} from '../server/realVoice';import {AiUnavailable} from '../server/realAi';import {GEMINI_SPEECH_STYLE} from '../server/geminiLiteralSpeech';
 const key='FAKE_CONTRACT_KEY',env={AI_PROVIDER:'gemini',AI_AUDIENCE:'18plus',VIGIA_MODE:'local-real',ENABLE_REAL_AI:'true',GEMINI_API_KEY:key,GEMINI_FREE_KEY_SHA256:createHash('sha256').update(key).digest('hex')};
 const packet=(e:any)=>'data: '+JSON.stringify(e)+'\r\n\r\n',audio=(data=Buffer.alloc(200).toString('base64'))=>({event_type:'step.delta',delta:{type:'audio',data,mime_type:'audio/l16',sample_rate:24000}}),done={event_type:'interaction.completed'};
 function sse(events:any[]){const b=new TextEncoder().encode(events.map(packet).join(''));return new Response(new ReadableStream({start(c){for(let i=0;i<b.length;i+=7)c.enqueue(b.slice(i,i+7));c.close();}}),{headers:{'Content-Type':'text/event-stream'}});}
 async function collect(ai:GeminiAi,signal?:AbortSignal){const chunks:Buffer[]=[];for await(const p of ai.speechStream('Guarde a lanterna na mochila.',signal))chunks.push(p);return chunks;}
-test('TTS por partes usa modelo gratuito, texto literal verificado, Aoede e store false',async()=>{let sent:any,headers:any;const ai=new GeminiAi(env,async(_u,o)=>{sent=JSON.parse(o!.body as string);headers=o!.headers;return sse([audio(),audio(),done]);});assert.equal((await collect(ai)).length,2);assert.equal(sent.store,false);assert.equal(sent.stream,true);assert.equal(sent.model,'gemini-3.8-flash-lite-tts');assert.equal(sent.input[0].content[0].text,'Guarde a lanterna na mochila.');assert.equal(sent.generation_config.speech_config[0].voice,'Aoede');assert.equal(headers['x-goog-api-key'],key);});
+test('TTS por partes usa modelo gratuito, texto literal verificado, Aoede e store false',async()=>{let sent:any,headers:any;const ai=new GeminiAi(env,async(_u,o)=>{sent=JSON.parse(o!.body as string);headers=o!.headers;return sse([audio(),audio(),done]);});assert.equal((await collect(ai)).length,2);assert.equal(sent.store,false);assert.equal(sent.stream,true);assert.equal(sent.model,'gemini-3.8-flash-lite-tts');assert.equal(sent.input[0].content[0].text,'Guarde a lanterna na mochila.');assert.equal(sent.input[0].content[0].annotations[0].style,GEMINI_SPEECH_STYLE);assert.equal(sent.generation_config.speech_config[0].voice,'Aoede');assert.equal(headers['x-goog-api-key'],key);});
+
+test('PCM chega antes da conclusão e evento terminal finaliza o turno sem esperar EOF da conexão',async()=>{
+ let controller!:ReadableStreamDefaultController<Uint8Array>,cancelled=0,finished=false;
+ const response=new Response(new ReadableStream<Uint8Array>({start(stream){controller=stream;stream.enqueue(new TextEncoder().encode(packet(audio())));},cancel(){cancelled++;}}));
+ const ai=new GeminiAi(env,async()=>response),stream=ai.speechStream('Guarde a lanterna na mochila.');
+ const first=await stream.next();assert.equal(first.done,false);assert.equal(first.value?.length,200);assert.equal(cancelled,0);
+ const completed=stream.next().then(value=>{finished=true;return value;});
+ try{
+  await new Promise<void>(resolve=>setImmediate(resolve));assert.equal(finished,false);
+  controller.enqueue(new TextEncoder().encode(packet({event_type:'interaction.completed',interaction:{status:'completed'}})));
+  await new Promise<void>(resolve=>setImmediate(resolve));
+  assert.equal(finished,true);assert.equal(cancelled,1);assert.equal((await completed).done,true);
+ }finally{if(!cancelled)controller.close();await completed.catch(()=>{});}
+});
+
+test('conclusão SSE com estado não concluído ou sem áudio não libera sucesso nem fallback',async()=>{
+ for(const events of [[done],...['in_progress','requires_action','failed',null].map(status=>[audio(),{event_type:'interaction.completed',interaction:{status}}])]){
+  let calls=0,reads=0;const ai=new GeminiAi(env,async()=>{calls++;return sse(events);},async()=>{reads++;return{pcm:Buffer.alloc(200),sampleRate:24000};});
+  await assert.rejects(collect(ai),(error:any)=>error.code==='incomplete_response');assert.equal(calls,1);assert.equal(reads,0);
+ }
+});
 test('streaming rejeita projeto não verificado, taxa inválida, WAV, bytes ímpares e conclusão ausente',async()=>{let calls=0;const blocked=new GeminiAi({...env,GEMINI_FREE_KEY_SHA256:''},async()=>{calls++;return sse([]);});await assert.rejects(collect(blocked));assert.equal(calls,0);for(const events of [[audio('AQ=='),done],[{...audio(),delta:{...audio().delta,sample_rate:16000}},done],[audio(Buffer.from('RIFFAA').toString('base64')),done],[audio()],[{event_type:'interaction.failed'}]]){await assert.rejects(collect(new GeminiAi(env,async()=>sse(events))));}});
 test('cota percorre somente dois TTS gratuitos; cancelamento não repete nem ativa serviço pago',async()=>{let calls=0;await assert.rejects(collect(new GeminiAi(env,async()=>{calls++;return new Response('{}',{status:429});})));assert.equal(calls,2);const c=new AbortController();const ai=new GeminiAi(env,async(_u,o)=>{assert.ok(o?.signal);c.abort();throw Error('abort');});await assert.rejects(collect(ai,c.signal));});
 test('cota do Lite usa TTS Flash literal com Aoede; cooldown é individual e não abre Live',async()=>{
@@ -28,7 +49,13 @@ test('segurança, erro HTTP, desconexão e falha incompleta não selecionam outr
 class Socket extends EventEmitter{OPEN=1;readyState=1;sent:any[]=[];send(s:string){this.sent.push(JSON.parse(s));}close(){this.readyState=3;this.emit('close');}message(p:any){this.emit('message',Buffer.from(JSON.stringify(p)));}}
 const wait=()=>new Promise(r=>setTimeout(r,20));
 function fixture(change:any={},options:any={}){const socket=new Socket(),calls:string[]=[];const ai={provider:'gemini',models:{generateContent:async()=>{calls.push('checked-text');return{text:'Guarde a lanterna na mochila.'};}},transcribe:async()=>({text:'Onde guardo a lanterna?',status:'ok',provider:'gemini'}),speech:async()=>{throw Error('No unary fallback');},speechStream:async function*(){calls.push('speech-stream');yield Buffer.alloc(200);},...change};connectRealVoice(socket as any,ai,'Instrução educativa.',{streamSpeech:true,...options});return {socket,calls};}
-test('voz envia áudio por partes apenas depois da resposta textual completa verificada',async()=>{const f=fixture();f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.deepEqual(f.calls,['checked-text','speech-stream']);assert.deepEqual(f.socket.sent.filter(p=>p.type!=='voice_timing').map(p=>p.type),['open','processing','input_transcription','output_transcription','reply_ready','audio_chunk','turn_complete']);f.socket.close();});
+test('voz envia áudio por partes apenas depois da resposta textual completa verificada',async()=>{
+ const f=fixture();f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.deepEqual(f.calls,['checked-text','speech-stream']);
+ assert.deepEqual(f.socket.sent.filter(p=>!['voice_timing','processing'].includes(p.type)).map(p=>p.type),['open','input_transcription','output_transcription','reply_ready','audio_chunk','turn_complete']);
+ const stages=f.socket.sent.filter(p=>p.type==='processing');assert.equal(stages[0].stage,'thinking');assert.equal(stages.at(-1).stage,'synthesizing');assert.ok(stages.every(p=>p.turn===stages[0].turn));
+ const synthIndex=f.socket.sent.findIndex(p=>p.type==='processing'&&p.stage==='synthesizing');
+ assert.ok(synthIndex>f.socket.sent.findIndex(p=>p.type==='reply_ready'));assert.ok(synthIndex<f.socket.sent.findIndex(p=>p.type==='audio_chunk'));f.socket.close();
+});
 test('moderação, resposta inválida e emergência impedem síntese e resposta pronta',async()=>{for(const text of ['{JSON incompleto','']){const f=fixture({models:{generateContent:async()=>({text})}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'||p.type==='reply_ready'),false);assert.equal(f.calls.includes('speech-stream'),false);}const e=fixture();e.socket.message({type:'realtime_text',text:'tem fogo na minha casa'});assert.ok(e.socket.sent.some(p=>p.type==='emergency'));assert.equal(e.calls.length,0);});
 test('interromper aborta áudio pendente, conserva texto verificado e ignora fragmentos tardios',async()=>{let finish!:()=>void,signal:AbortSignal|undefined;const f=fixture({speechStream:async function*(_text:string,s:AbortSignal){signal=s;yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);yield Buffer.alloc(200);}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();f.socket.message({type:'interrupt'});assert.equal(signal?.aborted,true);const n=f.socket.sent.filter(p=>p.type==='audio_chunk').length;finish();await wait();assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,n);assert.ok(f.socket.sent.some(p=>p.type==='reply_ready'));assert.equal(f.socket.sent.some(p=>p.type==='turn_complete'),false);f.socket.close();});
 test('fala sustentada interrompe a síntese e conserva o início da nova gravação',async()=>{let finish!:()=>void;const f=fixture({speechStream:async function*(){yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);}});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();const pcm=Buffer.alloc(2048);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);for(let i=0;i<5;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});assert.ok(f.socket.sent.some(p=>p.type==='interrupted'));finish();f.socket.close();});
@@ -151,29 +178,28 @@ test('cota também na leitura gratuita bloqueia repetição de conexões e infor
  await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs===60000);await assert.rejects(collect(ai),(e:AiUnavailable)=>e.retryAfterMs!>0);assert.equal(reads,1);
 });
 
-test('voz do aparelho recebe só resposta completa verificada, sem solicitar síntese cloud',async()=>{
+test('preferência device de cliente antigo usa a única voz cloud depois da resposta verificada',async()=>{
  const f=fixture();f.socket.message({type:'speech_output',mode:'device'});
  f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await wait();
- assert.deepEqual(f.calls,['checked-text']);
- assert.deepEqual(f.socket.sent.find(p=>p.type==='speech_output'),{type:'speech_output',mode:'device'});
- assert.deepEqual(f.socket.sent.find(p=>p.type==='speech_on_device'),{type:'speech_on_device',text:'Guarde a lanterna na mochila.'});
- assert.equal(f.socket.sent.some(p=>p.type==='audio_chunk'),false);
- const names=f.socket.sent.map(p=>p.type);assert.ok(names.indexOf('reply_ready')<names.indexOf('speech_on_device'));assert.equal(names.at(-1),'turn_complete');f.socket.close();
+ assert.deepEqual(f.calls,['checked-text','speech-stream']);
+ assert.deepEqual(f.socket.sent.find(p=>p.type==='speech_output'),{type:'speech_output',mode:'cloud'});
+ assert.equal(f.socket.sent.some(p=>p.type==='speech_on_device'),false);
+ assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,1);
+ const names=f.socket.sent.map(p=>p.type);assert.ok(names.indexOf('reply_ready')<names.indexOf('audio_chunk'));assert.equal(names.at(-1),'turn_complete');f.socket.close();
 });
 
-test('leitura no aparelho mantém contexto e bloqueia captura até retomada explícita',async()=>{
+test('preferência antiga mantém contexto nas próximas falas e não altera a voz cloud',async()=>{
  let seen:any,turns=0;
  const f=fixture({models:{generateContent:async(r:any)=>{seen=r;return{text:++turns===1?'Guarde a lanterna na mochila.':'Confira também as pilhas.'};}}});
  f.socket.message({type:'speech_output',mode:'device'});f.socket.message({type:'realtime_text',text:'Onde guardo a lanterna?'});await wait();
- const pcm=Buffer.alloc(6000);for(let i=0;i<pcm.length;i+=2)pcm.writeInt16LE(4000,i);
- for(let i=0;i<2;i++)f.socket.message({type:'realtime_audio',pcmBase64:pcm.toString('base64')});
- f.socket.message({type:'audio_stream_end'});f.socket.message({type:'realtime_text',text:'Resposta do alto-falante'});await wait();assert.equal(turns,1);
- f.socket.message({type:'resume_input'});f.socket.message({type:'realtime_text',text:'E as pilhas dela?'});await wait();assert.equal(turns,2);
+ f.socket.message({type:'playback_ended'});f.socket.message({type:'resume_input'});f.socket.message({type:'speech_output',mode:'device'});
+ f.socket.message({type:'realtime_text',text:'E as pilhas dela?'});await wait();assert.equal(turns,2);
  assert.match(seen.contents,/Onde guardo a lanterna/);assert.match(seen.contents,/Guarde a lanterna na mochila/);
- assert.equal(f.socket.sent.filter(p=>p.type==='speech_on_device').length,2);assert.equal(f.calls.includes('speech-stream'),false);f.socket.close();
+ assert.equal(f.socket.sent.some(p=>p.type==='speech_on_device'),false);assert.equal(f.calls.filter(call=>call==='speech-stream').length,2);
+ assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,2);assert.ok(f.socket.sent.filter(p=>p.type==='speech_output').every(p=>p.mode==='cloud'));f.socket.close();
 });
 
-test('saída device não contorna erro de geração, texto inválido, emergência ou limite do protocolo',async()=>{
+test('preferência device antiga não contorna erro de geração, texto inválido, emergência ou limite do protocolo',async()=>{
  for(const change of [{models:{generateContent:async()=>{throw new AiUnavailable('content_blocked','Conteúdo bloqueado.',422);}}},{models:{generateContent:async()=>({text:''})}}]){
   const f=fixture(change);f.socket.message({type:'speech_output',mode:'device'});f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();
   assert.equal(f.socket.sent.some(p=>p.type==='reply_ready'||p.type==='speech_on_device'||p.type==='audio_chunk'),false);assert.equal(f.socket.readyState,3);
@@ -182,10 +208,10 @@ test('saída device não contorna erro de geração, texto inválido, emergênci
  for(const mode of [null,'paid','DEVICE',{}]){const f=fixture();f.socket.message({type:'speech_output',mode});assert.equal(f.socket.readyState,3);assert.deepEqual(f.calls,[]);}
 });
 
-test('modo de saída não muda síntese já iniciada; fechamento cancela geração device pendente',async()=>{
+test('preferência antiga não muda síntese já iniciada; fechamento cancela geração pendente',async()=>{
  let finish!:()=>void;const f=fixture({speechStream:async function*(){yield Buffer.alloc(200);await new Promise<void>(r=>finish=r);yield Buffer.alloc(200);}});
  f.socket.message({type:'realtime_text',text:'Lanterna'});await wait();f.socket.message({type:'speech_output',mode:'device'});finish();await wait();
- assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,2);assert.equal(f.socket.sent.some(p=>p.type==='speech_on_device'),false);f.socket.close();
+ assert.equal(f.socket.sent.filter(p=>p.type==='audio_chunk').length,2);assert.equal(f.socket.sent.some(p=>p.type==='speech_on_device'),false);assert.equal(f.socket.sent.find(p=>p.type==='speech_output')?.mode,'cloud');f.socket.close();
  let resolve!:(v:any)=>void;const closed=fixture({models:{generateContent:()=>new Promise(r=>resolve=r)}});
  closed.socket.message({type:'speech_output',mode:'device'});closed.socket.message({type:'realtime_text',text:'Lanterna'});await wait();closed.socket.close();resolve({text:'Resposta tardia.'});await wait();
  assert.equal(closed.socket.sent.some(p=>p.type==='reply_ready'||p.type==='speech_on_device'||p.type==='output_transcription'),false);

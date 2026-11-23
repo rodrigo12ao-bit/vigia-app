@@ -1,7 +1,8 @@
-import { apiFetch, getAiStatus } from '../lib/api';
+import { apiFetch } from '../lib/api';
 // Client-side speech utilities for Vigia
-// - Attempts server-side TTS via /api/tts and plays returned base64 audio
-// - Falls back to browser `speechSynthesis` if server TTS fails
+// - Plays /api/tts PCM as it arrives, with JSON audio support for older servers
+// - Conversation reads use the same server voice as live conversation
+// - Browser speech is available only for explicitly requested activity reading
 // - Ensures previous audio or utterance is cancelled before starting a new one
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -137,41 +138,129 @@ function startDeviceSpeech(text:string,callbacks:DeviceSpeechCallbacks,cancelPre
       window.speechSynthesis.addEventListener('voiceschanged',changed);
       cleanup.add(()=>window.speechSynthesis.removeEventListener('voiceschanged',changed));
       const timer=globalThis.setTimeout(()=>{
-        try{if(!queue(window.speechSynthesis.getVoices()))finish('error','Não há uma voz local em português disponível neste aparelho. Você pode escolher a voz Google gratuita ou continuar por texto.');}catch{fail();}
+        try{if(!queue(window.speechSynthesis.getVoices()))finish('error','Não há uma voz local em português disponível neste aparelho. Você pode continuar por texto.');}catch{fail();}
       },300);timers.add(timer);
     }catch{fail();}
   };
   next();return handle;
 }
 
-// Toggle this to true to re-enable Gemini server TTS in the future.
-export const USE_SERVER_TTS = true;
+// The default path never changes voice when the network, provider or playback
+// fails. Device reading is retained only as an explicit request by other areas.
+class StreamedTextPlayback {
+  private context:AudioContext;
+  private reader:ReadableStreamDefaultReader<Uint8Array>|null=null;
+  private sources=new Set<AudioBufferSourceNode>();
+  private nextPlayTime=0;
+  private chunks=0;
+  private bytesReceived=0;
+  private started=false;
+  private done=false;
+  private cancelled=false;
+  private resumeTimer:ReturnType<typeof globalThis.setTimeout>|undefined;
+  private releaseResume:()=>void=()=>{};
+  private ready:Promise<Error|null>;
 
-// Server TTS control: when false, client will use browser TTS immediately.
-let serverTTSEnabled = false;
-let serverTTSDisabledUntil = 0; // epoch ms
-
-export function disableServerTTSFor(ms: number) {
-  serverTTSEnabled = false;
-  serverTTSDisabledUntil = Date.now() + ms;
-  globalThis.setTimeout(() => {
-    if (Date.now() >= serverTTSDisabledUntil) {
-      serverTTSEnabled = true;
-    }
-  }, ms + 50);
-}
-
-export function setServerTTSEnabled(flag: boolean) {
-  serverTTSEnabled = flag;
-  if (!flag) serverTTSDisabledUntil = Number.MAX_SAFE_INTEGER;
-  else serverTTSDisabledUntil = 0;
-}
-
-export function isServerTTSEnabled() {
-  if (!serverTTSEnabled && serverTTSDisabledUntil > 0 && Date.now() > serverTTSDisabledUntil) {
-    serverTTSEnabled = true;
+  constructor(AudioCtx:typeof AudioContext,private current:()=>boolean,private onStart:()=>void,private onEnd:()=>void){
+    this.context=new AudioCtx({sampleRate:24000});
+    // Called in the user's interaction, before waiting for authorization/TTS.
+    // A failed resume is reported only if the server actually returns PCM.
+    const cancelled=new Promise<void>(resolve=>{this.releaseResume=resolve;});
+    let resume:Promise<void>;
+    try{resume=this.context.state==='running'?Promise.resolve():this.context.resume();}catch(error){resume=Promise.reject(error);}
+    this.ready=Promise.race([
+      resume,cancelled,
+      new Promise<never>((_,reject)=>{this.resumeTimer=globalThis.setTimeout(()=>reject(Error('O navegador não ativou o som. Tente ouvir novamente.')),3000);}),
+    ]).then(()=>this.cancelled||this.context.state==='running'?null:Error('O navegador não ativou o som. Tente ouvir novamente.'),()=>Error('O navegador não ativou o som. Tente ouvir novamente.'))
+      .finally(()=>{globalThis.clearTimeout(this.resumeTimer);this.resumeTimer=undefined;});
   }
-  return serverTTSEnabled;
+
+  cancel():void{
+    if(this.cancelled)return;
+    this.cancelled=true;this.releaseResume();globalThis.clearTimeout(this.resumeTimer);
+    const reader=this.reader;this.reader=null;
+    if(reader)void reader.cancel().catch(()=>{});
+    for(const source of this.sources){source.onended=null;try{source.stop();source.disconnect();}catch{/* Already ended. */}}
+    this.sources.clear();
+    if(this.context.state!=='closed')void this.context.close().catch(()=>{});
+  }
+
+  private finishWhenPlayed():void{
+    if(this.cancelled||!this.current()||!this.done||this.sources.size)return;
+    this.cancel();this.onEnd();
+  }
+
+  private async accept(value:unknown):Promise<void>{
+    if(this.cancelled||!this.current())return;
+    if(!value||typeof value!=='object')throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+    const message=value as Record<string,unknown>;
+    if(message.type==='error')throw Error(typeof message.message==='string'&&message.message.trim()?message.message.slice(0,500):'A geração da voz foi interrompida. Tente ouvir novamente.');
+    if(message.type==='start'){
+      if(this.started||message.sampleRate!==24000||message.encoding!=='pcm_s16le')throw Error('O formato de áudio recebido não é compatível.');
+      this.started=true;return;
+    }
+    if(!this.started)throw Error('O áudio chegou sem informação de reprodução.');
+    if(message.type==='done'){
+      if(!this.chunks)throw Error('A resposta chegou sem áudio. Você pode tentar ouvir novamente.');
+      this.done=true;this.finishWhenPlayed();return;
+    }
+    if(message.type!=='audio'||typeof message.pcmBase64!=='string'||!message.pcmBase64.length||message.pcmBase64.length>32000)throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+    let binary:string;
+    try{binary=atob(message.pcmBase64);}catch{throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');}
+    if(!binary.length||binary.length%2||binary.length>24000)throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+    if(this.bytesReceived+binary.length>2400000)throw Error('O áudio excedeu o limite de reprodução. A resposta continua por texto.');
+    this.bytesReceived+=binary.length;
+    const bytes=Uint8Array.from(binary,character=>character.charCodeAt(0));
+    const samples=new Float32Array(bytes.length/2),view=new DataView(bytes.buffer);
+    for(let index=0;index<samples.length;index++){
+      const value=view.getInt16(index*2,true);samples[index]=value/(value<0?32768:32767);
+    }
+    const resumeError=await this.ready;
+    if(this.cancelled||!this.current())return;
+    if(resumeError)throw resumeError;
+    const buffer=this.context.createBuffer(1,samples.length,24000);buffer.getChannelData(0).set(samples);
+    const source=this.context.createBufferSource();source.buffer=buffer;source.connect(this.context.destination);
+    source.onended=()=>{source.disconnect();this.sources.delete(source);this.finishWhenPlayed();};
+    const now=this.context.currentTime,startAt=this.chunks===0?now+0.08:Math.max(now+0.008,this.nextPlayTime);
+    this.sources.add(source);source.start(startAt);this.nextPlayTime=startAt+buffer.duration;
+    this.chunks++;if(this.chunks===1)this.onStart();
+  }
+
+  async consume(response:Response):Promise<void>{
+    if(!response.body)throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+    const reader=response.body.getReader();this.reader=reader;
+    const decoder=new TextDecoder('utf-8',{fatal:true});let pending='';
+    const line=async(raw:string)=>{
+      if(raw.length>40000)throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+      if(raw.trim()){
+        let value:unknown;
+        try{value=JSON.parse(raw);}catch{throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');}
+        await this.accept(value);
+      }
+    };
+    try{
+      while(!this.cancelled&&this.current()&&!this.done){
+        let readTimer:ReturnType<typeof globalThis.setTimeout>|undefined;
+        const result=await Promise.race([
+          reader.read(),
+          new Promise<never>((_,reject)=>{readTimer=globalThis.setTimeout(()=>reject(Error('A transmissão de áudio demorou demais. Tente ouvir novamente.')),30000);}),
+        ]).finally(()=>globalThis.clearTimeout(readTimer));
+        if(this.cancelled||!this.current())return;
+        pending+=decoder.decode(result.value,{stream:!result.done});
+        let boundary:number;
+        while(!this.done&&(boundary=pending.indexOf('\n'))!==-1){
+          const raw=pending.slice(0,boundary);pending=pending.slice(boundary+1);await line(raw);
+          if(this.cancelled||!this.current())return;
+        }
+        if(pending.length>40000)throw Error('O áudio recebido está incompleto. Tente ouvir novamente.');
+        if(result.done){if(!this.done&&pending.trim())await line(pending);break;}
+      }
+      if(!this.cancelled&&this.current()&&!this.done)throw Error('A transmissão de áudio foi interrompida. Tente ouvir novamente.');
+    }finally{
+      if(this.reader===reader)this.reader=null;
+      void reader.cancel().catch(()=>{});
+    }
+  }
 }
 
 export async function speakText(
@@ -181,146 +270,68 @@ export async function speakText(
   deviceOnly = false,
   options:DeviceSpeechOptions={}
 ) {
-  let generation = voiceGeneration;
-  try {
-    // Always cancel any prior speech/audio
-    stopSpeaking();
-    generation = voiceGeneration;
-    const originalEnd=onEnd;
-    let completed=false;
-    const finish=(cancelled=false)=>{
-      if(completed||(!cancelled&&generation!==voiceGeneration))return;
-      completed=true;
-      if(cancelTextSpeech===cancel)cancelTextSpeech=null;
-      originalEnd?.();
-    };
-    const cancel=()=>finish(true);
-    cancelTextSpeech=cancel;
-    onEnd=()=>finish();
-
-    if (!text || !text.trim()) {
-      onEnd && onEnd();
-      return;
+  stopSpeaking();
+  const generation=voiceGeneration;
+  const request=new AbortController();
+  let streamed:StreamedTextPlayback|null=null;
+  let requestTimer:ReturnType<typeof globalThis.setTimeout>|undefined;
+  let completed=false;
+  const finish=(cancelled=false)=>{
+    if(completed||(!cancelled&&generation!==voiceGeneration))return;
+    completed=true;
+    globalThis.clearTimeout(requestTimer);
+    if(cancelTextSpeech===cancel)cancelTextSpeech=null;
+    onEnd?.();
+  };
+  const cancel=()=>{request.abort();streamed?.cancel();finish(true);};
+  const fail=(message:string)=>{
+    if(completed||generation!==voiceGeneration)return;
+    request.abort();streamed?.cancel();cleanupAudio();finish();
+    window.dispatchEvent(new CustomEvent('vigia-error',{detail:message}));
+  };
+  cancelTextSpeech=cancel;
+  if(!text.trim()){finish();return;}
+  if(deviceOnly||options.localOnly){onErrorFallback(text,onStart,()=>finish(),generation,options);return;}
+  // Includes connection/authorization time. The network timer ends when done
+  // arrives; a complete 50-second audio buffer is still allowed to finish.
+  requestTimer=globalThis.setTimeout(()=>fail('A voz demorou demais para chegar. Tente ouvir novamente ou continue por texto.'),75000);
+  try{
+    const AudioCtx=window.AudioContext||(window as any).webkitAudioContext;
+    if(AudioCtx){
+      try{streamed=new StreamedTextPlayback(AudioCtx,()=>!completed&&generation===voiceGeneration,()=>onStart?.(),()=>finish());}catch{/* JSON audio remains available when Web Audio cannot be created. */}
     }
-    if(deviceOnly||options.localOnly){onErrorFallback(text,onStart,onEnd,generation,options);return;}
-    const aiStatus=await getAiStatus().catch(()=>null);
+    // /api/tts authorizes the current account/adult access and selects the same
+    // voice as live audio. A separate status probe is not needed before it.
+    const response=await apiFetch('/api/tts',{
+      method:'POST',headers:{'Content-Type':'application/json',Accept:streamed?'application/x-ndjson':'application/json'},
+      body:JSON.stringify({text}),signal:request.signal,
+    });
+    if(completed||generation!==voiceGeneration)return;
+    if(response.ok&&response.headers?.get('Content-Type')?.split(';')[0].trim().toLowerCase()==='application/x-ndjson'){
+      if(!streamed)throw Error('Este navegador não conseguiu preparar o áudio. Você pode continuar por texto.');
+      await streamed.consume(response);return;
+    }
+    streamed?.cancel();streamed=null;
+    const result=await response.json();
+    if(completed||generation!==voiceGeneration)return;
+    if(!response.ok)throw Error(result?.error||'A voz está indisponível. A resposta continua por texto.');
+    if(typeof result?.audio!=='string'||!result.audio.length)throw Error('A resposta chegou sem áudio. Você pode tentar ouvir novamente.');
+    const bytes=Uint8Array.from(atob(result.audio),(character:string)=>character.charCodeAt(0));
+    if(!bytes.length)throw Error('A resposta chegou sem áudio. Você pode tentar ouvir novamente.');
+    const mimeType=typeof result.mimeType==='string'&&/^audio\/[a-z0-9.+-]+$/i.test(result.mimeType)?result.mimeType:'audio/wav';
+    currentAudioUrl=URL.createObjectURL(new Blob([bytes],{type:mimeType}));
+    const audio=new Audio(currentAudioUrl);
+    currentAudio=audio;
+    const current=()=>!completed&&generation===voiceGeneration&&currentAudio===audio;
+    audio.onplay=()=>{if(current())onStart?.();};
+    audio.onended=()=>{if(current()){cleanupAudio();finish();}};
+    audio.onerror=()=>{if(current())fail('Não foi possível reproduzir a voz. A resposta continua por texto.');};
+    await audio.play();
+  }catch(error){
     if(generation!==voiceGeneration)return;
-    if(import.meta.env.MODE==='presentation'||['adult-synthetic','local-synthetic','adult-gemini'].includes(aiStatus?.ai?.mode||'')){
-      try{
-        const response=await apiFetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-        const result=await response.json();
-        if(generation!==voiceGeneration)return;
-        if(!response.ok||!result.audio)throw Error(result.error||'Voz indisponível.');
-        const bytes=Uint8Array.from(atob(result.audio),(c:string)=>c.charCodeAt(0));
-        currentAudioUrl=URL.createObjectURL(new Blob([bytes],{type:result.mimeType||'audio/wav'}));
-        currentAudio=new Audio(currentAudioUrl);
-        currentAudio.onplay=()=>{if(generation===voiceGeneration)onStart?.();};
-        currentAudio.onended=()=>{if(generation===voiceGeneration){cleanupAudio();onEnd?.();}};
-        currentAudio.onerror=()=>{if(generation===voiceGeneration){cleanupAudio();onEnd?.();window.dispatchEvent(new CustomEvent('vigia-error',{detail:'Não foi possível reproduzir a voz da IA.'}));}};
-        await currentAudio.play();return;
-      }catch(error){if(generation===voiceGeneration){cleanupAudio();onEnd?.();window.dispatchEvent(new CustomEvent('vigia-error',{detail:error instanceof Error?error.message:'Voz indisponível.'}));}return;}
-    }
-    // Reading activities retain their separately disclosed device voice.
-    if (!isServerTTSEnabled()) {
-      onErrorFallback(text, onStart, onEnd, generation);
-      return;
-    }
-
-    // Only attempt server-side TTS when the explicit feature flag is enabled.
-    if (USE_SERVER_TTS) {
-      try {
-        const resp = await apiFetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
-        });
-
-        if(generation!==voiceGeneration)return;
-        if (resp.ok) {
-          const data = await resp.json();
-          if(generation!==voiceGeneration)return;
-          if (data && data.audio) {
-            const base64 = data.audio as string;
-            try {
-              const byteString = atob(base64);
-              const len = byteString.length;
-              const bytes = new Uint8Array(len);
-              for (let i = 0; i < len; i++) bytes[i] = byteString.charCodeAt(i);
-              const blob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
-              const url = URL.createObjectURL(blob);
-              currentAudioUrl = url;
-              currentAudio = new Audio(url);
-              currentAudio.onplay = () => {if(generation===voiceGeneration)onStart?.();};
-              currentAudio.onended = () => {
-                if(generation!==voiceGeneration)return;
-                cleanupAudio();onEnd?.();
-              };
-              currentAudio.onerror = () => {
-                if(generation!==voiceGeneration)return;
-                cleanupAudio();
-                // fallback to browser TTS
-                onErrorFallback(text, onStart, onEnd, generation);
-              };
-              await currentAudio.play().catch(() => {
-                if(generation!==voiceGeneration)return;
-                cleanupAudio();
-                onErrorFallback(text, onStart, onEnd, generation);
-              });
-              return;
-            } catch (e) {
-              // If anything goes wrong decoding/playing, fall back
-            }
-          }
-        } else {
-          // Non-ok response -> if 5xx or 429, disable server TTS for a cooldown
-          try {
-            const body = await resp.json().catch(() => null);
-            const status = resp.status;
-            // Determine cooldown: prefer Retry-After header (seconds), else default 60000ms
-            let cooldownMs = 60000;
-            const ra = resp.headers.get && resp.headers.get('Retry-After');
-            if (ra) {
-              const parsed = parseFloat(ra);
-              if (!isNaN(parsed)) cooldownMs = parsed * 1000;
-            }
-            // If body contains a suggested retry delay like 'Please retry in Xs', try to parse it
-            if (body && typeof body === 'object') {
-              const msg = JSON.stringify(body);
-              const m = msg.match(/retry in ([0-9]+(?:\.[0-9]+)?)s/i);
-              if (m) {
-                const s = parseFloat(m[1]);
-                if (!isNaN(s)) cooldownMs = Math.max(cooldownMs, Math.round(s * 1000));
-              }
-            }
-
-            if (status >= 500 || status === 429) {
-              disableServerTTSFor(cooldownMs);
-              // immediately use browser TTS so user doesn't wait
-              onErrorFallback(text, onStart, onEnd, generation);
-              return;
-            }
-          } catch (e) {
-            // parsing error: fall through to browser TTS
-          }
-        }
-      } catch (e) {
-        // network or server error; disable server TTS briefly and fallback
-        disableServerTTSFor(60000);
-        onErrorFallback(text, onStart, onEnd, generation);
-        return;
-      }
-
-      // Browser speechSynthesis fallback if server path didn't return playable audio
-      onErrorFallback(text, onStart, onEnd, generation);
-      return;
-    }
-
-    // Server-side TTS feature is disabled; use browser speech directly.
-    onErrorFallback(text, onStart, onEnd, generation);
-    return;
-  } catch (e) {
-    console.error('speakText unexpected error:', e);
-    onEnd && onEnd();
+    fail(error instanceof Error?error.message:'A voz está indisponível. A resposta continua por texto.');
+  }finally{
+    globalThis.clearTimeout(requestTimer);
   }
 }
 

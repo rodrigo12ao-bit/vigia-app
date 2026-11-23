@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {createHash} from 'node:crypto';
-import {geminiLiteralSpeech,geminiLiteralSpeechStream,GEMINI_LITERAL_SPEECH_MODEL,normalizeLiteralTranscript} from '../server/geminiLiteralSpeech';
+import {geminiLiteralSpeech,geminiLiteralSpeechStream,GEMINI_LITERAL_SPEECH_MODEL,GEMINI_SPEECH_STYLE,normalizeLiteralTranscript} from '../server/geminiLiteralSpeech';
 
 class Socket extends EventEmitter {
   OPEN=1;readyState=1;sent:any[]=[];closed=0;
@@ -36,6 +36,7 @@ test('leitura literal usa conexão privada, modelo gratuito, somente texto compl
   assert.equal(setup.tools,undefined);assert.equal(setup.inputAudioTranscription,undefined);
   assert.equal(setup.sessionResumption,undefined);assert.equal(setup.proactivity,undefined);
   assert.match(setup.systemInstruction.parts[0].text,/Leia exatamente/);
+  assert.ok(setup.systemInstruction.parts[0].text.includes(GEMINI_SPEECH_STYLE));
   assert.equal(f.provider.sent[1].clientContent.turns[0].parts[0].text,expected);
   assert.equal(f.provider.sent.length,2);
   finish(f);const result=await f.result;assert.deepEqual(result.pcm,pcm);assert.equal(result.sampleRate,24000);assert.equal(f.provider.closed,1);
