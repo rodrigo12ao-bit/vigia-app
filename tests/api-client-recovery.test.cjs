@@ -8,7 +8,7 @@ const {transform}=require('esbuild');
 const source=readFileSync('src/lib/api.ts','utf8')
   .replace("import { auth } from './firebaseAuth';",'const {auth}=testEnv;')
   .replace("import {isEmergency} from '../../server/safety';",'const isEmergency=()=>false;')
-  .replace("import {adultAccessVersion,adultAudience} from './audience';",'const adultAccessVersion="isolated-adult-version",adultAudience=true;');
+  .replace("import {adultAccessVersion,adultAudience,hasAdultAccessDeclaration} from './audience';",'const adultAccessVersion="isolated-adult-version",adultAudience=true;const hasAdultAccessDeclaration=()=>sessionStorage.getItem("vigia_adult_access")===adultAccessVersion;');
 const compiled=transform(source,{loader:'ts',format:'cjs',define:{'import.meta.env.MODE':'"publication"'}});
 const expired='Entre novamente ou inicie uma sessão de visitante.';
 const status={demo:false,realAI:true,audience:'18plus',ai:{mode:'adult-gemini',provider:'gemini',blocked:null,consentVersion:'isolated-consent',voice:true}};

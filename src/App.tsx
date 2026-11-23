@@ -2,6 +2,7 @@ import {AvatarGenderContext} from './lib/avatarSettings';
 import { FeatureBoundary } from './components/FeatureBoundary';
 import { apiFetch,getAiStatus } from './lib/api';
 import {adultAudience} from './lib/audience';
+import {getRegistrationNickname} from './lib/registrationNickname';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence,MotionConfig } from 'motion/react';
 import { ChatMessage, AvatarState, Badge, DebugInfo } from './types';
@@ -249,7 +250,9 @@ export default function App() {
     try{
       const {memory,version}=await prepareAccountChange('entrar em outra conta');
       if(memory!==conversationMemory.current||version!==accountVersion.current||auth.currentUser?.uid!==memory.uid)return;
-      setIsWelcomeOpen(false);setIsAuthModalOpen(true);
+      // Keep the welcome screen and its trigger mounted beneath the dialog,
+      // so closing Auth returns focus and leaves a clear entry choice.
+      setIsAuthModalOpen(true);
     }catch(error){if(version===accountVersion.current&&auth.currentUser?.uid===uid)setNotice(error instanceof Error?error.message:'Não foi possível salvar a conversa antes de abrir o acesso. Tente novamente.');}
   };
   useEffect(()=>{
@@ -315,7 +318,7 @@ export default function App() {
         try{
           const [{fetchOrCreateUserProfile},{db,doc,getDoc,onSnapshot}]=await Promise.all([import('./lib/salaSeguraService'),import('./lib/firebase')]);
           if(!isCurrent())return;
-          await fetchOrCreateUserProfile(user.uid,user.email,sessionStorage.getItem('vigia_pending_nickname') || 'Super Protetor');
+          await fetchOrCreateUserProfile(user.uid,user.email,getRegistrationNickname() || 'Super Protetor');
           if(!isCurrent())return;
           const snapshot=await getDoc(doc(db,'users',user.uid));
           if(!isCurrent())return;
@@ -398,20 +401,30 @@ export default function App() {
     }catch(error){if(auth.currentUser?.uid===deletedUid)setNotice(error instanceof Error?error.message:'A conta foi excluída, mas não foi possível encerrar a sessão neste aparelho. Tente novamente.');}
   };
   const handleUpdateNickname = async (newNick:string) => {
-    if(renderedAccountVersion!==accountVersion.current)return;
+    if(renderedAccountVersion!==accountVersion.current)throw Error('A conta mudou. Abra seu perfil novamente.');
     const version=accountVersion.current;
     const uid=currentUser?.uid;
     const isCurrent=()=>version===accountVersion.current&&auth.currentUser?.uid===uid;
-    if(!isCurrent())return;
+    if(!isCurrent())throw Error('A conta mudou. Abra seu perfil novamente.');
     try {
       if(uid){
         const {db,doc,updateDoc}=await import('./lib/firebase');
-        if(!isCurrent())return;
+        if(!isCurrent())throw Error('A conta mudou. Abra seu perfil novamente.');
         await updateDoc(doc(db,'users',uid),{nickname:newNick.slice(0,80),updatedAt:new Date().toISOString()});
       }
-      if(!isCurrent())return;
+      else {
+        // Confirm guest persistence before reporting success to the editor.
+        // Merge with the stored profile rather than dropping its other fields.
+        const saved=JSON.parse(localStorage.getItem('vigia_progress:guest') || '{}');
+        if(!saved||typeof saved!=='object'||Array.isArray(saved))throw Error('Perfil local inválido.');
+        localStorage.setItem('vigia_progress:guest',JSON.stringify({...saved,nickname:newNick.slice(0,80)}));
+      }
+      if(!isCurrent())throw Error('A conta mudou. Abra seu perfil novamente.');
       setNickname(newNick.slice(0,80));
-    }catch{if(isCurrent())setNotice('Não foi possível salvar o apelido. Verifique a conexão.');}
+    }catch(error){
+      if(!isCurrent())throw Error('A conta mudou. Abra seu perfil novamente.');
+      throw Error(uid?'Não foi possível salvar o apelido. Verifique a conexão e tente novamente.':'Não foi possível salvar o apelido neste aparelho. Verifique o armazenamento e tente novamente.');
+    }
   };
 
   const handleAddStars = (points: number) => {

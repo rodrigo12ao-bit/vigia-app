@@ -37,6 +37,39 @@ export function subscribeConversationDraft(memory:ConversationMemory,listener:()
 export function mergeSavedSession(sessions:ChatSession[],saved:ChatSession):ChatSession[] {
   return [...sessions.filter(session=>session.id!==saved.id),saved].sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt));
 }
+// The list item may predate the last completed turn. Resolve it only after the
+// flush, and prefer the confirmed snapshot for that identity. Other sessions
+// are read on demand, including their attachments.
+export async function resolveConversationSelection(
+  memory:ConversationMemory,
+  selected:Pick<ChatSession,'id'|'updatedAt'>,
+  ports:{flush:()=>Promise<void>;load:(id:string)=>Promise<ChatSession>;current:()=>boolean},
+):Promise<ChatSession> {
+  const requireCurrent=()=>{if(!ports.current())throw Error('A conta mudou. Reabra o histórico na sua conta.');};
+  requireCurrent();
+  await ports.flush();
+  requireCurrent();
+  const saved=memory.savedSession;
+  if(saved?.id===selected.id&&Date.parse(saved.updatedAt)>=Date.parse(selected.updatedAt))return saved;
+  const loaded=await ports.load(selected.id);
+  requireCurrent();
+  if(loaded.id!==selected.id)throw Error('Conversa indisponível.');
+  const latest=memory.savedSession;
+  return latest?.id===loaded.id&&Date.parse(latest.updatedAt)>=Date.parse(loaded.updatedAt)?latest:loaded;
+}
+// Call only after deletion is confirmed. Suppress effects holding the previous
+// rendered messages until the parent shows an empty conversation, and retain
+// the unsent draft independently of the deleted record.
+export function detachDeletedConversation(memory:ConversationMemory,id:string,displayedMessages:ChatMessage[]):boolean {
+  if(memory.pendingSave.current?.session.id===id)memory.pendingSave.current=null;
+  if(memory.savedSession?.id===id)memory.savedSession=undefined;
+  if(memory.metadata.current?.id!==id)return false;
+  memory.metadata.current=null;
+  memory.restoredMessages.current=displayedMessages;
+  memory.queuedMessages=displayedMessages;
+  memory.updatedAt=0;
+  return true;
+}
 // App owns this memory so changing tabs can tear down audio without losing the
 // identity or latest unsaved snapshot of the conversation.
 export function queueConversationSnapshot(memory:ConversationMemory,messages:ChatMessage[],loading=false) {

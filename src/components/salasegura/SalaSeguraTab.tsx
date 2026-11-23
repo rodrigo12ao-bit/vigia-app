@@ -235,12 +235,6 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
     try {await submitReport(profile.uid, recipientUid, activeChat.id, lastText, reportReason);
     if(!isCurrent(uid,chatId))return;
     setReportSuccess(true);
-    timers.current.push(setTimeout(() => {
-      if(!isCurrent(uid,chatId))return;
-      setReportSuccess(false);
-      setShowReportModal(false);
-      setReportReason('');
-    }, 2000));
     }catch{if(isCurrent(uid,chatId))setActionError('A denúncia não foi registrada. Verifique sua conexão e tente novamente.');}finally{actionLock.current=false;}
   };
 
@@ -736,14 +730,17 @@ export const SalaSeguraTab: React.FC<SalaSeguraTabProps> = ({
               </div>
 
               <p className="text-xs text-slate-600 font-medium">
-                Sua denúncia será registrada como pendente para consulta pelo responsável verificado. Não há prazo garantido nem atendimento imediato. Selecione o motivo:
+                {adultAudience
+                  ? 'Seu relato será registrado. Esta versão ainda não tem uma equipe de revisão configurada para as contas adultas sem vínculo. O registro não garante resposta ou atendimento; você também pode bloquear o contato. Selecione o motivo:'
+                  : 'Sua denúncia será registrada como pendente para consulta pelo responsável verificado vinculado. Não há prazo garantido nem atendimento imediato. Selecione o motivo:'}
               </p>
 
               {reportSuccess ? (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-1 text-emerald-900">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2 text-emerald-900" role="status" aria-live="polite">
                   <Check className="w-6 h-6 text-emerald-600 mx-auto" />
                   <p className="font-black text-xs">Denúncia registrada com sucesso!</p>
-                  <p className="text-[11px]">Obrigado por ajudar a manter a Sala Segura protegida.</p>
+                  <p className="text-[11px]">{adultAudience?'O registro foi salvo, mas não foi encaminhado a uma equipe de atendimento. Use Bloquear Contato se quiser interromper as mensagens.':'O responsável verificado vinculado poderá consultar o registro.'}</p>
+                  <button onClick={()=>{setShowReportModal(false);setReportSuccess(false);setReportReason('');}} className="min-h-11 px-5 py-2 bg-emerald-700 text-white rounded-xl font-bold text-sm">Fechar</button>
                 </div>
               ) : (
                 <div className="space-y-3">

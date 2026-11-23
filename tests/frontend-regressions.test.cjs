@@ -125,7 +125,7 @@ for(const [name,content,answerLabel,nextLabel] of [
 
 function pwaHarness(){
  const hooks=hookRuntime(),listeners=new Map(),window={addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name),matchMedia:()=>({matches:false})};
- const {PWAPrompt}=moduleFrom('src/components/PWAPrompt.tsx',{react:hooks.React,'react/jsx-runtime':jsxRuntime,'lucide-react':icons,'motion/react':motion,'virtual:pwa-register/react':{useRegisterSW:()=>({offlineReady:[false,()=>{}],needRefresh:[false,()=>{}],updateServiceWorker:async()=>{}})}},{window});
+ const {PWAPrompt}=moduleFrom('src/components/PWAPrompt.tsx',{react:hooks.React,'react/jsx-runtime':jsxRuntime,'lucide-react':icons,'motion/react':motion,'../lib/pwaUpdates':{discoverPwaUpdates:()=>{throw Error('Service-worker discovery is not used without a registration in this installation fixture.');}},'virtual:pwa-register/react':{useRegisterSW:()=>({offlineReady:[false,()=>{}],needRefresh:[false,()=>{}],updateServiceWorker:async()=>{}})}},{window});
  const h={hooks,listeners,render(){h.tree=hooks.render(()=>PWAPrompt({visible:true}));return h.tree;}};h.render();return h;
 }
 test('declining installation consumes the browser prompt and removes the inactive install button',async()=>{

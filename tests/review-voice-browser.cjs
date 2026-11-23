@@ -8,8 +8,11 @@ const {createHash}=require('node:crypto');
 // microphone input are simulated. This file never imports server code or .env.
 const publicDir=path.resolve('dist/netlify/public');
 const root='http://localhost:3135';
-const prefix='artifacts/review-20261016-voice-browser';
-fs.mkdirSync('artifacts',{recursive:true});
+const evidenceDir=path.resolve(process.env.VIGIA_VOICE_EVIDENCE_DIR||`artifacts/review-voice-${Date.now()}`);
+assert.ok(evidenceDir.startsWith(path.resolve('artifacts')+path.sep),'Evidence must stay inside artifacts.');
+assert.ok(!fs.existsSync(evidenceDir),'Use a new evidence directory to preserve earlier results.');
+fs.mkdirSync(evidenceDir,{recursive:true});
+const prefix=path.join(evidenceDir,'voice');
 const report={url:root,scope:'Desktop e celular emulado. Frontend Netlify local, microfone fictício do Chrome, HTTP/WS/síntese simulados, toda solicitação externa bloqueada. Sem IA, Firebase ou dados reais.',results:[],requests:[],blockedExternal:[]};
 let browser,page,stage,label;
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -62,7 +65,9 @@ async function startVoice(expected){
     report.startedAt=new Date().toISOString();
     await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(3135,'127.0.0.1',resolve);});
     const puppeteer=(await import('puppeteer')).default;
-    browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
+    const executablePath=[process.env.CHROME_PATH,'/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome','C:/Program Files/Google/Chrome/Application/chrome.exe'].filter(Boolean).find(file=>fs.existsSync(file));
+    assert.ok(executablePath,'Set CHROME_PATH to an installed supported browser.');
+    browser=await puppeteer.launch({executablePath,headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
     for(const mobile of [false,true]){
       label=mobile?'celular':'desktop';stage='opening';
       const context=await browser.createBrowserContext();page=await context.newPage();
@@ -125,7 +130,7 @@ async function startVoice(expected){
       console.log('Loaded local frontend for '+label);
       await page.waitForSelector('[aria-label="Acesso para adultos"]');await page.click('input[type="checkbox"]');await clickButton('Continuar');
       await page.waitForSelector('[aria-label="Boas-vindas à Vigia"]');await clickButton('Explorar como visitante');
-      await page.click('[title="Conversa & Voz"]');await page.waitForSelector('textarea');
+      await page.click('[data-section="chat"]');await page.waitForSelector('textarea');
       await startVoice(1);passed('inicia uma sessão e um microfone fictício');
 
       stage='mute';await page.click('[title="Silenciar"]');

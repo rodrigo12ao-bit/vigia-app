@@ -62,13 +62,18 @@ import { GeminiLiveSession } from '../utils/geminiLive';
 import {getAiAccess,getAiStatus} from '../lib/api';
 import {recordingToWave} from '../utils/audioWave';
 import {auth} from '../lib/firebaseAuth';
-import {createConversationMemory,queueConversationSnapshot,mergeSavedSession,updateConversationDraft,subscribeConversationDraft,type ConversationMemory,type ConversationMetadata} from '../lib/conversationState';
+import {createConversationMemory,queueConversationSnapshot,resolveConversationSelection,detachDeletedConversation,updateConversationDraft,subscribeConversationDraft,type ConversationMemory,type ConversationMetadata} from '../lib/conversationState';
+import {mergeHistorySummaries,type ChatSessionSummary} from '../lib/historyStore';
 import {
-  loadSessions,
+  loadSession,
+  loadSessionPage,
+  loadSessionSummaries,
   saveSession,
   deleteSession,
   renameSession,
   stageGuestSession,
+  supportsGuestHistoryLocks,
+  type SessionPageCursor,
 } from '../lib/chatHistoryService';
 
 const publishedBuild=import.meta.env.MODE==='publication';
@@ -360,12 +365,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // History & Session State
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
+  const [historyHasMore,setHistoryHasMore]=useState(false);
+  const [historyPageLoading,setHistoryPageLoading]=useState(false);
+  const [historyPageError,setHistoryPageError]=useState('');
+  const historyPaging=useRef<{cursor:SessionPageCursor|null;hasMore:boolean;loading:boolean;removedIds:Set<string>}>({cursor:null,hasMore:false,loading:false,removedIds:new Set()});
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(memory.metadata.current?.id||null);
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [historyChannel,setHistoryChannel]=useState<'text'|'voice'>('text');
   const [viewedVoiceSession,setViewedVoiceSession]=useState<ChatSession|null>(null);
-  const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<ChatSessionSummary | null>(null);
   const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitleText, setEditingTitleText] = useState('');
@@ -576,10 +585,40 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   }, [isListening, isSpeaking, isLoading]);
 
   useEffect(() => {
-    let cancelled=false; setHistoryReady(false);setHistoryError('');memoryRef.current.historyReady=false;voiceMemoryRef.current.historyReady=false;
-    loadSessions(userId).then(list=>{if(cancelled||auth.currentUser?.uid!==userId)return;memoryRef.current.historyReady=true;voiceMemoryRef.current.historyReady=true;setSessions(list);setHistoryReady(true);}).catch(()=>{if(!cancelled&&auth.currentUser?.uid===userId)setHistoryError('Histórico indisponível. A gravação está pausada para preservar suas conversas.');});
+    let cancelled=false;
+    const paging={cursor:null as SessionPageCursor|null,hasMore:false,loading:true,removedIds:new Set<string>()};
+    historyPaging.current=paging;
+    setHistoryReady(false);setHistoryError('');setHistoryPageError('');setHistoryPageLoading(true);setHistoryHasMore(false);setSessions([]);
+    memoryRef.current.historyReady=false;voiceMemoryRef.current.historyReady=false;
+    loadSessionPage(userId).then(page=>{
+      if(cancelled||auth.currentUser?.uid!==userId)return;
+      paging.cursor=page.cursor;paging.hasMore=page.hasMore;
+      memoryRef.current.historyReady=true;voiceMemoryRef.current.historyReady=true;
+      setSessions(page.sessions);setHistoryHasMore(page.hasMore);setHistoryReady(true);
+    }).catch(()=>{if(!cancelled&&auth.currentUser?.uid===userId)setHistoryError('Histórico indisponível. A gravação está pausada para preservar suas conversas.');})
+      .finally(()=>{paging.loading=false;if(!cancelled&&auth.currentUser?.uid===userId)setHistoryPageLoading(false);});
     return ()=>{cancelled=true;};
   },[userId,historyAttempt]);
+  const loadMoreHistory=async()=>{
+    const paging=historyPaging.current;
+    if(!historyReady||paging.loading||!paging.hasMore||!paging.cursor)return;
+    const current=()=>componentActive.current&&historyPaging.current===paging&&auth.currentUser?.uid===userId;
+    paging.loading=true;setHistoryPageLoading(true);setHistoryPageError('');
+    try{
+      const page=await loadSessionPage(userId,paging.cursor);
+      if(!current())return;
+      paging.cursor=page.cursor;paging.hasMore=page.hasMore;
+      setSessions(list=>mergeHistorySummaries(list,page.sessions.filter(session=>!paging.removedIds.has(session.id))));
+      setHistoryHasMore(page.hasMore);
+    }catch{if(current())setHistoryPageError('Não foi possível carregar mais conversas. As conversas já carregadas continuam disponíveis.');}
+    finally{paging.loading=false;if(current())setHistoryPageLoading(false);}
+  };
+  // Search is global: while a query is active, continue through the remaining
+  // metadata pages. Never report a definitive empty result from one page.
+  useEffect(()=>{
+    const emptyChannel=!sessions.some(session=>isVoiceSession(session)===(historyChannel==='voice'));
+    if(showHistoryDrawer&&(historySearchQuery.trim()||emptyChannel)&&historyHasMore&&!historyPageLoading&&!historyPageError)void loadMoreHistory();
+  },[showHistoryDrawer,historySearchQuery,historyChannel,sessions,historyHasMore,historyPageLoading,historyPageError,historyReady,userId]);
   useEffect(()=>{setCurrentSessionId(memory.metadata.current?.id||null);},[memory]);
   useEffect(()=>()=>{
     if(auth.currentUser?.uid!==memory.uid)return;
@@ -591,7 +630,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if(memory.metadata.current?.id!==currentSessionId)setCurrentSessionId(memory.metadata.current?.id||null);
     if(!pendingSave.current)return;
     let cancelled=false;
-    const timer=setTimeout(()=>{flushSession().then(()=>{if(!cancelled&&memory.savedSession)setSessions(list=>mergeSavedSession(list,memory.savedSession!));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
+    const timer=setTimeout(()=>{flushSession().then(()=>{if(!cancelled&&memory.savedSession)setSessions(list=>mergeHistorySummaries(list,[memory.savedSession!]));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar esta conversa. O histórico anterior foi preservado. Verifique a conexão e tente novamente.');});},500);
     return ()=>{cancelled=true;clearTimeout(timer);};
   },[historyReady,messages,isLoading,userId,currentSessionId,memory]);
   useEffect(()=>{
@@ -601,7 +640,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     if(!voiceMemory.pendingSave.current)return;
     let cancelled=false;
     // Spoken records save independently of a text request that is still running.
-    void flushVoiceSession().then(()=>{if(!cancelled&&voiceMemory.savedSession)setSessions(list=>mergeSavedSession(list,voiceMemory.savedSession!));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz. Ela permanece neste aparelho; tente salvar antes de atualizar.');});
+    void flushVoiceSession().then(()=>{if(!cancelled&&voiceMemory.savedSession)setSessions(list=>mergeHistorySummaries(list,[voiceMemory.savedSession!]));}).catch(()=>{if(!cancelled)setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz. Ela permanece neste aparelho; tente salvar antes de atualizar.');});
     return()=>{cancelled=true;};
   },[historyReady,voiceMessages,voiceMemory,userId]);
   useEffect(()=>()=>{if(auth.currentUser?.uid===voiceMemory.uid)void flushVoiceSession().catch(()=>onHistoryError?.('Não foi possível salvar a última conversa por voz. Ela permanece aberta neste aparelho.'));},[voiceMemory]);
@@ -1276,7 +1315,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   useEffect(()=>{if(voiceMemory.messages.length>198&&chatModeRef.current==='live'){liveSessionRef.current?.pauseMicrophone(true);setLivePaused(true);setSpeechFeedbackMsg('Esta conversa por voz atingiu o limite. Toque em Nova voz; seu histórico foi preservado.');}},[voiceMessages,voiceMemory]);
 
   const handleNewChat = async () => {
-    if(switchLock.current)return;
+    if(switchLock.current||historyMutation.current)return;
     if(chatModeRef.current==='live'){
       const activeVoiceMemory=voiceMemory;
       if(!activeVoiceMemory.historyReady&&activeVoiceMemory.messages.length){setSpeechFeedbackMsg('Recarregue o histórico antes de iniciar outra conversa por voz. Sua conversa atual permanece aberta.');return;}
@@ -1307,13 +1346,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   };
 
   // Switch to a chat session
-  const handleSelectSession = async (session: ChatSession) => {
+  const handleSelectSession = async (session: ChatSessionSummary) => {
+    if(historyMutation.current)return;
     if(isVoiceSession(session)){
       if(switchLock.current)return;
       endLiveConversation();switchLock.current=true;
-      try{await flushVoiceSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar a conversa por voz aberta. Seu registro foi preservado.');return;}finally{switchLock.current=false;}
-      if(!componentActive.current||auth.currentUser?.uid!==userId)return;
-      setViewedVoiceSession(session);setShowHistoryDrawer(false);return;
+      const current=()=>componentActive.current&&voiceMemoryRef.current===voiceMemory&&auth.currentUser?.uid===userId;
+      try{
+        queueVoiceConversationSnapshot(voiceMemory);
+        const selected=await resolveConversationSelection(voiceMemory,session,{flush:flushVoiceSession,load:id=>loadSession(id,userId),current});
+        if(!current())return;
+        setSessions(list=>mergeHistorySummaries(list,[selected]));
+        setViewedVoiceSession(selected);setShowHistoryDrawer(false);
+      }catch{if(current())setSpeechFeedbackMsg('Não foi possível abrir o histórico de voz. A conversa aberta foi preservada. Tente novamente.');}
+      finally{switchLock.current=false;}
+      return;
     }
     if(isLoading || switchLock.current)return;
     if(!memory.historyReady&&messages.some(message=>message.role==='user')){setSpeechFeedbackMsg('Recarregue o histórico antes de trocar de conversa. O conteúdo aberto foi preservado.');return;}
@@ -1321,68 +1368,93 @@ export const ChatTab: React.FC<ChatTabProps> = ({
     cancelImagePreparation();
     endLiveConversation();
     stopListening();
-    switchLock.current=true;try{await flushSession();}catch{setSpeechFeedbackMsg('Não foi possível salvar. A conversa atual permanece aberta.');return;}finally{switchLock.current=false;}
-    if(!componentActive.current||memoryRef.current!==memory||auth.currentUser?.uid!==userId)return;
-    restoredMessages.current=session.messages;
-    sessionMetadata.current={id:session.id,title:session.title,createdAt:session.createdAt};
-    onLoadSession?.(session.messages,sessionMetadata.current,session.updatedAt);
-    setCurrentSessionId(session.id);
-    updateSelectedImage(null);
-    setShowHistoryDrawer(false);
+    switchLock.current=true;
+    const current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
+    try{
+      queueConversationSnapshot(memory,messages,isLoading);
+      const selected=await resolveConversationSelection(memory,session,{flush:flushSession,load:id=>loadSession(id,userId),current});
+      if(!current())return;
+      restoredMessages.current=selected.messages;
+      sessionMetadata.current={id:selected.id,title:selected.title,createdAt:selected.createdAt};
+      memory.savedSession=selected;memory.updatedAt=Math.max(memory.updatedAt,Date.parse(selected.updatedAt));
+      onLoadSession?.(selected.messages,sessionMetadata.current,selected.updatedAt);
+      setSessions(list=>mergeHistorySummaries(list,[selected]));
+      setCurrentSessionId(selected.id);
+      updateSelectedImage(null);
+      setShowHistoryDrawer(false);
+    }catch{if(current())setSpeechFeedbackMsg('Não foi possível abrir a conversa. O conteúdo atual e seus anexos foram preservados. Tente novamente.');}
+    finally{switchLock.current=false;}
+  };
+
+  const detachConfirmedDeletion=(id:string)=>{
+    const textMemory=memoryRef.current,spokenMemory=voiceMemoryRef.current;
+    if(detachDeletedConversation(textMemory,id,messages)){
+      cancelImagePreparation();
+      // onLoadSession carries the existing draft into the fresh empty memory.
+      // Opening another history row is an independent action and may fail.
+      onLoadSession?.([]);
+      setCurrentSessionId(null);
+    }
+    if(detachDeletedConversation(spokenMemory,id,spokenMemory.messages)){
+      spokenMemory.messages=[];
+      onResetVoice?.();
+    }
+    setViewedVoiceSession(viewed=>viewed?.id===id?null:viewed);
   };
 
   // Confirm and delete session
   const handleConfirmDeleteSession = async () => {
-    if (!sessionToDelete || isLoading || historyMutation.current) return;
-    const target=sessionToDelete,current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
-    historyMutation.current=true;setHistoryMutationError('');
+    if (!sessionToDelete || isLoading || historyMutation.current||switchLock.current) return;
+    const target=sessionToDelete,current=()=>componentActive.current&&auth.currentUser?.uid===userId;
+    historyMutation.current=true;switchLock.current=true;setHistoryMutationError('');
     try{
       endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
       await deleteSession(target.id,userId);if(!current())return;
-      const updated=sessions.filter(session=>session.id!==target.id);setSessions(updated);
-      if(pendingSave.current?.session.id===target.id)pendingSave.current=null;
-      if(voiceMemory.metadata.current?.id===target.id)onResetVoice?.();
-      if(currentSessionId===target.id){
-        const nextText=updated.find(session=>!isVoiceSession(session));
-        if(nextText)await handleSelectSession(nextText);
-        else {cancelImagePreparation(true);restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
-      }
+      historyPaging.current.removedIds.add(target.id);
+      setSessions(list=>list.filter(session=>session.id!==target.id));
+      detachConfirmedDeletion(target.id);
       setSessionToDelete(null);
     }catch{if(current())setHistoryMutationError('Não foi possível apagar esta conversa. A conversa aberta foi preservada. Tente novamente.');}
-    finally{historyMutation.current=false;}
+    finally{historyMutation.current=false;switchLock.current=false;}
   };
 
   // Delete all sessions
   const handleConfirmDeleteAll = async () => {
-    if(isLoading||historyMutation.current)return;
-    const current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
-    historyMutation.current=true;setHistoryMutationError('');
+    if(isLoading||historyMutation.current||switchLock.current)return;
+    const current=()=>componentActive.current&&auth.currentUser?.uid===userId;
+    historyMutation.current=true;switchLock.current=true;setHistoryMutationError('');
     try{
       endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
-      const all=await loadSessions(userId);if(!current())return;
+      const all=await loadSessionSummaries(userId);if(!current())return;
       const deletingVoice=historyChannel==='voice';
-      for(const session of all.filter(session=>isVoiceSession(session)===deletingVoice)){await deleteSession(session.id,userId);if(!current())return;}
+      // Complete enumeration precedes deletion. A partially loaded drawer must
+      // never limit this action or replace sessions that have not been fetched.
+      const paging={cursor:null,hasMore:false,loading:false,removedIds:new Set<string>()};historyPaging.current=paging;
+      setSessions(all);setHistoryHasMore(false);setHistoryPageLoading(false);setHistoryPageError('');
+      for(const session of all.filter(session=>isVoiceSession(session)===deletingVoice)){
+        await deleteSession(session.id,userId);if(!current())return;
+        paging.removedIds.add(session.id);setSessions(list=>list.filter(item=>item.id!==session.id));
+        detachConfirmedDeletion(session.id);
+      }
       setSessions(all.filter(session=>isVoiceSession(session)!==deletingVoice));
-      if(deletingVoice){voiceMemory.pendingSave.current=null;onResetVoice?.();}
-      else{cancelImagePreparation(true);pendingSave.current=null;restoredMessages.current=null;sessionMetadata.current=null;onResetChat?.();setCurrentSessionId(null);}
       setIsConfirmDeleteAllOpen(false);setShowHistoryDrawer(false);
-    }catch{if(current())setHistoryMutationError('Não foi possível concluir a exclusão. As conversas restantes e a conversa aberta foram preservadas. Tente novamente.');}
-    finally{historyMutation.current=false;}
+    }catch{if(current())setHistoryMutationError('Não foi possível concluir a exclusão. As conversas que não foram apagadas continuam disponíveis. Tente novamente.');}
+    finally{historyMutation.current=false;switchLock.current=false;}
   };
 
   // Rename session
   const handleSaveRename = async (sessionId: string) => {
-    if (!editingTitleText.trim() || isLoading || historyMutation.current) return;
+    if (!editingTitleText.trim() || isLoading || historyMutation.current||switchLock.current) return;
     const title=editingTitleText.trim(),current=()=>componentActive.current&&memoryRef.current===memory&&auth.currentUser?.uid===userId;
     historyMutation.current=true;setHistoryMutationError('');
     try{
       endLiveConversation();stopListening();await flushSession();await flushVoiceSession();if(!current())return;
       const renamed=await renameSession(sessionId,title,userId);if(!current())return;
-      setSessions(list=>mergeSavedSession(list,renamed));
-      if(sessionMetadata.current?.id===sessionId)sessionMetadata.current={...sessionMetadata.current,title};
-      if(memory.savedSession?.id===sessionId)memory.savedSession=renamed;
-      if(voiceMemory.metadata.current?.id===sessionId)voiceMemory.metadata.current={...voiceMemory.metadata.current,title};
-      if(voiceMemory.savedSession?.id===sessionId)voiceMemory.savedSession=renamed;
+      setSessions(list=>mergeHistorySummaries(list,[renamed]));
+      if(sessionMetadata.current?.id===sessionId){sessionMetadata.current={...sessionMetadata.current,title:renamed.title};memory.updatedAt=Math.max(memory.updatedAt,Date.parse(renamed.updatedAt));}
+      if(memory.savedSession?.id===sessionId)memory.savedSession={...memory.savedSession,title:renamed.title,updatedAt:renamed.updatedAt};
+      if(voiceMemory.metadata.current?.id===sessionId){voiceMemory.metadata.current={...voiceMemory.metadata.current,title:renamed.title};voiceMemory.updatedAt=Math.max(voiceMemory.updatedAt,Date.parse(renamed.updatedAt));}
+      if(voiceMemory.savedSession?.id===sessionId)voiceMemory.savedSession={...voiceMemory.savedSession,title:renamed.title,updatedAt:renamed.updatedAt};
       setEditingSessionId(null);setEditingTitleText('');
     }catch{if(current())setHistoryMutationError('Não foi possível renomear. O título anterior e o texto digitado foram preservados. Tente novamente.');}
     finally{historyMutation.current=false;}
@@ -1464,13 +1536,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({
   );
 
   // Group sessions by date
-  const groupSessionsByDate = (list: ChatSession[]) => {
+  const groupSessionsByDate = (list: ChatSessionSummary[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const yesterday = today - 86400000;
     const sevenDaysAgo = today - 7 * 86400000;
 
-    const groups: { [key: string]: ChatSession[] } = {
+    const groups: { [key: string]: ChatSessionSummary[] } = {
       Hoje: [],
       Ontem: [],
       'Últimos 7 dias': [],
@@ -1896,6 +1968,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                     </button>
                   </div>
 
+                  {!currentUser&&!supportsGuestHistoryLocks()&&<p className="text-[10px] leading-relaxed text-amber-200">Neste navegador, use o histórico de visitante em uma única aba para evitar conflitos ao salvar.</p>}
+
                   {/* Search Input */}
                   <div className="flex rounded-xl bg-slate-950 p-1 gap-1" role="group" aria-label="Canal do histórico">
                     <button type="button" aria-pressed={historyChannel==='text'} onClick={()=>setHistoryChannel('text')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${historyChannel==='text'?'bg-indigo-600 text-white':'text-slate-300'}`}>Texto</button>
@@ -2000,11 +2074,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({
                       );
                     })}
 
-                    {filteredSessions.length === 0 && (
+                    {filteredSessions.length === 0 && historyReady&&!historyPageLoading&&!historyHasMore && (
                       <div className="text-center py-8 text-slate-500 text-xs">
                         Nenhuma conversa encontrada.
                       </div>
                     )}
+                    {historyPageLoading&&<p role="status" className="py-3 text-center text-xs text-slate-300">{historySearchQuery.trim()?'Buscando em todo o histórico…':'Carregando conversas…'}</p>}
+                    {historyHasMore&&!historyPageLoading&&!historyPageError&&<p className="text-xs text-slate-400">{historySearchQuery.trim()?'A busca continua nas conversas restantes.':'Conversas carregadas em ordem de data. Há mais no histórico.'}</p>}
+                    {historyPageError&&<p role="alert" className="text-xs text-amber-200">{historyPageError}{historySearchQuery.trim()?' A busca ainda não está completa.':''}</p>}
+                    {historyHasMore&&<button type="button" disabled={historyPageLoading} onClick={()=>void loadMoreHistory()} className="w-full rounded-xl border border-indigo-500/40 px-3 py-2 text-xs font-bold text-indigo-200 enabled:hover:bg-indigo-900/40 disabled:opacity-50">{historyPageLoading?'Carregando…':historyPageError?'Tentar carregar mais':'Carregar mais conversas'}</button>}
                   </div>
 
                   {/* Delete All Action */}

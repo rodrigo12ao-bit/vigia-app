@@ -1,6 +1,8 @@
 import { useDialog } from '../hooks/useDialog';
 import { salaRequest } from '../lib/api';
 import {adultAudience} from '../lib/audience';
+import {setRegistrationNickname,clearRegistrationNickname} from '../lib/registrationNickname';
+import './auth-modal.css';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -56,6 +58,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const busy=React.useRef(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [resetSentMessage, setResetSentMessage] = useState('');
+  const fieldPrefix=React.useId();
+  const emailId=fieldPrefix+'-email',passwordId=fieldPrefix+'-password',nicknameId=fieldPrefix+'-nickname',errorId=fieldPrefix+'-error';
+  const changeTab=(tab:AuthTab)=>{
+    if(busy.current)return;
+    setActiveTab(tab);setShowPassword(false);setErrorMessage('');setResetSentMessage('');
+  };
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -64,7 +72,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage(''); setResetSentMessage(''); setActiveTab('login');
   }, [isOpen]);
 
-  const dialogRef=useDialog(isOpen,onClose);
+  const dialogRef=useDialog(isOpen,()=>{if(!busy.current)onClose();});
+  React.useEffect(()=>{
+    if(!isOpen)return;
+    const frame=requestAnimationFrame(()=>dialogRef.current?.querySelector<HTMLInputElement>('input:not([type="checkbox"])')?.focus());
+    return()=>cancelAnimationFrame(frame);
+  },[isOpen,activeTab]);
   if (!isOpen) return null;
   const translateAuthError = (code: string) => {
     switch (code) {
@@ -141,15 +154,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     busy.current=true;setLoading(true);
     try {
-      sessionStorage.setItem('vigia_pending_nickname',nickname.trim() || 'Super Protetor');
+      setRegistrationNickname(nickname.trim() || 'Super Protetor');
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await handleCreateUserDocument(cred.user.uid, cred.user.email, nickname.trim(), isAdultConfirmed);
-      sessionStorage.removeItem('vigia_pending_nickname');
+      clearRegistrationNickname();
       onClose();
     } catch (err: any) {
       setErrorMessage(translateAuthError(err?.code));
     } finally {
-      sessionStorage.removeItem('vigia_pending_nickname');
+      clearRegistrationNickname();
       busy.current=false;setLoading(false);
     }
   };
@@ -196,18 +209,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
-        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Acessar sua conta"
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Acessar sua conta" tabIndex={-1}
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col my-auto"
+          className="vigia-auth-modal bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col my-auto"
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 p-5 text-white relative">
             <button
               onClick={onClose}
+              disabled={loading}
               className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all cursor-pointer"
-              title="Fechar"
+              title="Fechar" aria-label="Fechar acesso à conta"
             >
               <X className="w-5 h-5" />
             </button>
@@ -226,10 +240,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Navigation Tabs */}
           <div className="flex border-b border-slate-200 bg-slate-50">
             <button
-              onClick={() => {
-                setActiveTab('login');
-                setErrorMessage('');
-              }}
+              onClick={() => changeTab('login')}
+              disabled={loading}
+              aria-pressed={activeTab==='login'}
               className={`flex-1 py-3 text-xs font-black transition-all ${
                 activeTab === 'login'
                   ? 'bg-white text-orange-600 border-b-2 border-orange-500 shadow-xs'
@@ -239,10 +252,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               Entrar
             </button>
             <button
-              onClick={() => {
-                setActiveTab('register');
-                setErrorMessage('');
-              }}
+              onClick={() => changeTab('register')}
+              disabled={loading}
+              aria-pressed={activeTab==='register'}
               className={`flex-1 py-3 text-xs font-black transition-all ${
                 activeTab === 'register'
                   ? 'bg-white text-orange-600 border-b-2 border-orange-500 shadow-xs'
@@ -254,10 +266,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           {/* Modal Body */}
-          <div className="p-5 space-y-4">
+          <div className="vigia-auth-body p-5 space-y-4">
             {/* Error Message Alert */}
             {errorMessage && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2 text-rose-800 text-xs font-semibold">
+              <div id={errorId} role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2 text-rose-800 text-xs font-semibold">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
@@ -265,7 +277,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* Reset Email Sent Banner */}
             {resetSentMessage && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-2 text-emerald-900 text-xs font-semibold">
+              <div role="status" className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-2 text-emerald-900 text-xs font-semibold">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>{resetSentMessage}</span>
               </div>
@@ -273,13 +285,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* LOGIN FORM */}
             {activeTab === 'login' && (
-              <form onSubmit={handleLoginSubmit} className="space-y-3.5">
+              <form onSubmit={handleLoginSubmit} aria-busy={loading} aria-describedby={errorMessage?errorId:undefined} className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">E-mail</label>
+                  <label htmlFor={emailId} className="block text-[11px] font-black uppercase text-slate-600 mb-1">E-mail</label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      type="email" aria-label="E-mail" autoComplete="email"
+                      id={emailId} name="email" type="email" autoComplete="email" disabled={loading}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="seu.email@exemplo.com"
@@ -291,10 +303,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-black uppercase text-slate-600">Senha</label>
+                    <label htmlFor={passwordId} className="block text-[11px] font-black uppercase text-slate-600">Senha</label>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('forgot')}
+                      onClick={() => changeTab('forgot')}
+                      disabled={loading}
                       className="text-[11px] font-bold text-orange-600 hover:underline"
                     >
                       Esqueci minha senha
@@ -303,7 +316,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      aria-label="Senha" autoComplete="current-password" type={showPassword ? 'text' : 'password'}
+                      id={passwordId} name="password" autoComplete="current-password" type={showPassword ? 'text' : 'password'} disabled={loading}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
@@ -312,7 +325,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     />
                     <button
                       type="button"
-                      aria-label={showPassword?'Ocultar senha':'Mostrar senha'} onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword?'Ocultar senha':'Mostrar senha'} aria-controls={passwordId} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)} disabled={loading}
+                      data-password-toggle
                       className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -336,7 +350,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* REGISTER FORM */}
             {activeTab === 'register' && (
-              <form onSubmit={handleRegisterSubmit} className="space-y-3">
+              <form onSubmit={handleRegisterSubmit} aria-busy={loading} aria-describedby={errorMessage?errorId:undefined} className="space-y-3">
                 {/* Child Safety Box */}
                 <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-[11px] text-amber-950 font-medium space-y-1">
                   <span className="font-extrabold flex items-center gap-1 text-amber-900">
@@ -348,24 +362,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">
+                  <label htmlFor={nicknameId} className="block text-[11px] font-black uppercase text-slate-600 mb-1">
                     Seu apelido (Opcional)
                   </label>
                   <input
-                    type="text"
+                    id={nicknameId} name="nickname" autoComplete="nickname" maxLength={80} disabled={loading} type="text"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
-                    placeholder="Ex: Super Vítor ou Campeã Sofia"
+                    placeholder="Como você prefere ser chamado"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">{adultAudience?'Seu e-mail':'E-mail do Responsável'}</label>
+                  <label htmlFor={emailId} className="block text-[11px] font-black uppercase text-slate-600 mb-1">{adultAudience?'Seu e-mail':'E-mail do Responsável'}</label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
-                      type="email"
+                      id={emailId} name="email" autoComplete="email" disabled={loading} type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder={adultAudience?'seu.email@exemplo.com':'responsavel@exemplo.com'}
@@ -376,11 +390,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">Crie uma Senha</label>
+                  <label htmlFor={passwordId} className="block text-[11px] font-black uppercase text-slate-600 mb-1">Crie uma Senha</label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      id={passwordId} name="password" autoComplete="new-password" minLength={6} disabled={loading} type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Mínimo 6 caracteres"
@@ -390,6 +404,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword?'Ocultar senha':'Mostrar senha'} aria-controls={passwordId} aria-pressed={showPassword} disabled={loading}
+                      data-password-toggle
                       className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -401,6 +417,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <label className="flex items-start gap-2 pt-1 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    disabled={loading} required
                     checked={isAdultConfirmed}
                     onChange={(e) => setIsAdultConfirmed(e.target.checked)}
                     className="mt-0.5 w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
@@ -426,17 +443,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* FORGOT PASSWORD FORM */}
             {activeTab === 'forgot' && (
-              <form onSubmit={handleForgotPassword} className="space-y-3.5">
+              <form onSubmit={handleForgotPassword} aria-busy={loading} aria-describedby={errorMessage?errorId:undefined} className="space-y-3.5">
                 <p className="text-xs text-slate-600 font-medium">
                   Digite o e-mail cadastrado e enviaremos um link para você redefinir sua senha com segurança.
                 </p>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase text-slate-600 mb-1">E-mail Cadastrado</label>
+                  <label htmlFor={emailId} className="block text-[11px] font-black uppercase text-slate-600 mb-1">E-mail Cadastrado</label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
-                      type="email"
+                      id={emailId} name="email" autoComplete="email" disabled={loading} type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="seu.email@exemplo.com"
@@ -449,7 +466,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setActiveTab('login')}
+                    onClick={() => changeTab('login')}
+                    disabled={loading}
                     className="py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs"
                   >
                     Voltar
@@ -480,7 +498,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               disabled={loading}
               className="w-full py-2.5 px-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -504,6 +522,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {/* GUEST MODE BUTTON */}
             <button
               type="button"
+              disabled={loading}
               onClick={() => {
                 onContinueAsGuest();
                 onClose();
@@ -514,6 +533,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <span>Continuar como Visitante</span>
             </button>
           </div>
+          <span className="sr-only" role="status" aria-live="polite">{loading?'Aguarde, estamos processando sua solicitação.':''}</span>
 
           {/* Footer Legal Links */}
           <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-500 font-medium flex items-center justify-center gap-3">

@@ -1,6 +1,6 @@
 import { auth } from './firebaseAuth';
 import {isEmergency} from '../../server/safety';
-import {adultAccessVersion,adultAudience} from './audience';
+import {adultAccessVersion,adultAudience,hasAdultAccessDeclaration} from './audience';
 let guestSession: Promise<void> | undefined;
 export interface AiStatus {demo:boolean;realAI:boolean;localDemo?:boolean;audience?:string;ai?:{mode:string;provider:string|null;blocked:string|null;consentVersion:string;voice:boolean};}
 interface AdultSession {promise:Promise<void>;guest?:Promise<void>;}
@@ -127,7 +127,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   if(requiresAdult&&!status)status=await waitForRequest(getAiStatus(),uid,signal);
   checkRequest(uid,signal);
   const confirmAdult=requiresAdult&&status?.audience==='18plus';
-  if(confirmAdult&&sessionStorage.getItem('vigia_adult_access')!==adultAccessVersion)throw Error('O Vigia é exclusivo para pessoas de 18 anos ou mais.');
+  if(confirmAdult&&!hasAdultAccessDeclaration())throw Error('O Vigia é exclusivo para pessoas de 18 anos ou mais.');
   for(let attempt=0;attempt<2;attempt++){
     let guest:Promise<void>|undefined;
     try{

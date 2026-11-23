@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb,runtime,ADULT_ACCESS_VERSION } from './security';
 import {PublicError} from './learning';
 async function eligibleAdult(tx:FirebaseFirestore.Transaction,uid:string,authority:any){const record=await tx.get(adminDb().doc('adult_access/'+uid));return record.data()?.version===ADULT_ACCESS_VERSION&&!authority?.guardianUid;}
+function validUid(value:unknown):value is string{return typeof value==='string'&&value.length>0&&value.length<=128&&!value.includes('/');}
 
 export function installSalaRoutes(app: Express) {
   app.use('/api/sala', (_req, res, next) => {
@@ -21,7 +22,8 @@ export function installSalaRoutes(app: Express) {
   route('profile', async (uid, data) => {
     const db = adminDb(), ref = db.doc(`users/${uid}`);
     return db.runTransaction(async tx => {
-      const [snap, authority] = await Promise.all([tx.get(ref), tx.get(db.doc(`sala_authorities/${uid}`))]);
+      const [snap, authority, closed] = await Promise.all([tx.get(ref), tx.get(db.doc(`sala_authorities/${uid}`)),tx.get(db.doc(`account_tombstones/${uid}`))]);
+      if(closed.exists)throw new PublicError('Esta conta foi encerrada.',403);
       const stored = snap.data() || {}, trusted = authority.data() || { role: 'infantil' };
       let code = /^VIGIA-[A-F0-9]{32}$/.test(stored.inviteCode || '') ? stored.inviteCode : `VIGIA-${randomBytes(16).toString('hex').toUpperCase()}`;
       // A client-created profile must never take another person's invite code.
@@ -42,12 +44,12 @@ export function installSalaRoutes(app: Express) {
     if (typeof data.code !== 'string' || !/^VIGIA-[A-F0-9]{32}$/.test(data.code)) throw new PublicError('Código inválido. Use o código completo do contato.');
     const db = adminDb(), directory = await db.doc(`invite_codes/${data.code}`).get();
     const target = directory.data()?.uid;
-    if (!target || target === uid) throw new PublicError('Contato indisponível.');
+    if (!validUid(target) || target === uid) throw new PublicError('Contato indisponível.');
     const id = createHash('sha256').update(JSON.stringify([uid,target].sort())).digest('hex');
     return db.runTransaction(async tx => {
-      const [from, to, a, b, previous, chat] = await Promise.all([tx.get(db.doc(`users/${uid}`)), tx.get(db.doc(`users/${target}`)), tx.get(db.doc(`sala_authorities/${uid}`)), tx.get(db.doc(`sala_authorities/${target}`)), tx.get(db.doc(`invites/${id}`)), tx.get(db.doc(`chats/${id}`))]);
+      const [from, to, a, b, previous, chat, fromClosed, toClosed] = await Promise.all([tx.get(db.doc(`users/${uid}`)), tx.get(db.doc(`users/${target}`)), tx.get(db.doc(`sala_authorities/${uid}`)), tx.get(db.doc(`sala_authorities/${target}`)), tx.get(db.doc(`invites/${id}`)), tx.get(db.doc(`chats/${id}`)),tx.get(db.doc(`account_tombstones/${uid}`)),tx.get(db.doc(`account_tombstones/${target}`))]);
       const p1=from.data(), p2=to.data();
-      if (!p1 || !p2 || p1.blockedUsers?.includes(target) || p2.blockedUsers?.includes(uid)) throw new PublicError('Contato indisponível.');
+      if (!p1 || !p2 || fromClosed.exists || toClosed.exists || p1.blockedUsers?.includes(target) || p2.blockedUsers?.includes(uid)) throw new PublicError('Contato indisponível.');
       if (chat.exists) return { success: true, message: 'Este contato já está aprovado.' };
       if (previous.exists && previous.data()?.status !== 'rejected') return {success:true,message:'O convite já está aguardando aprovação.'};
       const reviewers = [target];
@@ -72,9 +74,9 @@ export function installSalaRoutes(app: Express) {
       if (data.decision==='approve'&&!invite.reviewerUids.includes(uid)) throw new PublicError('Você não pode aprovar este convite.');
       if (invite.status !== 'pending_guardian_approval') return {success:true};
       if (data.decision === 'reject') {tx.update(ref,{status:'rejected'});return {success:true};}
-      const [from,to,a,b] = await Promise.all([tx.get(db.doc(`users/${invite.fromUid}`)),tx.get(db.doc(`users/${invite.targetUid}`)),tx.get(db.doc(`sala_authorities/${invite.fromUid}`)),tx.get(db.doc(`sala_authorities/${invite.targetUid}`))]);
+      const [from,to,a,b,fromClosed,toClosed] = await Promise.all([tx.get(db.doc(`users/${invite.fromUid}`)),tx.get(db.doc(`users/${invite.targetUid}`)),tx.get(db.doc(`sala_authorities/${invite.fromUid}`)),tx.get(db.doc(`sala_authorities/${invite.targetUid}`)),tx.get(db.doc(`account_tombstones/${invite.fromUid}`)),tx.get(db.doc(`account_tombstones/${invite.targetUid}`))]);
       const p1=from.data(),p2=to.data();
-      if (!p1 || !p2 || p1.blockedUsers?.includes(invite.targetUid) || p2.blockedUsers?.includes(invite.fromUid)) throw new PublicError('Contato indisponível.');
+      if (!p1 || !p2 || fromClosed.exists || toClosed.exists || p1.blockedUsers?.includes(invite.targetUid) || p2.blockedUsers?.includes(invite.fromUid)) throw new PublicError('Contato indisponível.');
       const required=[invite.targetUid];
       if(runtime.adultAudience){if(!await eligibleAdult(tx,invite.fromUid,a.data())||!await eligibleAdult(tx,invite.targetUid,b.data()))throw new PublicError('Ambos os participantes precisam ter acesso adulto confirmado.');}
       else for (const authority of [a.data(),b.data()]) { if (!authority || authority.role==='infantil') { if(!authority?.guardianUid) throw new PublicError('Vínculo de responsável indisponível.'); required.push(authority.guardianUid); } }
@@ -93,13 +95,27 @@ export function installSalaRoutes(app: Express) {
     const db=adminDb(), ref=db.doc(`chats/${data.chatId}`), msg=ref.collection('messages').doc(data.messageId);
     return db.runTransaction(async tx=>{
       const chat=await tx.get(ref), c=chat.data();
-      if (!c?.isApproved || c.participants.length!==2 || !c.participants.includes(uid)) throw new PublicError('Conversa indisponível.');
+      if (c?.isApproved!==true || !Array.isArray(c.participants) || c.participants.length!==2 || !c.participants.every(validUid) || new Set(c.participants).size!==2 || !c.participants.includes(uid)) throw new PublicError('Conversa indisponível.');
       const other=c.participants.find((p:string)=>p!==uid);
-      const [from,to,existing]=await Promise.all([tx.get(db.doc(`users/${uid}`)),tx.get(db.doc(`users/${other}`)),tx.get(msg)]);
-      if(from.data()?.blockedUsers?.includes(other)||to.data()?.blockedUsers?.includes(uid)) throw new PublicError('Este contato está bloqueado.');
-      if(existing.exists) {if(existing.data()?.senderUid!==uid)throw new PublicError('Mensagem indisponível.');return {success:true};}
+      // Recheck both accounts in this same transaction. Request middleware only
+      // authorizes the sender, and may have run before a profile/link was revoked.
+      const [from,to,existing,fromClosed,toClosed]=await Promise.all([tx.get(db.doc(`users/${uid}`)),tx.get(db.doc(`users/${other}`)),tx.get(msg),tx.get(db.doc(`account_tombstones/${uid}`)),tx.get(db.doc(`account_tombstones/${other}`))]);
+      const p1=from.data(),p2=to.data();
+      if(!p1||!p2||fromClosed.exists||toClosed.exists)throw new PublicError('Contato indisponível.',403);
+      if(p1.blockedUsers?.includes(other)||p2.blockedUsers?.includes(uid)) throw new PublicError('Este contato está bloqueado.');
+      if(runtime.adultAudience){
+        const [fromAuthority,toAuthority]=await Promise.all([tx.get(db.doc(`sala_authorities/${uid}`)),tx.get(db.doc(`sala_authorities/${other}`))]);
+        const access=await Promise.all([eligibleAdult(tx,uid,fromAuthority.data()),eligibleAdult(tx,other,toAuthority.data())]);
+        if(!access.every(Boolean))throw new PublicError('Ambos os participantes precisam ter acesso adulto confirmado.',403);
+      }
+      if(existing.exists) {
+        if(existing.data()?.senderUid!==uid)throw new PublicError('Mensagem indisponível.',409);
+        if(existing.data()?.text!==data.text.trim())throw new PublicError('Este envio já foi registrado com outro conteúdo. Reabra a conversa antes de tentar novamente.',409);
+        return {success:true};
+      }
       const now=new Date().toISOString(), text=data.text.trim();
-      tx.create(msg,{senderUid:uid,senderNickname:from.data()?.nickname || 'Contato',text,createdAt:now,status:'sent',readBy:[uid]});
+      const senderNickname=typeof p1.nickname==='string'&&p1.nickname.trim()?p1.nickname.slice(0,80):'Contato';
+      tx.create(msg,{senderUid:uid,senderNickname,text,createdAt:now,status:'sent',readBy:[uid]});
       tx.update(ref,{lastMessageText:text,lastMessageTimestamp:now,updatedAt:now,[`unreadCount.${other}`]:FieldValue.increment(1)});
       return {success:true};
     });

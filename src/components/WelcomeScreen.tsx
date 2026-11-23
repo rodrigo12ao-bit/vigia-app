@@ -4,13 +4,15 @@ import {AvatarGender} from '../types';
 import {adultAudience} from '../lib/audience';
 import {avatarPreviewPath} from '../lib/avatarAnimation';
 import {VigiaBrandMark} from './brand/VigiaBrandMark';
+import {useDialog} from '../hooks/useDialog';
 interface WelcomeScreenProps {
  onStart:()=>void;onLoginClick:()=>void;onContinueAsGuest:()=>void;
  avatarGender:AvatarGender;onSelectGender:(gender:AvatarGender)=>void;
 }
-export const WelcomeScreen:React.FC<WelcomeScreenProps> = ({onStart,onContinueAsGuest,avatarGender,onSelectGender}) => (
- <div className="welcome-shell vigia-entry">
-  <section className="welcome-card vigia-entry-card" aria-label="Boas-vindas à Vigia">
+export const WelcomeScreen:React.FC<WelcomeScreenProps> = ({onStart,onContinueAsGuest,avatarGender,onSelectGender}) => {
+ const dialogRef=useDialog(true,()=>{});
+ return <div className="welcome-shell vigia-entry">
+  <div ref={dialogRef} className="welcome-card vigia-entry-card" role="dialog" aria-modal="true" aria-label="Boas-vindas à Vigia" tabIndex={-1}>
    <div className="vigia-entry-brand">
     <div className="vigia-entry-emblem"><VigiaBrandMark animated/></div>
     <span className="vigia-entry-wordmark">VIGIA</span>
@@ -41,6 +43,6 @@ export const WelcomeScreen:React.FC<WelcomeScreenProps> = ({onStart,onContinueAs
     </div>
    </details>
    <p className="vigia-entry-audience">{adultAudience ? 'Uma experiência de prevenção para maiores de 18 anos.' : 'Uma experiência de prevenção para crianças de 6 a 14 anos.'}</p>
-  </section>
- </div>
-);
+  </div>
+ </div>;
+};

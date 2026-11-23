@@ -1,5 +1,145 @@
 # Vigia — Aprender com a Vigia
 
+## Revisão de continuidade — 23/11/2026
+
+Esta revisão parte de `a3e0254750cd220aee885600a119c71ec74d30c3`, na branch
+`codex/publicacao-vigia-20261012`, que contém as evoluções posteriores à `master`.
+O pacote local da revisão de 22/11 não estava disponível; suas correções foram
+recompostas a partir do relatório e verificadas novamente no código. O candidato
+de desenvolvimento está separado na branch local `review/vigia-20261123`.
+
+### O que mudou
+
+- Reabrir a conversa atual usa a versão confirmada depois de salvar, tanto em
+  texto quanto em voz, preservando o último turno.
+- O histórico carrega páginas de 25 conversas. Os anexos de uma conta só são
+  buscados quando a conversa é aberta. A busca percorre as demais páginas;
+  renomear altera apenas título/data e excluir todas percorre todo o histórico.
+- Uma exclusão confirmada desvincula imediatamente a conversa aberta. Uma falha
+  ao excluir outra conversa não permite que a conversa já apagada seja recriada
+  pelo salvamento automático. O rascunho ainda não enviado é preservado.
+- Gravações de conversas diferentes do visitante compartilham uma fila local e,
+  quando o navegador oferece Web Locks, uma trava entre abas da mesma origem.
+- A recuperação ao fechar a página grava snapshots independentes por conversa e
+  por alteração. Uma confirmação antiga só remove seu próprio snapshot; registros
+  novos ficam preservados. O lote do formato anterior só é removido depois de
+  ser integralmente recuperado e confirmado sem mudança de conteúdo.
+- Mensagens da Sala Segura são criadas pela API, com verificação dos dois perfis,
+  encerramento de conta, bloqueios e elegibilidade adulta na mesma transação.
+  Somente o destinatário pode confirmar leitura; o cliente não altera conteúdo
+  nem autoria. Repetir o mesmo envio não duplica a mensagem ou o contador.
+- Entrada, cadastro, recuperação de senha e perfil receberam rótulos associados,
+  foco de diálogos, mensagens acessíveis, controles de tamanho adequado e
+  tratamento de falhas de armazenamento. O apelido só é confirmado após salvar.
+- A declaração adulta pode ficar na memória da página quando `sessionStorage`
+  está indisponível. Isso exige aceite explícito, não substitui o servidor e não
+  autoriza uma nova página automaticamente.
+- Atualizações compatíveis de dependências trataram os avisos de nível alto
+  encontrados nesta instalação. A auditoria de produção passou de 10 para 4
+  entradas: zero altas/críticas e quatro moderadas na cadeia transitiva restante.
+
+Marca, avatares, público 18+, navegação Início/Conversar/Aprender/Ajuda, visitante,
+separação de texto/voz e controles de serviços gratuitos foram preservados.
+
+### Limites do histórico e das permissões
+
+O cursor autenticado usa o ID estável do documento, incluindo registros antigos
+que não apareceriam numa consulta ordenada por um campo ausente. A tela ordena
+**as conversas já carregadas** por data e sinaliza quando a lista é parcial; a
+primeira página não representa necessariamente as conversas mais recentes de
+toda a conta. Registros inválidos são informados, preservando os dados originais.
+O SDK Firestore ainda transfere o texto das conversas de cada página: esta revisão
+reduz a quantidade inicial de documentos e adia anexos, sem prometer projeção de
+campos ou ganho de latência que não foi medido.
+
+Editar a **mesma conversa** ao mesmo tempo em mais de uma aba continua usando a
+semântica de último salvamento e não é colaboração suportada. Use uma aba para
+essa edição. Sem Web Locks, a proteção da fila se limita à página e a interface
+orienta usar uma única aba.
+
+Ao atualizar, feche as abas que ainda executam a versão anterior antes de abrir a
+nova. A recuperação lê o formato antigo, mas abas antigas que continuam gravando
+no array v1 não participam do protocolo de snapshots independentes v2. A exclusão
+recupera as pendências, descarta os snapshots do alvo e só então remove o registro
+canônico; uma falha de limpeza mantém a cópia confirmada.
+A recuperação e a exclusão compartilham a mesma trava, com captura dos snapshots
+dentro dela. Assim, uma recuperação atrasada de outra aba não pode recriar o
+registro depois de a exclusão ter sido confirmada. Essa coordenação entre abas
+também depende do suporte a Web Locks descrito acima.
+
+O envio adulto passou de quatro para dez leituras por execução da transação.
+As seis adicionais verificam encerramento, autoridade e declaração das duas
+contas. Custo e latência online não foram medidos. Denúncias podem ser registradas,
+mas contas adultas sem vínculo ainda não têm equipe de revisão configurada. A
+interface informa essa condição e mantém o bloqueio de contatos disponível.
+A exclusão integral de conta online continua dependendo do processo de retenção
+já previsto; o bloqueio existente em produção foi preservado.
+
+### Executar e verificar localmente
+
+Use Node.js 22 ou superior e Java 21 para os emuladores. A revisão foi executada
+com Node.js 24. Instale as dependências sem scripts de instalação:
+
+```bash
+npm ci --ignore-scripts
+npm install --prefix .tools/firebase-cli --no-save --ignore-scripts --no-audit --no-fund firebase-tools@15.33.0
+```
+
+Para abrir a revisão, execute `npm run emulators` em um terminal e
+`npm run dev:review` em outro. Abra **http://localhost:3000/**. Esse comando usa
+público adulto, respostas simuladas e contas fictícias nos emuladores; não exige
+chaves de IA e mantém Firebase cloud e serviços pagos desativados.
+
+```bash
+npm run build:netlify
+npm run test:review
+node scripts/with-review-services.cjs scripts/run-review-tests.cjs firestore.rules.test.ts
+node scripts/with-review-services.cjs tests/review-sala-adult.cjs
+node scripts/with-review-services.cjs tests/history-pagination-emulator.cjs
+```
+
+O wrapper inicia e encerra os serviços locais junto com o teste. É útil também em
+executores que isolam a rede de cada comando. Ele recusa portas já ocupadas e
+confere o modo local antes de iniciar a verificação. A bateria `test:review` exige
+o build para inspecionar o grafo real de carregamento; integrações e o runtime
+Edge opcional permanecem suites separadas, com seus pré-requisitos explícitos.
+
+Em um computador que permita iniciar Chrome/Chromium, os roteiros de navegador
+aceitam `CHROME_PATH` e usam somente serviços fictícios:
+
+```bash
+node tests/review-accessibility-browser.cjs
+node tests/review-chat-browser.cjs
+node tests/review-voice-browser.cjs
+```
+
+Os resultados desta rodada estão registrados em
+`artifacts/review-20261123/verification.json`: compilação Netlify com checagem de
+tipos aprovada; 507 testes gerais, 14 testes de regras e 14 verificações de
+integração local (10 de Sala adulta e quatro de histórico) aprovados. Os 80 testes
+focados de histórico/recuperação estão incluídos nos 507, sem contagem duplicada.
+O ambiente impediu o Chromium de
+criar o socket necessário ao processo: a homologação visual/teclado da interface
+construída está pendente. Os testes lógicos de foco e formulários não equivalem
+a uma avaliação em navegador, leitor de tela ou aparelho físico. Gemini, voz real,
+login Google e configurações implantadas online não foram revalidados nesta etapa.
+
+### Publicação
+
+O proprietário autorizou explicitamente salvar o código revisado, os testes e
+as evidências no repositório público `rodrigo12ao-bit/vigia-app`. O destino
+autorizado é a branch [`review/vigia-20261123`](https://github.com/rodrigo12ao-bit/vigia-app/tree/review/vigia-20261123).
+A primeira tentativa havia sido bloqueada pelo controle automático de aprovação
+antes da criação do commit e da branch remotos; a autorização posterior resolve
+essa pendência. O registro está em `artifacts/review-20261123/verification.json`.
+Os hashes do código e das evidências dos testes permanecem os mesmos; somente
+a documentação de autorização foi ajustada após a validação.
+
+Este candidato é de desenvolvimento. Antes de uma publicação, conferir a
+interface em navegador e o alinhamento de frontend, API e regras efetivas nos
+destinos existentes. As seções abaixo são o histórico das publicações anteriores;
+não representam a implantação desta revisão.
+
 ## Conversas independentes e resposta mais rápida — 17/10/2026
 
 Esta revisão separa novas conversas de voz e texto: memória, limite, histórico, limpeza e nova sessão pertencem ao canal selecionado. Registros antigos permanecem como estavam, sem tentar adivinhar quais mensagens vieram do microfone. Consultar uma conversa de voz não substitui a conversa ou o rascunho de texto. Uma resposta textual em andamento pode terminar enquanto a voz está aberta. Salvamento, troca de conta e atualização aguardam também a memória de voz.

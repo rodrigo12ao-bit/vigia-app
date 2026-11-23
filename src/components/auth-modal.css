@@ -1,0 +1,15 @@
+.vigia-auth-modal{max-height:calc(100dvh - 24px)}
+.vigia-auth-modal>div:not(.vigia-auth-body){flex-shrink:0}
+.vigia-auth-modal .vigia-auth-body{overflow-y:auto;min-height:0;overscroll-behavior:contain}
+.vigia-auth-modal input:not([type=checkbox]){font-size:16px;min-height:44px}
+.vigia-auth-modal button{min-height:44px}
+.vigia-auth-modal button[title=Fechar]{width:44px;height:44px;top:8px;right:8px}
+.vigia-auth-modal button[data-password-toggle]{width:44px;height:44px;top:0;right:0;display:grid;place-items:center;color:#475569}
+.vigia-auth-modal input[name=password]{padding-right:48px}
+.vigia-auth-modal form label{font-size:12px;line-height:1.5}
+.vigia-auth-modal label:has(input[type=checkbox]){min-height:44px;align-items:flex-start}
+.vigia-auth-modal form label span{font-size:12px;line-height:1.5}
+.vigia-auth-modal button:focus-visible,.vigia-auth-modal input:focus-visible{outline:3px solid #6d28d9;outline-offset:3px}
+.vigia-auth-modal button:disabled{cursor:wait;opacity:.7}
+.vigia-auth-modal>div:first-child{padding-right:58px}
+@media(max-height:560px){.vigia-auth-modal>div:first-child{padding-top:12px;padding-bottom:12px}.vigia-auth-modal .vigia-auth-body{padding-top:12px;padding-bottom:12px}}

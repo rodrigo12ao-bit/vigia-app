@@ -35,7 +35,8 @@ export const LegalModals: React.FC<LegalModalsProps> = ({ type, onClose }) => {
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all"
+              aria-label="Fechar informações de privacidade e termos"
+              className="w-11 h-11 shrink-0 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-all"
             >
               <X className="w-5 h-5" />
             </button>
@@ -47,7 +48,7 @@ export const LegalModals: React.FC<LegalModalsProps> = ({ type, onClose }) => {
               <p className="font-bold">O Vigia é exclusivo para pessoas de 18 anos ou mais. A declaração de idade não verifica identidade e não autoriza cadastrar menores.</p>
               <h4 className="font-black">Aprendizado e limites</h4><p>Atividades, exemplos e jogos são educativos. A IA pode errar e não substitui serviços de emergência ou vistorias. Imagens não confirmam segurança; não oferecemos pontuação de risco validada.</p>
               <h4 className="font-black">Gemini gratuito</h4><p>Texto, histórico recente, imagens escolhidas e voz são enviados ao Google mediante confirmação. Na modalidade gratuita, o Google pode usar o conteúdo para melhorar produtos e permitir revisão humana. Não envie conteúdo pessoal, confidencial, documentos ou dados de menores. A voz de resposta é gerada por IA. Cotas podem limitar a disponibilidade.</p>
-              <h4 className="font-black">Histórico, contas e contatos</h4><p>Histórico e anexos de visitantes ficam no aparelho. Contas usam Firestore para perfil, histórico e progresso; a avaliação local usa emuladores. Históricos privados não são compartilhados nos painéis. Contatos precisam aceitar convites. Bloqueio e denúncias estão disponíveis; a revisão é manual, sem prazo garantido.</p>
+              <h4 className="font-black">Histórico, contas e contatos</h4><p>Histórico e anexos de visitantes ficam no aparelho. Contas usam Firestore para perfil, histórico e progresso; a avaliação local usa emuladores. Históricos privados não são compartilhados nos painéis. Contatos precisam aceitar convites e podem ser bloqueados. O encaminhamento de denúncias depende de um revisor vinculado; para adultos sem esse vínculo, não há encaminhamento disponível. Quando existe revisor vinculado, a revisão é manual, sem prazo garantido.</p>
               <h4 className="font-black">Hospedagem</h4><p>{import.meta.env.VITE_VOICE_ORIGIN ? 'A Netlify entrega as telas e encaminha as solicitações ao servidor do Vigia no Render. A conversa por voz conecta diretamente ao Render; o conteúdo de IA segue para o Google após seu consentimento.' : 'As solicitações passam pelo servidor do Vigia no Render. O conteúdo de IA segue para o Google após seu consentimento.'} A troca do endereço do aplicativo exige novo login. Históricos de visitantes permanecem no aparelho e no endereço em que foram criados.</p>
               <h4 className="font-black">Controles de privacidade</h4><p>Você pode excluir conversas e exportar seus dados. A exclusão completa de conta online ainda depende de um processo de retenção. Registros anteriores foram preservados. Perfis com vínculo infantil não recebem acesso ao Gemini. Não vendemos dados nem exibimos anúncios.</p>
               <h4 className="font-black">Voz e avisos</h4><p>A leitura de atividades usa a voz do aparelho e pode depender de serviços do fabricante, com confirmação separada. Avisos são consultados no INMET; o filtro de região funciona no aparelho, sem transmitir localização.</p>

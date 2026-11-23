@@ -13,7 +13,8 @@ async function loadModule(file,imports={}){
 const helpers=Promise.all([loadModule('src/lib/conversationState.ts'),loadModule('src/lib/historyStore.ts')]).then(async([conversation,history])=>({conversation,history,recovery:await loadModule('src/lib/guestHistoryRecovery.ts',{'./historyStore':history})}));
 const messages=content=>[{id:'u',role:'user',content:'Pergunta fictícia',timestamp:new Date('2026-10-15T12:00:00Z')},{id:'a',role:'assistant',content,timestamp:new Date('2026-10-15T12:00:01Z')}];
 const session=(id='one',content='Resposta fictícia',updatedAt='2026-10-15T12:01:00.000Z')=>({id,title:'Título preservado',createdAt:'2026-01-01T00:00:00.000Z',updatedAt,messages:messages(content)});
-function storage(){const data=new Map();return {data,getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};}
+function storage(){const data=new Map();return {data,get length(){return data.size;},key:index=>[...data.keys()][index]??null,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)};}
+const pendingRecovery=(local,recovery)=>[...local.data].filter(([key])=>key.startsWith(recovery.guestHistoryRecoveryPrefix)).map(([,value])=>JSON.parse(value));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>resolve=yes);return {promise,resolve};};
 test('a remounted composer observes an older completed submission and its newer draft stays intact',async()=>{
   const {conversation}=await helpers,memory=conversation.createConversationMemory();
@@ -76,11 +77,11 @@ test('successive completed snapshots have strictly increasing timestamps even wi
 test('pagehide guest staging is synchronous and survives a new page before queued writes execute',async()=>{
   const {recovery,local,store}=await fixture(),snapshot=session();
   recovery.stageGuestHistory(snapshot,local);
-  assert.equal(JSON.parse(local.getItem(recovery.guestHistoryRecoveryKey))[0].id,snapshot.id);
+  assert.equal(pendingRecovery(local,recovery)[0].id,snapshot.id);
   assert.equal((await store.load()).length,0,'The outbox does not bypass the canonical account queue.');
   await recovery.recoverGuestHistory(store,local);
   assert.equal((await store.load())[0].messages[1].content,snapshot.messages[1].content);
-  assert.deepEqual(JSON.parse(local.getItem(recovery.guestHistoryRecoveryKey)),[]);
+  assert.deepEqual(pendingRecovery(local,recovery),[]);assert.equal(local.getItem(recovery.guestHistoryRecoveryKey),null);
 });
 
 test('recovery preserves multiple guest conversations and canonical history metadata',async()=>{
@@ -103,7 +104,7 @@ test('a newer outbox staged during recovery is not cleared by completion of the 
   const pending=recovery.recoverGuestHistory({load:async()=>[],save:async value=>{records.push(value);await wait.promise;}},local);
   await new Promise(resolve=>setImmediate(resolve));
   recovery.stageGuestHistory(session('one','Nova','2026-10-15T12:02:00.000Z'),local);wait.resolve();await pending;
-  const remaining=JSON.parse(local.getItem(recovery.guestHistoryRecoveryKey));assert.equal(remaining[0].messages[1].content,'Nova');assert.equal(records.length,1);
+  const remaining=pendingRecovery(local,recovery);assert.equal(remaining[0].messages[1].content,'Nova');assert.equal(records.length,1);
 });
 
 test('account changes during recovery do not write or remove the guest snapshot',async()=>{
@@ -111,15 +112,15 @@ test('account changes during recovery do not write or remove the guest snapshot'
   recovery.stageGuestHistory(session(),local);
   const pending=recovery.recoverGuestHistory({load:()=>wait.promise,save:async()=>{writes++;}},local,()=>current);
   current=false;wait.resolve([]);await assert.rejects(pending,/conta mudou/);
-  assert.equal(writes,0);assert.equal(JSON.parse(local.getItem(recovery.guestHistoryRecoveryKey)).length,1);
+  assert.equal(writes,0);assert.equal(pendingRecovery(local,recovery).length,1);
 });
 
 test('storage failure and conflicting snapshots preserve the previous data instead of forcing an overwrite',async()=>{
   const {recovery,local,store}=await fixture();await store.save(session('one','Versão canônica'));
   recovery.stageGuestHistory(session('one','Outra versão no mesmo instante'),local);
-  const before=local.getItem(recovery.guestHistoryRecoveryKey);
+  const before=[...local.data];
   await assert.rejects(recovery.recoverGuestHistory(store,local),/duas versões/);
-  assert.equal((await store.load())[0].messages[1].content,'Versão canônica');assert.equal(local.getItem(recovery.guestHistoryRecoveryKey),before);
+  assert.equal((await store.load())[0].messages[1].content,'Versão canônica');assert.deepEqual([...local.data],before);
   assert.throws(()=>recovery.stageGuestHistory(session('two'),{getItem:()=>null,setItem:()=>{throw Error('Storage full');}}),/Storage full/);
 });
 

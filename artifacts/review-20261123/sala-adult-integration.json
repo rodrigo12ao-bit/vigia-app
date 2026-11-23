@@ -1,0 +1,46 @@
+{
+  "scope": "Local adult API, Firebase Auth and Firestore emulators; synthetic accounts only, no real AI or publication.",
+  "checks": [
+    {
+      "name": "adult accounts can invite and accept a private conversation",
+      "status": "passed"
+    },
+    {
+      "name": "concurrent retries create one message and increment unread count once",
+      "status": "passed"
+    },
+    {
+      "name": "an outsider cannot write to the private conversation",
+      "status": "passed"
+    },
+    {
+      "name": "recipient revocation blocks delivery and leaves metadata unchanged",
+      "status": "passed"
+    },
+    {
+      "name": "missing recipient profile blocks delivery",
+      "status": "passed"
+    },
+    {
+      "name": "closed recipient is rejected even if its profile still exists",
+      "status": "passed"
+    },
+    {
+      "name": "a prior child relationship cannot reuse an approved adult chat",
+      "status": "passed"
+    },
+    {
+      "name": "blocking a sender immediately prevents another message",
+      "status": "passed"
+    },
+    {
+      "name": "after an explicit unblock the legitimate message works again",
+      "status": "passed"
+    },
+    {
+      "name": "sender access is rechecked for the next request",
+      "status": "passed"
+    }
+  ],
+  "status": "passed"
+}

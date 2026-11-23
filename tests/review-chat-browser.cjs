@@ -1,5 +1,9 @@
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const origin='http://localhost:3134',publicDir=path.resolve('dist/netlify/public');
+const evidenceDir=path.resolve(process.env.VIGIA_CHAT_EVIDENCE_DIR||`artifacts/review-chat-${Date.now()}`);
+assert.ok(evidenceDir.startsWith(path.resolve('artifacts')+path.sep),'Evidence must stay inside artifacts.');
+assert.ok(!fs.existsSync(evidenceDir),'Use a new evidence directory to preserve earlier results.');
+fs.mkdirSync(evidenceDir,{recursive:true});
 const adultVersion=fs.readFileSync('src/lib/audience.ts','utf8').match(/adultAccessVersion\s*=\s*['"]([^'"]+)['"]/)?.[1];
 const historyKey='vigia_guest_chat_sessions_v1';
 const status={demo:false,realAI:true,localDemo:false,audience:'18plus',ai:{mode:'adult-gemini',provider:'gemini',blocked:null,consentVersion:'review-fixture',voice:true}};
@@ -36,7 +40,7 @@ async function saved(text){await page.waitForFunction(({key,text})=>JSON.parse(l
 async function settled(){await page.waitForFunction(()=>!document.body.innerText.includes('A Vigia está preparando a resposta...'));}
 async function hold(){for(let i=0;i<100&&!held.length;i++)await wait(20);assert.ok(held.length);return held.shift();}
 async function image(){await page.evaluate(async()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=32;canvas.getContext('2d').fillRect(0,0,32,32);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));const transfer=new DataTransfer();transfer.items.add(new File([blob],'fictional.png',{type:'image/png'}));const input=document.querySelector('input[type="file"]');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));});await page.waitForSelector('img[alt="Prévia"]');}
-async function openChat(){await page.click('[aria-label="Conversa & Voz"]');await page.waitForSelector('textarea');await page.waitForSelector('[aria-label="Conversa por voz"]');}
+async function openChat(){await page.click('[data-section="chat"]');await page.waitForSelector('textarea');await page.waitForSelector('[aria-label="Conversa por voz"]');}
 async function createPage(mobile,seed=[]){
   context=await browser.createBrowserContext();page=await context.newPage();page.setDefaultTimeout(15000);
   const profile={mobile,pageErrors:[],externalRequests:[]};report.profiles.push(profile);
@@ -67,7 +71,7 @@ async function conversation(mobile){
   await check(label+': a new draft typed after returning stays intact when the older reply finishes',async()=>{behavior='hold';await draft('Envio antigo');await submit();const pending=await hold();await page.click('[aria-label="Aprender com a Vigia"]');await page.waitForSelector('[aria-label="Áreas de aprendizagem"]');await openChat();await draft('Novo rascunho após voltar');json(pending.res,200,{reply:'Resposta preservando o novo rascunho',status:'ok'});await contains('Resposta preservando o novo rascunho');await settled();assert.equal(await page.$eval('textarea',element=>element.value),'Novo rascunho após voltar');await draft('');behavior='ok';});
   await check(label+': unsupported recording releases the microphone and keeps text available',async()=>{await page.evaluate(()=>{window.MediaRecorder=class {static isTypeSupported(){return true;}constructor(){throw Error('Gravação simulada indisponível.');}};});await page.click('[title="Falar pelo microfone"]');await contains('Gravação simulada indisponível.');await page.waitForFunction(()=>window.review.tracks.length>0&&window.review.tracks.every(track=>track.readyState==='ended'));assert.ok(await page.$('textarea'));});
   await check(label+': malformed stored history is preserved and switching cannot discard unsaved content',async()=>{await page.evaluate(key=>localStorage.setItem(key,JSON.stringify([{id:'broken',title:42,messages:[]}])),historyKey);await page.click('[aria-label="Aprender com a Vigia"]');await openChat();await contains('Histórico indisponível.');assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].title,historyKey),42);await page.click('[title="Iniciar uma nova conversa"]');await contains('Recarregue o histórico antes de trocar de conversa.');await contains('Resposta preservando o novo rascunho');assert.deepEqual(profile.pageErrors,[]);});
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));await page.screenshot({path:'artifacts/review-20261016-chat-'+label+'.png',fullPage:true});await closePage();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));await page.screenshot({path:path.join(evidenceDir,label+'.png'),fullPage:true});await closePage();
   const messages=Array.from({length:198},(_,index)=>({id:'limit-'+index,role:index%2?'assistant':'user',content:'Conteúdo fictício '+index,timestamp:'2026-10-15T12:00:00.000Z'}));
   const seed=[{id:'limit-session',title:'Conversa no limite',createdAt:'2026-10-15T12:00:00.000Z',updatedAt:'2026-10-15T12:00:00.000Z',messages}];await createPage(mobile,seed);
   await check(label+': the last complete text turn reaches 200 messages and the next is blocked',async()=>{await page.click('[title="Abrir histórico de conversas"]');await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Conversa no limite'));await page.evaluate(()=>[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Conversa no limite').click());await draft('Último turno permitido');await submit();await contains('Resposta simulada: Último turno permitido');await saved('Resposta simulada: Último turno permitido');assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key))[0].messages.length,historyKey),200);const count=requests.length;await draft('Não deve exceder');await submit();await contains('Esta conversa atingiu o limite.');assert.equal(requests.length,count);});
@@ -76,11 +80,13 @@ async function conversation(mobile){
 (async()=>{try{
   assert.ok(fs.existsSync(path.join(publicDir,'index.html')));await new Promise(resolve=>server.listen(3134,'127.0.0.1',resolve));
   const puppeteer=(await import('puppeteer')).default;
-  browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
+  const executablePath=[process.env.CHROME_PATH,'/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome','C:/Program Files/Google/Chrome/Application/chrome.exe'].filter(Boolean).find(file=>fs.existsSync(file));
+  assert.ok(executablePath,'Set CHROME_PATH to an installed supported browser.');
+  browser=await puppeteer.launch({executablePath,headless:true,pipe:true,args:['--no-sandbox','--disable-background-networking','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--autoplay-policy=no-user-gesture-required']});
   await conversation(false);await conversation(true);report.status='passed';console.log('PASS '+report.checks.length+' chat browser checks');
-}catch(error){report.status='failed';report.checks.push({name:stage,status:'failed',error:error.message});process.exitCode=1;console.error(error.stack);if(page)await page.screenshot({path:'artifacts/review-20261016-chat-failure.png',fullPage:true}).catch(()=>{});
+}catch(error){report.status='failed';report.checks.push({name:stage,status:'failed',error:error.message});process.exitCode=1;console.error(error.stack);if(page)await page.screenshot({path:path.join(evidenceDir,'failure.png'),fullPage:true}).catch(()=>{});
 }finally{
-  fs.writeFileSync('artifacts/review-20261016-chat-browser.json',JSON.stringify(report,null,2));
+  fs.writeFileSync(path.join(evidenceDir,'report.json'),JSON.stringify(report,null,2));
   await closePage();
   if(browser){let timer;try{await Promise.race([browser.close(),new Promise(resolve=>timer=setTimeout(resolve,5000))]);}finally{clearTimeout(timer);if(browser.process()?.exitCode===null)browser.process().kill();}}
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));

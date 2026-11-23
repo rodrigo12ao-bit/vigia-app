@@ -3,7 +3,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Profiles are private. Trusted roles/guardian links live in sala_authorities,
     // written only by the server/operator. Invites and chats are server-owned.
-    // Messages preserve content/authorship; clients may add their own receipt.
+    // chats/{chatId}: server-owned pair of distinct participant UIDs (1..128
+    // characters), approval, denormalized public profiles and unreadCount map.
+    // chats/{chatId}/messages/{id}: server-only creation. Immutable senderUid,
+    // senderNickname (1..80), text (1..2000), createdAt (ISO string). The actual
+    // recipient may change only status sent->read and readBy [sender,recipient].
+    // users/{uid}: private profile; sala_authorities/adult_access/tombstones:
+    // trusted server-only authorization sources. Existing profile/history and
+    // supervised legacy access are retained below, without broadening readers.
+    function validUid(uid) { return uid is string && uid.size() > 0 && uid.size() <= 128; }
     function validUser(d, uid) {
       return d.uid == uid && d.nickname is string && d.nickname.size() > 0 && d.nickname.size() <= 80
         && d.get('role','infantil') in ['infantil','responsavel','educador']
@@ -14,16 +22,32 @@ service cloud.firestore {
     }
     function validSession(d,id) { return d.id == id && d.title is string && d.title.size() <= 120 && d.messages is list && d.messages.size() <= 200 && d.get('createdAt','') is string && d.get('updatedAt','') is string; }
     function validAttachment(d) { return d.keys().hasOnly(['data']) && d.data is string && d.data.size() <= 250000; }
-    function validChat(d) { return d.participants is list && d.participants.size() == 2 && d.participants.toSet().size() == 2 && d.isApproved == true && d.unreadCount is map && d.unreadCount.keys().hasOnly(d.participants) && d.unreadCount[d.participants[0]] is int && d.unreadCount[d.participants[1]] is int && d.unreadCount[d.participants[0]] >= 0 && d.unreadCount[d.participants[1]] >= 0; }
-    function validMessage(d) { return d.keys().hasOnly(['senderUid','senderNickname','text','createdAt','status','readBy']) && d.senderUid is string && d.senderNickname is string && d.senderNickname.size() <= 80 && d.text is string && d.text.size() > 0 && d.text.size() <= 2000 && d.createdAt is string && d.status in ['sent','read'] && d.readBy is list && d.readBy.size() <= 2; }
+    function validChat(d) { return d.participants is list && d.participants.size() == 2 && d.participants.toSet().size() == 2 && validUid(d.participants[0]) && validUid(d.participants[1]) && d.isApproved == true && d.unreadCount is map && d.unreadCount.keys().hasOnly(d.participants) && d.unreadCount[d.participants[0]] is int && d.unreadCount[d.participants[1]] is int && d.unreadCount[d.participants[0]] >= 0 && d.unreadCount[d.participants[1]] >= 0; }
+    function validMessage(d) {
+      let fields = ['senderUid','senderNickname','text','createdAt','status','readBy'];
+      return d.keys().hasAll(fields) && d.keys().hasOnly(fields) && validUid(d.senderUid)
+        && d.senderNickname is string && d.senderNickname.size() > 0 && d.senderNickname.size() <= 80
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 2000
+        && d.createdAt is string && d.createdAt.size() > 0 && d.createdAt.size() <= 40
+        && d.status in ['sent','read'] && d.readBy is list && d.readBy.size() > 0 && d.readBy.size() <= 2
+        && d.readBy.toSet().size() == d.readBy.size() && validUid(d.readBy[0])
+        && (d.readBy.size() == 1 || validUid(d.readBy[1])) && d.senderUid in d.readBy;
+    }
     function validReport(d) { return d.keys().hasOnly(['reporterUid','reportedUid','chatId','messageText','reason','status','createdAt']) && d.reporterUid is string && d.reportedUid is string && d.chatId is string && d.messageText is string && d.messageText.size() <= 2000 && d.reason is string && d.reason.size() > 0 && d.reason.size() <= 1000 && d.status in ['pending','reviewed'] && d.createdAt is string; }
     function signed() { return request.auth != null && !exists(/databases/$(database)/documents/account_tombstones/$(request.auth.uid)); }
     function owner(uid) { return signed() && request.auth.uid == uid; }
     function guardian(uid) { return signed() && exists(/databases/$(database)/documents/sala_authorities/$(uid)) && get(/databases/$(database)/documents/sala_authorities/$(uid)).data.get('guardianUid', '') == request.auth.uid; }
     function participant(chatId) { return signed() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants; }
-    function unblocked(chatId) {
-      let c = get(/databases/$(database)/documents/chats/$(chatId)).data;
-      return c.isApproved == true && c.participants.size() == 2 && !(c.participants[1] in get(/databases/$(database)/documents/users/$(c.participants[0])).data.get('blockedUsers', [])) && !(c.participants[0] in get(/databases/$(database)/documents/users/$(c.participants[1])).data.get('blockedUsers', []));
+    function recipientReceipt(chatId) {
+      let participants = get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      return participants is list && participants.size() == 2 && participants.toSet().size() == 2
+        && resource.data.senderUid in participants && resource.data.senderUid != request.auth.uid
+        && resource.data.status in ['sent','read'] && validMessage(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy','status'])
+        && request.resource.data.status == 'read' && request.resource.data.readBy.size() == 2
+        && request.resource.data.readBy.toSet().hasAll(participants)
+        && request.resource.data.readBy.toSet().hasOnly(participants)
+        && request.resource.data.readBy.toSet().hasAll(resource.data.readBy);
     }
     match /sala_authorities/{uid} { allow read: if owner(uid) || guardian(uid); allow write: if false; }
     match /users/{uid} {
@@ -48,8 +72,10 @@ service cloud.firestore {
       allow update: if participant(chatId) && validChat(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unreadCount']) && request.resource.data.unreadCount.diff(resource.data.unreadCount).affectedKeys().hasOnly([request.auth.uid]) && request.resource.data.unreadCount[request.auth.uid] == 0;
       match /messages/{id} {
         allow read: if participant(chatId);
-        allow create: if participant(chatId) && unblocked(chatId) && validMessage(request.resource.data) && request.resource.data.senderUid == request.auth.uid && request.resource.data.senderNickname == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.nickname && request.resource.data.status == 'sent' && request.resource.data.readBy == [request.auth.uid];
-        allow update: if participant(chatId) && validMessage(request.resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy','status']) && request.resource.data.status == 'read' && request.resource.data.readBy.toSet().hasAll(resource.data.readBy) && request.resource.data.readBy.toSet().difference(resource.data.readBy.toSet()).hasOnly([request.auth.uid]);
+        // API transaction checks both accounts, adult access, current blocks and
+        // idempotency, then writes the message plus the chat counter together.
+        allow create: if false;
+        allow update: if participant(chatId) && recipientReceipt(chatId);
         allow delete: if false;
       }
     }

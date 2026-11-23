@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-23",
+  "timezone": "America/Sao_Paulo",
+  "repository": "rodrigo12ao-bit/vigia-app",
+  "baseBranch": "codex/publicacao-vigia-20261012",
+  "baseCommit": "a3e0254750cd220aee885600a119c71ec74d30c3",
+  "reviewBranch": "review/vigia-20261123",
+  "scope": "Development revision; synthetic local data and Firebase emulators; no production deployment, cloud database writes, real AI calls or paid-service changes.",
+  "environment": {
+    "node": "24.22.3",
+    "npm": "11.19.1",
+    "java": "21.0.13",
+    "firebaseTools": "15.33.0"
+  },
+  "verification": {
+    "build": {
+      "command": "npm run build:netlify",
+      "status": "passed",
+      "includesTypecheck": true,
+      "evidence": "build.log",
+      "notes": [
+        "Vite reports the existing optional 3D game bundle above its chunk-size warning threshold. This is not a measured runtime performance result."
+      ]
+    },
+    "generalSuite": {
+      "command": "npm run test:review",
+      "status": "passed",
+      "testFiles": 54,
+      "tests": 507,
+      "pass": 507,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "evidence": "tests.log",
+      "excludedSuites": [
+        "api.test.ts",
+        "sala.test.ts",
+        "school.test.ts",
+        "adventure-api.test.ts",
+        "firestore.rules.test.ts",
+        "edge-runtime.test.cjs"
+      ]
+    },
+    "rules": {
+      "command": "node scripts/with-review-services.cjs scripts/run-review-tests.cjs firestore.rules.test.ts",
+      "status": "passed",
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "evidence": "rules.log"
+    },
+    "adultSalaIntegration": {
+      "command": "node scripts/with-review-services.cjs tests/review-sala-adult.cjs",
+      "status": "passed",
+      "checks": 10,
+      "evidence": "sala-adult-integration.json"
+    },
+    "authenticatedHistoryIntegration": {
+      "command": "node scripts/with-review-services.cjs tests/history-pagination-emulator.cjs",
+      "status": "passed",
+      "tests": 4,
+      "executionRecord": "Successful 4/4 execution reported by the history implementation agent during this review. The runner did not retain a stdout file.",
+      "scenarios": [
+        "61 same-date documents, stable cursor and rename between pages",
+        "selected attachments and preservation of other sessions",
+        "malformed legacy metadata remains explicit and preserved",
+        "delete-all reaches every page and attachment subcollection"
+      ]
+    },
+    "focusedRecoveryRegression": {
+      "command": "node scripts/run-review-tests.cjs history-selection.test.cjs history-concurrency.test.cjs history-pagination.test.cjs history.test.ts conversation-persistence.test.cjs voice-conversation-state.test.cjs guest-recovery-concurrency.test.cjs",
+      "status": "passed",
+      "tests": 80,
+      "pass": 80,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "evidence": "recovery-lock-tests.log",
+      "includedInGeneralSuite": true
+    },
+    "independentReview": {
+      "scope": "Deletion detachment, immutable recovery snapshots, recovery/delete coordination and lock ordering",
+      "status": "no remaining blocker found in inspected changes"
+    },
+    "diffWhitespace": {
+      "command": "git diff --cached --check -- . ':(exclude)artifacts/review-20261123/*.log'",
+      "status": "passed",
+      "note": "Raw command logs retain original trailing whitespace emitted by the SDK; source and documentation are checked."
+    },
+    "browser": {
+      "status": "blocked",
+      "reason": "Chromium could not create the process singleton socket: socket() failed: Operation not permitted (1).",
+      "scriptsPrepared": [
+        "tests/review-accessibility-browser.cjs",
+        "tests/review-chat-browser.cjs",
+        "tests/review-voice-browser.cjs"
+      ],
+      "passedBrowserChecks": 0
+    }
+  },
+  "dependencyAudit": {
+    "command": "npm audit --omit=dev",
+    "before": {
+      "info": 0,
+      "low": 1,
+      "moderate": 6,
+      "high": 3,
+      "critical": 0,
+      "total": 10
+    },
+    "after": {
+      "info": 0,
+      "low": 0,
+      "moderate": 4,
+      "high": 0,
+      "critical": 0,
+      "total": 4
+    },
+    "remaining": "Four moderate entries in the transitive @google-cloud/firestore-api / google-gax / rimraf / glob / minimatch chain; no forced major upgrade or transitive override was applied."
+  },
+  "limits": [
+    "This revision is not deployed. Browser, screen-reader, physical device, real microphone, live Gemini and Google login validation remains pending.",
+    "The optional Edge runtime and older integration suites listed as excluded were not counted as passed in the general suite. Separate rules and new adult/history integrations are reported above.",
+    "The first authenticated history page is ordered by stable document ID. The interface sorts only loaded summaries by date and marks partial lists. It does not guarantee the globally most recent 25 conversations.",
+    "Firestore still transfers messages in each fetched session document. Attachments are deferred; no field projection, byte-reduction measurement or latency improvement is claimed.",
+    "Cross-tab coordination requires Web Locks. Without them, use one tab. Concurrent editing of the same conversation remains last-write-wins and is not supported collaboration.",
+    "Close tabs running the previous application before upgrading. Legacy v1 records are recovered, but concurrent old v1 writers do not participate in v2 coordination.",
+    "Unlinked adult reports have no review team configured. The interface discloses this; blocking remains available.",
+    "Full online account deletion remains disabled pending the existing retention/operational process.",
+    "Adult message authorization adds six document reads, from four to ten per transaction execution. Online cost and latency were not measured."
+  ],
+  "evidenceSha256": {
+    "build.log": "d84d6fc097d748d7030ec722e85ff68c165315869f5686eda62e023dd3d76842",
+    "tests.log": "eef5943a966d373f1b3b9d0d16a80bee767b1b09e39355e92b2346d6222e2436",
+    "rules.log": "5cdacfc62570d5def5c452db5624394276105fdade0b669718621129b9a5d381",
+    "recovery-lock-tests.log": "3c08152f49198cff15c6c276f8bf29656dcf2f81b7abf6194eaf97444e019d9c",
+    "sala-adult-integration.json": "6c04bf9ddc3ceab3b007bdfdacfde512688e54258f63aa905de89e960e19cbb5",
+    "npm-audit-before.json": "98a0d25183c88bd3b95a4bef90828c610468974d4df5db770298c52586472ad3",
+    "npm-audit-after.json": "2cdedd0964c9355b320b4d67c79414ea404637638fce51719e696f3303cc792d"
+  },
+  "changedSourceSha256": {
+    "firestore.rules": "6ded3a6ad5c7402f02a57d02d46542a6b03152c553ad21cb93c4bcce0291c188",
+    "package-lock.json": "01104ecef202acbe5f1e885a95c6d6d8a71a75faaa86a6b42594d01e237def94",
+    "package.json": "5d331368a2040beb1cf0765f49ad752344c3b934a224e25359d61bae688a8de6",
+    "scripts/emulators.cjs": "03779131d2f95a44a729ece37d8b2a6fe5102b580b7f7194b2187db7275cd615",
+    "scripts/review-local.cjs": "52a6ac53ef826c3e2f3450adb487425e74f238c204398f0d76a97bd5bd099052",
+    "scripts/run-review-tests.cjs": "31bedf91deedf0c8569259abeee44debc99ac66d7a222ff39b40cd4bec87c975",
+    "scripts/with-review-services.cjs": "d648d451d12db8ff0b4066dc032bf24a0932fa36d78628a2dd23c9b01b12b297",
+    "server/sala.ts": "181a81b2c6b7e13e612ca8425feb08b04868921e3b06da0e5dc2b57187068866",
+    "src/App.tsx": "425eb6742c84cd12b8992a8179a98ba31a386aafea9ec27cf2f9ca0a99396f54",
+    "src/components/AdultGate.tsx": "4d0e8a67afc5005463696c649926d4d1d637f4f82565faf5bbc1bf9154d1a8c0",
+    "src/components/AuthModal.tsx": "87b184fee9c5f3f7fef7a12f1df57f80e2d1c0dc60f09063aa932fc1d986fd4f",
+    "src/components/ChatTab.tsx": "c406a7fd2feda85f6931af0ad670b1c0cfd881b522695135b7f2fa626003bc36",
+    "src/components/LegalModals.tsx": "bd5b741bd393ef07710152d1cb45500e4fab3d87ea5629d00cc017c0b8a883ba",
+    "src/components/Navbar.tsx": "2846290a55c580397d211327894509a747cd1d090fc98ff3bbac2f0fb8683024",
+    "src/components/ProfileModal.tsx": "40ed7abd9ebec97ce064acca06cbbb910fc97e24372cc5c2e367516111f35464",
+    "src/components/WelcomeScreen.tsx": "22233bb99f35fd8a3b165b17297fdf1b6ea122be726f92eabce6c965ce9c7ad4",
+    "src/components/auth-modal.css": "c6fe319ea191a1d92d2b0a9bfb1932592bb4eda29c59e258586bd888ca1b45c7",
+    "src/components/brand/brand-entry.css": "29d6065b8d2c37f235b40fd6a104396f791abf7c597133fa0297293883107b59",
+    "src/components/salasegura/SalaSeguraTab.tsx": "bb423e1de18dad12d710d2740be63d0086fa3af5c4a44e61b6284df7f8d265d5",
+    "src/hooks/useDialog.ts": "30eba54cfa5a8cfc07f0f198e0e63096c5a7f43aa6126a8b4b3acd56b3a368a6",
+    "src/lib/api.ts": "e2fe36ee34f5f81b95b85e1c0101691dd735244218b530ec265984cf00648f73",
+    "src/lib/audience.ts": "96bbd0b9d37600ed24fa83acabe86084166543b7fa09f51b26838b754df0b185",
+    "src/lib/chatHistoryService.ts": "b379428332bca8a5ec5dccfa3bee36dc44d84d2c4a5bf2306dff3e999b6641e6",
+    "src/lib/conversationState.ts": "d68cd7343d4e2399165e1912ff8ec9def7e73d143b6ac56d62eb7578fbf69fca",
+    "src/lib/guestHistoryRecovery.ts": "2188d6a1876a15bcb83d6f780080e809601a2f709e4d0f9cacd351e755fb99d8",
+    "src/lib/historyStore.ts": "37b0a33ae0b24c49895a6cb4a172ebe2ffaed50a30d632a7485df31347ab3ac6",
+    "src/lib/registrationNickname.ts": "67eb90696ab97288c5158775fdb12bd34fd00efae836a969e7c12253da305ca8",
+    "tests/api-client-recovery.test.cjs": "f81d19ecf14b0cc4de759a775e1c9c3d9a0e20682285d01ee5f4b1b706279cd5",
+    "tests/conversation-persistence.test.cjs": "0ccde182824b0cb0fef02bda4e87a1adee6c5d1c27ce58f1a3ac76bb9eabf662",
+    "tests/entry-review.test.cjs": "742177fd8a691f8e35cdd83e8a6ce4c91214a2bb5d99b40b292acada0d6ae514",
+    "tests/firestore.rules.test.ts": "38a0ca464193790aecca02d269d497002140d647aaab17943d4226685caa0519",
+    "tests/frontend-regressions.test.cjs": "3ab377d0bc264b20c3a4190cc12092504400f83d566556463745208bb3e7a0be",
+    "tests/guest-recovery-concurrency.test.cjs": "58b2053c7566f6aa67909d0fd5d8da637e6804839e89b1bf12f162a677bbce52",
+    "tests/helpers/history-fixture.cjs": "246983a3aa34372d17964f34782e2bc9871745dcc5527c5d19274fe01d1399e4",
+    "tests/history-concurrency.test.cjs": "075c6729ce3202a79a5fd9369947237d3e98a18b9a199e30e72e6b50560ca07b",
+    "tests/history-pagination-emulator.cjs": "6949e6d52c86ff46c037df042df0e2535bba417f13f6e5b380531eb13e2996a9",
+    "tests/history-pagination.test.cjs": "ba937358794546f7600b404429459ff5ea5cb0e3803afba2c6dc18f5bc719d6d",
+    "tests/history-selection.test.cjs": "f3b245ab745ebd7f62467e6d924ec910475c6e61eee1e444c44ca633464ef8c3",
+    "tests/review-accessibility-browser.cjs": "31c7c66ad76c6f257a095551b6a3ab3ec687eaa56ac6f41d675635a334b3a1ff",
+    "tests/review-chat-browser.cjs": "45a6018fb9e747c55b6530ce357defa03b4c22e6a7e6018806e444df5366bc4f",
+    "tests/review-mode.test.cjs": "9a5b3205b49fd352296f6d3fb5ac7155cf52a74bef0a4d438a42db491cd6b286",
+    "tests/review-sala-adult.cjs": "9384f74c668509d7ddf6de570d1da1e09dae9d938bccc345759054c055d78d5d",
+    "tests/review-voice-browser.cjs": "dc4172af0047a4f5059c9aa97bd87736009d59afab78e48a472d1f5ba0afe562",
+    "tests/sala-message-authorization.test.cjs": "0ff24c6859fb40096f26293bd19d6ed2d7debd03b1bb5607c9c6c8a853252a9c"
+  },
+  "remotePersistence": {
+    "status": "authorized_by_user",
+    "destination": "https://github.com/rodrigo12ao-bit/vigia-app",
+    "repositoryVisibility": "public",
+    "targetBranch": "review/vigia-20261123",
+    "targetBranchUrl": "https://github.com/rodrigo12ao-bit/vigia-app/tree/review/vigia-20261123",
+    "userAuthorization": {
+      "response": "sim",
+      "scope": "Save the revised code, tests and verification reports in the public repository on the new review/vigia-20261123 branch. This authorization concerns source publication; application deployment remains a separate step."
+    },
+    "previousAttempt": {
+      "status": "blocked_by_automatic_approval_review",
+      "reason": "The automatic approval reviewer requires explicit authorization to disclose the revised files, tests and verification artifacts to this public destination.",
+      "remoteTreeObjectCreated": "900817a3477df7611ac57c1f9ac2878a4079af68",
+      "remoteCommitCreated": false,
+      "remoteBranchCreated": false
+    },
+    "integrity": "The recorded source and test-evidence SHA-256 values are retained unchanged. Only README and authorization metadata were updated after the test gate."
+  }
+}

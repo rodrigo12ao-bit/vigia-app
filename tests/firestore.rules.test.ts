@@ -1,10 +1,11 @@
 import { before, after, beforeEach, test as nodeTest } from 'node:test';
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import type { RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
-const {doc,getDoc,setDoc,updateDoc,deleteDoc,collection,getDocs,query,where}=require('firebase/firestore');
+const {doc,getDoc,setDoc,updateDoc,deleteDoc,deleteField,collection,getDocs,query,where}=require('firebase/firestore');
 const test=(name:string,fn:()=>Promise<void>)=>nodeTest(name,{timeout:15000},fn);
 let env: RulesTestEnvironment;
 const chat='chat';
@@ -24,6 +25,7 @@ beforeEach(async()=>{
 const db=(uid:string)=>env.authenticatedContext(uid).firestore();
 test('perfis privados: anônimo e terceiro não leem; dono lê',async()=>{
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),'users','a')));
+  await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(),'users')));
   await assertFails(getDoc(doc(db('b'),'users','a')));
   await assertSucceeds(getDoc(doc(db('a'),'users','a')));
 });
@@ -49,7 +51,7 @@ test('participantes e mensagens: terceiro não lê, autor não é falsificado, e
   await assertFails(updateDoc(doc(db('a'),'chats',chat),{participants:['a','b','c']}));
   const message={senderUid:'a',senderNickname:'a',text:'Olá',createdAt:'2026-10-12',readBy:['a'],status:'sent'};
   await assertFails(setDoc(doc(db('b'),'chats',chat,'messages','forged'),message));
-  await assertSucceeds(setDoc(doc(db('a'),'chats',chat,'messages','valid'),message));
+  await assertFails(setDoc(doc(db('a'),'chats',chat,'messages','direct'),message));
   await assertFails(updateDoc(doc(db('b'),'chats',chat,'messages','m'),{text:'Alteração'}));
   await assertFails(deleteDoc(doc(db('a'),'chats',chat,'messages','m')));
 });
@@ -59,12 +61,34 @@ test('leitura altera apenas confirmação do próprio participante e seu contado
   await assertSucceeds(updateDoc(doc(db('b'),'chats',chat),{'unreadCount.b':0}));
   await assertFails(updateDoc(doc(db('b'),'chats',chat),{'unreadCount.a':0,'unreadCount.b':99}));
 });
-test('bloqueio imposto nas regras, inclusive para cliente direto; desbloqueio retoma envio',async()=>{
+test('mensagens são criadas apenas pela API, inclusive após desbloqueio do contato',async()=>{
   const message={senderUid:'a',senderNickname:'a',text:'Olá',createdAt:'2026-10-12',readBy:['a'],status:'sent'};
   await assertSucceeds(updateDoc(doc(db('b'),'users','b'),{blockedUsers:['a']}));
   await assertFails(setDoc(doc(db('a'),'chats',chat,'messages','blocked'),message));
   await assertSucceeds(updateDoc(doc(db('b'),'users','b'),{blockedUsers:[]}));
-  await assertSucceeds(setDoc(doc(db('a'),'chats',chat,'messages','unblocked'),message));
+  await assertFails(setDoc(doc(db('a'),'chats',chat,'messages','unblocked'),message));
+  await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(),'chats',chat,'messages','anonymous'),message));
+  await assertFails(setDoc(doc(db('a'),'chats','missing-chat','messages','orphan'),message));
+});
+test('remetente não pode fabricar recibo de leitura nem inserir terceiro ou UID duplicado',async()=>{
+  const sender=doc(db('a'),'chats',chat,'messages','m'),recipient=doc(db('b'),'chats',chat,'messages','m');
+  await assertFails(updateDoc(sender,{status:'read'}));
+  await assertFails(updateDoc(sender,{status:'read',readBy:['a','b']}));
+  for(const readBy of [['b'],['a','a'],['a','c'],['a','b','c'],['a',42]])await assertFails(updateDoc(recipient,{status:'read',readBy}));
+  await assertSucceeds(updateDoc(recipient,{status:'read',readBy:['a','b']}));
+  await assertSucceeds(updateDoc(recipient,{status:'read',readBy:['a','b']}));
+  await assertFails(updateDoc(recipient,{status:'sent',readBy:['a','b']}));
+});
+test('recibo não altera autoria, texto, data ou esquema e exige todos os campos',async()=>{
+  const ref=doc(db('b'),'chats',chat,'messages','m');
+  for(const change of [
+    {senderUid:'b'}, {senderNickname:'Falsificado'}, {text:'Outro texto'},
+    {createdAt:'2099-01-01'}, {extraData:'campo não permitido'}, {text:'x'.repeat(2001)},
+    {text:42}, {readBy:null}, {senderNickname:deleteField()}, {status:deleteField()},
+  ])await assertFails(updateDoc(ref,{status:'read',readBy:['a','b'],...change}));
+  const stored=await getDoc(doc(db('a'),'chats',chat,'messages','m'));
+  assert.equal(stored.data().text,'Mensagem original');
+  assert.equal(stored.data().status,'sent');
 });
 test('histórico e anexos: nunca cruzam contas',async()=>{
   const ref=doc(db('a'),'users','a','chat_sessions','s');
