@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://vigia-aplicativo-18plus.netlify.app",
+  "startedAt": "2026-11-23T21:29:45.876Z",
+  "status": "public_availability_and_build_identity_verified",
+  "deploymentEvidence": {
+    "source": "Netlify deployment and build UI confirmed by publishing operator",
+    "deployId": "6b04afa2ec8bada2549056c3",
+    "sourceRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+    "candidateEntry": "/assets/index-TQjNny0z.js",
+    "expectedChatChunk": "ChatTab-CzpQTCLf.js",
+    "buildCommand": "npm run build:netlify",
+    "publishDirectory": "dist/netlify/public",
+    "functionsDeployed": 1,
+    "recordedBuildAssets": [
+      "index-BIldGDqZ.js",
+      "index-TQjNny0z.js",
+      "App-DIFU4aoi.js",
+      "ChatTab-CzpQTCLf.js"
+    ],
+    "recordedBuildAssetSource": "Published Netlify build log verified by publishing operator after initial public sample",
+    "initialEntryHypothesisDisposition": "incorrect_role_same_published_build"
+  },
+  "scope": {
+    "methods": [
+      "GET"
+    ],
+    "paths": [
+      "/",
+      "/api/status"
+    ],
+    "maximumSamplesPerPath": 1,
+    "clientRetries": 0,
+    "timeoutMs": 55000,
+    "providerRequests": 0,
+    "sessionRequests": 0,
+    "webSocketConnections": 0,
+    "browserUsed": false,
+    "assetFollowupMaximumGets": 2,
+    "localProductionHashComparison": false
+  },
+  "requests": [
+    {
+      "path": "/",
+      "method": "GET",
+      "attempt": 1,
+      "httpStatus": 200,
+      "headersMs": 9464,
+      "contentType": "text/html",
+      "cacheControl": "public,max-age=0,must-revalidate",
+      "bodyBytes": 2517,
+      "bodySha256": "1a987d9cd9c6cc7ccd6cc071cc5c17bf7c0544919f4242a2d76d0ee875859591",
+      "totalMs": 9467,
+      "result": "verified"
+    },
+    {
+      "path": "/api/status",
+      "method": "GET",
+      "attempt": 1,
+      "httpStatus": 200,
+      "headersMs": 11347,
+      "contentType": "application/json",
+      "cacheControl": "no-store",
+      "bodyBytes": 214,
+      "bodySha256": "f095982b37a667bf1176381625ecbce3ce388715d53e3ea856e4a97df08cb25d",
+      "totalMs": 11390,
+      "result": "verified"
+    }
+  ],
+  "limitations": [
+    "One public GET sample per endpoint; no chat, speech synthesis, microphone, WebSocket or session was requested.",
+    "Deployment commit and Function count come from the publishing operator’s Netlify UI evidence, not from a public version endpoint.",
+    "Only safe, explicitly allowed runtime fields are retained; cookies, authorization headers and raw response bodies are not saved.",
+    "The entry and one referenced App chunk were read as static text; JavaScript was not executed. The named ChatTab chunk was confirmed by a JavaScript reference and the published build log, not downloaded or exercised.",
+    "Original request timings include a synchronous local report checkpoint (writeSync, ftruncateSync and fsyncSync) performed after the timer starts and before fetch. Its contribution was not measured separately; the original timings are preserved unchanged.",
+    "The original Netlify and Render observations are not a controlled latency comparison: Netlify index and status were launched concurrently as initial requests, while Render status followed its index and asset sequentially at a different time. The observations do not isolate proxy execution or establish cold start."
+  ],
+  "index": {
+    "entryAssets": [
+      "/assets/index-BIldGDqZ.js"
+    ],
+    "entryMatchesDeploymentCandidate": false,
+    "assetReferences": [
+      "/assets/index-BIldGDqZ.js",
+      "/assets/vendor-utils-CqkleIqs.js",
+      "/assets/vendor-react-7kqsRsp0.js",
+      "/assets/index-DfCaxnEz.css"
+    ],
+    "containsExpectedChatChunkReference": false,
+    "languagePortuguese": true,
+    "vigiaTitle": true
+  },
+  "chatChunk": {
+    "expected": "ChatTab-CzpQTCLf.js",
+    "result": "reference_in_published_javascript",
+    "referencedBy": "/assets/App-DIFU4aoi.js",
+    "assetFetched": false
+  },
+  "runtime": {
+    "json": {
+      "demo": false,
+      "audience": "18plus",
+      "localDemo": false,
+      "realAI": true,
+      "firebase": "cloud",
+      "ai": {
+        "mode": "adult-gemini",
+        "provider": "gemini",
+        "blocked": null,
+        "consentVersion": "2026-10-13-gemini-adults-free-v1",
+        "voice": true
+      }
+    },
+    "unknownFieldsOmitted": 0,
+    "expectedAdultCloudRuntime": true
+  },
+  "completedAt": "2026-11-23T21:32:16.828Z",
+  "history": [
+    {
+      "recordedAt": "2026-11-23T21:32:09.627Z",
+      "priorCompletedAt": "2026-11-23T21:29:57.283Z",
+      "priorStatus": "verification_failed",
+      "initialEntryHypothesis": "/assets/index-TQjNny0z.js",
+      "observedEntry": "/assets/index-BIldGDqZ.js",
+      "initialEntryMatched": false,
+      "resolution": "Publishing operator verified that index-BIldGDqZ.js and index-TQjNny0z.js both occur in the published Netlify build; the latter was another chunk, not the HTML entry. Preserve the original observation and correct its interpretation."
+    }
+  ],
+  "assetFollowup": {
+    "startedAt": "2026-11-23T21:32:09.628Z",
+    "authorization": "One GET of the observed public entry; at most one GET following its App import if needed. No provider requests.",
+    "maximumRequests": 2,
+    "requests": [
+      {
+        "path": "/assets/index-BIldGDqZ.js",
+        "method": "GET",
+        "attempt": 1,
+        "httpStatus": 200,
+        "headersMs": 6469,
+        "contentType": "application/javascript",
+        "bodyBytes": 4850,
+        "bodySha256": "d16d8e467024288c0d9d9f797749978418a6b706b70e88f0a7a83f9214ef4d09",
+        "totalMs": 6475,
+        "assetReferences": [
+          "./App-DIFU4aoi.js",
+          "./vendor-react-7kqsRsp0.js",
+          "./vendor-utils-CqkleIqs.js",
+          "assets/App-8ejEkrhg.css",
+          "assets/App-DIFU4aoi.js",
+          "assets/index-BXWtuYvb.js",
+          "assets/vendor-firebase-auth-DUenq9Dv.js",
+          "assets/vendor-firebase-core-BFD_6fQE.js",
+          "assets/vendor-lucide-BPTI9cHh.js",
+          "assets/vendor-motion-BisUq8KL.js",
+          "assets/vendor-react-7kqsRsp0.js",
+          "assets/vendor-utils-CqkleIqs.js"
+        ],
+        "referencesExpectedApp": true,
+        "referencesExpectedChat": false,
+        "result": "verified"
+      },
+      {
+        "path": "/assets/App-DIFU4aoi.js",
+        "method": "GET",
+        "attempt": 1,
+        "httpStatus": 200,
+        "headersMs": 372,
+        "contentType": "application/javascript",
+        "bodyBytes": 132158,
+        "bodySha256": "12e018ca308a38027e1ff827a985b8a3e1c066c577849ed3b0760d81a3a43185",
+        "totalMs": 722,
+        "assetReferences": [
+          "./AuthModal-DfTGDBTj.js",
+          "./BadgesModal-DGXW3OqT.js",
+          "./ChatTab-CzpQTCLf.js",
+          "./DailyMissionModal-D4SUE6TT.js",
+          "./DynamicAIQuizModal-C-PI5uYk.js",
+          "./EmergencyNumbersCard-DTGmcIhW.js",
+          "./GameHubTab-GqeQaRLr.js",
+          "./HelpTab-CQBkI0Ja.js",
+          "./HomeTab-pF7U2gVZ.js",
+          "./LearningCenter-Xzg1Cnae.js",
+          "./LegalModals-CsORahCV.js",
+          "./ProfileModal-Ci7voNOs.js",
+          "./SalaSeguraTab-DrWHH8x9.js",
+          "./ScenarioAnalyzerModal-BDnUKkRE.js",
+          "./SchoolDashboard-Bl2LRrMC.js",
+          "./TopicsTab-Ck4zxYYC.js",
+          "./firebase-DDwzkCnJ.js",
+          "./index-BIldGDqZ.js",
+          "./salaSeguraService-C4h4ubMg.js",
+          "./vendor-firebase-auth-DUenq9Dv.js",
+          "./vendor-firebase-core-BFD_6fQE.js",
+          "./vendor-lucide-BPTI9cHh.js",
+          "./vendor-motion-BisUq8KL.js",
+          "./vendor-react-7kqsRsp0.js",
+          "./workbox-window.prod.es5-BBnX5xw4.js",
+          "assets/AuthModal-CxlZh92q.css",
+          "assets/AuthModal-DfTGDBTj.js",
+          "assets/Avatar-Dh6v4ttI.js",
+          "assets/BadgesModal-DGXW3OqT.js",
+          "assets/ChatTab-CzpQTCLf.js",
+          "assets/DailyMissionModal-D4SUE6TT.js",
+          "assets/DynamicAIQuizModal-C-PI5uYk.js",
+          "assets/EmergencyNumbersCard-DTGmcIhW.js",
+          "assets/GameHubTab-GqeQaRLr.js",
+          "assets/HelpTab-CQBkI0Ja.js",
+          "assets/HomeTab-pF7U2gVZ.js",
+          "assets/LearningCenter-Xzg1Cnae.js",
+          "assets/LearningTrailMap-Bi_uk_2z.js",
+          "assets/LegalModals-CsORahCV.js",
+          "assets/ProfileModal-Ci7voNOs.js",
+          "assets/SalaSeguraTab-DrWHH8x9.js",
+          "assets/ScenarioAnalyzerModal-BDnUKkRE.js",
+          "assets/SchoolDashboard-Bl2LRrMC.js",
+          "assets/TopicsTab-Ck4zxYYC.js",
+          "assets/dailyMissionsData-BhVXP4Yc.js",
+          "assets/firebase-DDwzkCnJ.js",
+          "assets/geminiLive-6LWuJdAv.js",
+          "assets/index-BIldGDqZ.js",
+          "assets/index-BXWtuYvb.js",
+          "assets/index-DfCaxnEz.css",
+          "assets/index-TQjNny0z.js",
+          "assets/salaSeguraService-C4h4ubMg.js",
+          "assets/topics-DAmBaSGq.js",
+          "assets/useLearning-Cm63q9Q-.js",
+          "assets/vendor-firebase-auth-DUenq9Dv.js",
+          "assets/vendor-firebase-core-BFD_6fQE.js",
+          "assets/vendor-firebase-store-JMcHSsR4.js",
+          "assets/vendor-lucide-BPTI9cHh.js",
+          "assets/vendor-motion-BisUq8KL.js",
+          "assets/vendor-react-7kqsRsp0.js",
+          "assets/vendor-utils-CqkleIqs.js"
+        ],
+        "referencesExpectedApp": false,
+        "referencesExpectedChat": true,
+        "result": "verified"
+      }
+    ],
+    "status": "verified",
+    "completedAt": "2026-11-23T21:32:16.828Z"
+  },
+  "availability": {
+    "status": "approved",
+    "source": "Original single samples of GET / and GET /api/status preserved without retry"
+  },
+  "identityVerification": {
+    "status": "verified_via_published_asset_references",
+    "method": "Match public HTML entry and static JavaScript asset-reference chain to exact asset names independently listed in published Netlify build logs.",
+    "observedEntry": "/assets/index-BIldGDqZ.js",
+    "entryListedInPublishedBuildLog": true,
+    "appReferenceVerified": true,
+    "chatTabReferenceVerified": true,
+    "chatTabAssetDownloaded": false,
+    "sourceRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+    "sourceRevisionEvidence": "Exact source ZIP and Netlify build/deployment evidence confirmed by publishing operator; public endpoints do not expose a commit ID.",
+    "hashPolicy": "Record SHA256 for downloaded public files; never compare against local build hashes because Netlify build environment differs."
+  }
+}

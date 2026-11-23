@@ -1,9 +1,83 @@
 # Vigia — Aprender com a Vigia
 
-## Publicação no Render — 23/11/2026
+## Publicação concluída — 23/11/2026
 
-O frontend e o servidor da revisão de texto e voz estão publicados em
-<https://vigia-app.onrender.com/>. O Render confirmou o deploy
+A revisão `3b69dfc16ae0a93f399a69a0e4900cae168ede0c` está publicada nos três
+destinos existentes: **frontend e proxy no Netlify, frontend e API no Render,
+e regras do Cloud Firestore no Firebase**. Acesse o
+[Vigia no Netlify](https://vigia-aplicativo-18plus.netlify.app/) ou a
+[instalação no Render](https://vigia-app.onrender.com/). Planos e controles de
+custo foram preservados; não houve compra de créditos, ativação de serviço pago
+ou migração de dados.
+
+| Destino | Publicação confirmada | Evidência |
+| --- | --- | --- |
+| Netlify | Produção no projeto `vigia-aplicativo-18plus`, com a Function `api-proxy` | [Deploy `6b04afa2ec8bada2549056c3`](https://app.netlify.com/projects/vigia-aplicativo-18plus/deploys/6b04afa2ec8bada2549056c3) e [registro](artifacts/conversation-20261123/deployment-netlify.json) |
+| Render | Serviço `vigia-app` em estado `live`, deploy `dep-dc29r35g1s2s73dqe2bg` | [Registro do deploy](artifacts/conversation-20261123/deployment-render.json) e [verificação pública](artifacts/conversation-20261123/postdeploy-render.json) |
+| Firebase | `firestore.rules` publicado em `vigia-aplicativo-7ba1a`, banco `(default)` | [Console de regras](https://console.firebase.google.com/project/vigia-aplicativo-7ba1a/firestore/databases/-default-/security/rules) e [registro](artifacts/conversation-20261123/deployment-firebase.json) |
+
+### Netlify: frontend e proxy publicados
+
+O Source Drop autenticado recebeu o ZIP do código-fonte do commit acima, com
+`netlify.toml` e `netlify/functions/api-proxy.mjs`. O Netlify executou
+`npm run build:netlify`, incluindo a checagem TypeScript e o Vite 6.4.6, e
+publicou `dist/netlify/public`. O log confirmou **uma Function publicada**, um
+redirecionamento e sete regras de cabeçalhos, sem erros. A execução foi de
+18h26min58s a 18h27min40s de 23/11/2026, no horário de Brasília: **42 segundos**.
+
+O HTML público usa `/assets/index-BIldGDqZ.js`. A leitura dos arquivos públicos
+confirmou a cadeia de referências para `App-DIFU4aoi.js` e
+`ChatTab-CzpQTCLf.js`, cujos nomes também constam no log desse build.
+`index-TQjNny0z.js` é outro módulo do mesmo build, não a entrada do HTML; a
+hipótese inicial incorreta foi preservada e esclarecida no
+[relatório público](artifacts/conversation-20261123/postdeploy-netlify.json).
+Essa prova usa o pacote efetivamente publicado, sem comparar seus hashes com
+um build local de ambiente diferente. A página e `/api/status` responderam HTTP
+200; a API confirmou público 18+, Firebase cloud e Gemini real habilitado.
+Essa sondagem não enviou mensagens nem solicitou geração de voz.
+A sondagem inicial registrou **9.467 ms** no HTML e **11.390 ms** em
+`/api/status`, incluindo um checkpoint local de arquivo antes do `fetch`.
+Essa sobrecarga não foi isolada; os valores não medem exclusivamente a rede
+nem identificam a causa da espera. Uma
+[sondagem separada do status](artifacts/conversation-20261123/status-latency-netlify-render.json)
+posiciona o cronômetro imediatamente antes de cada requisição, sem escrita de
+relatório durante as chamadas. O chat de 1,1 segundo medido no Render, descrito
+abaixo, não representa a abertura completa do app nem comprova latência
+constante ou redução antes/depois.
+
+A inspeção manual no navegador em nuvem confirmou a entrada 18+, boas-vindas,
+acesso de visitante e abertura de Conversar. A tela mostrou os controles de
+texto/voz, ouvir resposta, histórico e novo chat, sem os seletores antigos.
+Abrir Voz solicitou consentimento para envio ao Gemini; o diálogo foi cancelado
+explicitamente, e **Continuar por texto** retornou à conversa. Não houve captura
+de microfone, reprodução audível nem pedido adicional ao provedor nessa
+inspeção. Isso confirma o fluxo de interface observado, não a disponibilidade
+da conversa completa por voz.
+
+Antes do envio, o painel indicou plano **Free** e **299,5 de 300 créditos
+restantes**. Esse valor é uma observação anterior ao deploy, não uma afirmação
+do saldo posterior. Não foram adicionados créditos nem alterados planos.
+
+### Firebase: regras publicadas e persistência confirmada
+
+As regras do commit `3b69dfc` substituíram a versão online correspondente a
+`9ef9940`, no mesmo projeto e banco. O editor confirmou a publicação de
+23/11/2026 às **18h31**, com precisão de minuto. Depois de recarregar a console,
+a versão permaneceu publicada e a cópia integral do editor foi idêntica ao
+conteúdo aprovado: **9.021 caracteres**, com finais de linha LF. Os fingerprints
+e hashes da versão anterior e da nova estão no
+[registro da publicação](artifacts/conversation-20261123/deployment-firebase.json).
+
+Foi publicado somente `firestore.rules`; índices, documentos, contas de
+autenticação, IAM e planos não foram alterados. As regras agora acompanham a
+API publicada, incluindo o bloqueio da criação direta de mensagens da Sala
+Segura pelo cliente. A verificação online confirmou conteúdo e persistência;
+os testes de autorização das regras foram realizados nos emuladores e constam
+na revisão de continuidade abaixo.
+
+### Render e amostra limitada de texto e leitura
+
+O Render confirmou o deploy
 `dep-dc29r35g1s2s73dqe2bg` como `live` às 17h11 de 23/11/2026
 (America/Sao_Paulo), no commit
 `3b69dfc16ae0a93f399a69a0e4900cae168ede0c`. A branch de publicação foi avançada
@@ -25,31 +99,24 @@ fictícia e uma leitura da própria resposta, sem repetir gerações:
   foi isolada. A amostra não é uma comparação controlada antes/depois, um
   percentil ou garantia de tempo para todos os usuários.
 
-A inspeção manual no navegador em nuvem confirmou a entrada 18+, o acesso de
+A inspeção manual do Render no navegador em nuvem confirmou a entrada 18+, o acesso de
 visitante e os controles de texto/voz sem os seletores antigos. A solicitação
 de consentimento da voz foi cancelada nesta inspeção; não houve captura de
 microfone nem avaliação auditiva. O diagnóstico de áudio acima verificou a
 transmissão HTTP, não a conversa completa por microfone/WebSocket.
 
-**Publicação ainda parcial entre plataformas:** o site Netlify continua com
-`/assets/index-CtqcL0zC.js`, conforme GET público posterior ao deploy Render.
-Faltam autenticação na Netlify, verificação do saldo gratuito atual e publicação
-do frontend com a Function. Também falta autenticação Firebase e publicação
-separada de `firestore.rules` no projeto `vigia-aplicativo-7ba1a`, banco
-`(default)`. Atualizar o Render não publica essas regras; a restrição adicional
-de criação direta de mensagens ainda depende dessa etapa. Não houve alteração
-de plano, compra de créditos, migração de dados ou publicação de regras.
-
-Evidências: `artifacts/conversation-20261123/deployment-render.json`,
-`postdeploy-render.json` e `postdeploy-netlify-readonly.json`, no mesmo diretório.
-O relatório `verification.json` abaixo permanece como registro anterior à
-implantação e deve ser lido com esta atualização.
+Os registros `verification.json`, `deployment-render.json` e
+`postdeploy-netlify-readonly.json`, em `artifacts/conversation-20261123`,
+preservam o estado observado antes de todas as publicações serem concluídas.
+As pendências de Netlify e Firebase registradas naquela etapa foram resolvidas
+pelos deploys descritos nesta seção. Nenhum resultado anterior foi reescrito
+para parecer uma verificação posterior.
 
 ## Conversa por texto e voz — 23/11/2026
 
 Esta revisão continua a versão `df9c716b22244b1f29d602dda3c5179dd147b48b` da
-branch `review/vigia-20261123`. O frontend e o servidor foram publicados no
-Render conforme a seção acima. Netlify e regras Firebase continuam pendentes.
+branch `review/vigia-20261123`. Frontend, servidor, proxy e regras Firebase
+foram publicados nos destinos existentes conforme a seção acima.
 Os registros de versões mais antigas abaixo são históricos e não certificam
 esta revisão.
 
@@ -263,10 +330,10 @@ essa pendência. O registro está em `artifacts/review-20261123/verification.jso
 Os hashes do código e das evidências dos testes permanecem os mesmos; somente
 a documentação de autorização foi ajustada após a validação.
 
-Este candidato é de desenvolvimento. Antes de uma publicação, conferir a
-interface em navegador e o alinhamento de frontend, API e regras efetivas nos
-destinos existentes. As seções abaixo são o histórico das publicações anteriores;
-não representam a implantação desta revisão.
+Esta seção preserva o registro da etapa de desenvolvimento e seus testes.
+A publicação posterior de frontend, API, proxy e regras está documentada no
+início deste arquivo. As seções abaixo são o histórico das publicações anteriores;
+suas pendências e configurações descrevem as respectivas datas.
 
 ## Conversas independentes e resposta mais rápida — 17/10/2026
 

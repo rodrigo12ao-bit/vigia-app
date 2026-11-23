@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-11-23T21:36:53.700Z",
+  "status": "completed",
+  "scope": {
+    "endpoints": [
+      {
+        "service": "Render",
+        "url": "https://vigia-app.onrender.com/api/status"
+      },
+      {
+        "service": "Netlify",
+        "url": "https://vigia-aplicativo-18plus.netlify.app/api/status"
+      }
+    ],
+    "method": "GET",
+    "samplesPerEndpoint": 1,
+    "concurrent": true,
+    "sameNodeProcess": true,
+    "clientRetries": 0,
+    "timeoutMs": 55000,
+    "maxBodyBytes": 16384,
+    "providerRequests": 0,
+    "authRequests": 0,
+    "sessionRequests": 0,
+    "browserUsed": false
+  },
+  "method": {
+    "clock": "performance.now",
+    "start": "Immediately before fetch; request options, timeout setup, guards and initial report write/fsync occur beforehand.",
+    "headers": "Immediately after fetch resolves with response headers.",
+    "complete": "Immediately after the response body reader reaches done, before JSON parsing, hashing or final report writes.",
+    "reportIoDuringMeasuredRequests": false,
+    "requests": "Both fetch promises launched in the same process and awaited together; no additional endpoints or retry.",
+    "responseProcessing": "Raw bounded bodies retained in memory; JSON parsing, sanitization and hashing occur only after both requests settle."
+  },
+  "limitations": [
+    "Both services have already been accessed during publication verification. This single observation does not establish cold or warm state.",
+    "One sample per endpoint, not percentiles, a controlled before/after experiment or a guaranteed user latency.",
+    "Client-observed elapsed time still combines local scheduling and HTTP client work, network, CDN/platform and server stages; these stages are not individually instrumented.",
+    "Direct Render and Netlify proxy are different paths. Their difference cannot by itself be attributed solely to Function/proxy execution.",
+    "Node starts the two asynchronous fetch calls successively in the same turn; they overlap, but their initiation timestamps are not exactly simultaneous."
+  ],
+  "results": [
+    {
+      "service": "Render",
+      "url": "https://vigia-app.onrender.com/api/status",
+      "method": "GET",
+      "attempt": 1,
+      "httpStatus": 200,
+      "headersMs": 5064.6,
+      "contentType": "application/json",
+      "cacheControl": "no-store",
+      "totalMs": 5066.8,
+      "bodyReadMs": 2.2,
+      "bodyBytes": 214,
+      "result": "verified",
+      "bodySha256": "f095982b37a667bf1176381625ecbce3ce388715d53e3ea856e4a97df08cb25d",
+      "runtime": {
+        "demo": false,
+        "audience": "18plus",
+        "localDemo": false,
+        "realAI": true,
+        "firebase": "cloud",
+        "ai": {
+          "mode": "adult-gemini",
+          "provider": "gemini",
+          "blocked": null,
+          "voice": true
+        }
+      }
+    },
+    {
+      "service": "Netlify",
+      "url": "https://vigia-aplicativo-18plus.netlify.app/api/status",
+      "method": "GET",
+      "attempt": 1,
+      "httpStatus": 200,
+      "headersMs": 8729.4,
+      "contentType": "application/json",
+      "cacheControl": "no-store",
+      "totalMs": 8773.2,
+      "bodyReadMs": 43.9,
+      "bodyBytes": 214,
+      "result": "verified",
+      "bodySha256": "f095982b37a667bf1176381625ecbce3ce388715d53e3ea856e4a97df08cb25d",
+      "runtime": {
+        "demo": false,
+        "audience": "18plus",
+        "localDemo": false,
+        "realAI": true,
+        "firebase": "cloud",
+        "ai": {
+          "mode": "adult-gemini",
+          "provider": "gemini",
+          "blocked": null,
+          "voice": true
+        }
+      }
+    }
+  ],
+  "completedAt": "2026-11-23T21:37:02.491Z"
+}

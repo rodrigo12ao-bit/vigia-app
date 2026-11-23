@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "observedOn": "2026-11-23",
+  "status": "published_persistence_verified",
+  "application": "Vigia",
+  "platform": "Firebase Cloud Firestore",
+  "projectId": "vigia-aplicativo-7ba1a",
+  "databaseId": "(default)",
+  "consoleUrl": "https://console.firebase.google.com/project/vigia-aplicativo-7ba1a/firestore/databases/-default-/security/rules",
+  "repository": "rodrigo12ao-bit/vigia-app",
+  "sourceRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+  "publishedFile": "firestore.rules",
+  "method": "Authenticated Firebase Console rules editor and Publish action in the cloud browser.",
+  "publication": {
+    "displayedVersion": "Hoje 18:31",
+    "displayedDate": "2026-11-23",
+    "displayedTime": "18:31",
+    "displayTimezone": "America/Sao_Paulo",
+    "timestampPrecision": "minute",
+    "previousVersionDisplayedDate": "12 October",
+    "unpublishedChangesAfterPublish": false,
+    "evidenceSource": "Rules version marker and full editor content inspected by the publishing operator before publication and after a complete console reload."
+  },
+  "previousRules": {
+    "matchingRevisionPrefix": "9ef9940",
+    "characters": 8024,
+    "fnv1a": 780618379,
+    "localNormalizedSha256": "0ccd1a8e42098e908f8e961c10e099edf310a713b734e75ba3cc96c50117d08a",
+    "consoleContentMatchedRevision": true
+  },
+  "publishedRules": {
+    "characters": 9021,
+    "lineEndings": "LF",
+    "fnv1a": 3659558826,
+    "localNormalizedSha256": "a7c33680116c917cb4e73391506c90ad41030248353cb0ccec0f58e3fab70ad8",
+    "editorContentBeforePublishEqualToApprovedRules": true,
+    "completeConsoleReloadPerformed": true,
+    "publishedVersionMarkerPersistedAfterReload": true,
+    "fullEditorContentCopiedAfterReload": true,
+    "savedRulesEqualToApprovedRulesAfterReload": true,
+    "comparison": "Exact equality of the full editor content after reload with the approved rules; character count and fingerprint also matched.",
+    "hashProvenance": "SHA256 computed locally over UTF-8 text with LF line endings from firestore.rules at the source revision. The console does not expose this SHA256; exact content equality links the published text to the local file."
+  },
+  "scope": {
+    "firestoreRulesPublished": true,
+    "indexesChanged": false,
+    "applicationDocumentsChanged": false,
+    "authenticationConfigurationChanged": false,
+    "authenticationAccountsChanged": false,
+    "iamChanged": false,
+    "billingOrPlanChanged": false,
+    "dataMigrated": false
+  },
+  "behaviorAlignedWithPublishedApplication": [
+    "Sala Segura message creation uses the server API; direct client creation is blocked by the published rules.",
+    "The published rules are the same reviewed file included in the application revision; publication did not introduce a new rules edit."
+  ],
+  "priorValidation": {
+    "evidence": "../review-20261123/verification.json",
+    "rulesChecksPassed": 14,
+    "environment": "Local Firebase emulators with fictional adult accounts.",
+    "rerunDuringPublication": false,
+    "notes": "The rules checks belong to the previous continuity review and are not added to the 563 conversation tests. Online verification checked published content and persistence; it did not perform production data writes or repeat the authorization scenarios."
+  },
+  "limitations": [
+    "Console publication and exact content persistence were verified; no separate production authorization integration test was performed.",
+    "Publication time is recorded only to the minute shown in the console; no seconds or server ruleset identifier are inferred.",
+    "This action updated only firestore.rules in the existing default database. It did not migrate application data or change account administration, indexes or billing."
+  ],
+  "historicalEvidence": {
+    "predeployment": "verification.json",
+    "renderDeploymentSnapshot": "deployment-render.json",
+    "policy": "Earlier records are retained as dated snapshots. Their Firebase-pending state is superseded by this confirmed rules publication."
+  }
+}

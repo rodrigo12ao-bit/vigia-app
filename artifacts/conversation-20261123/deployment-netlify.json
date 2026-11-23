@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "observedOn": "2026-11-23",
+  "status": "published_verified",
+  "application": "Vigia",
+  "platform": "Netlify",
+  "url": "https://vigia-aplicativo-18plus.netlify.app/",
+  "site": {
+    "name": "vigia-aplicativo-18plus",
+    "id": "f248bca0-6d38-4613-bbf6-114d57649ed4",
+    "existingSite": true
+  },
+  "repository": "rodrigo12ao-bit/vigia-app",
+  "publishedRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+  "source": {
+    "method": "authenticated_source_drop",
+    "archiveName": "vigia-netlify-source-3b69dfc.zip",
+    "sha256": "5a51e498027fd665979a314eabca1b44fffe39a0b5310de54227add5bec9bae9",
+    "configuration": "netlify.toml",
+    "scope": "Source archive of the published revision, including frontend build inputs and netlify/functions/api-proxy.mjs."
+  },
+  "deployment": {
+    "id": "6b04afa2ec8bada2549056c3",
+    "dashboardUrl": "https://app.netlify.com/projects/vigia-aplicativo-18plus/deploys/6b04afa2ec8bada2549056c3",
+    "status": "published",
+    "context": "production",
+    "buildStartedAt": "2026-11-23T18:26:58-03:00",
+    "buildFinishedAt": "2026-11-23T18:27:40-03:00",
+    "displayTimezone": "America/Sao_Paulo",
+    "durationSeconds": 42,
+    "timestampPrecision": "second",
+    "evidenceSource": "Existing project deployment dashboard and build log inspected by the publishing operator in the authenticated cloud browser."
+  },
+  "build": {
+    "command": "npm run build:netlify",
+    "typecheck": "passed",
+    "viteVersion": "6.4.6",
+    "publishDirectory": "dist/netlify/public",
+    "functionsDirectory": "netlify/functions",
+    "functionBundled": "api-proxy.mjs",
+    "functionsDeployed": 1,
+    "redirectRulesProcessed": 1,
+    "headerRulesProcessed": 7,
+    "errorsObserved": false,
+    "recordedAssets": [
+      "index-BIldGDqZ.js",
+      "index-TQjNny0z.js",
+      "App-DIFU4aoi.js",
+      "ChatTab-CzpQTCLf.js"
+    ]
+  },
+  "billing": {
+    "plan": "Free",
+    "beforeDeployment": {
+      "label": "Credit balance",
+      "remainingCredits": 299.5,
+      "displayedAllowance": 300,
+      "qualifier": "remaining"
+    },
+    "postDeploymentBalanceMeasured": false,
+    "planChanged": false,
+    "creditsPurchasedOrAdded": false,
+    "paidServiceEnabled": false
+  },
+  "publicVerification": {
+    "evidence": "postdeploy-netlify.json",
+    "status": "public_availability_and_build_identity_verified",
+    "http": {
+      "GET /": 200,
+      "GET /api/status": 200
+    },
+    "singleSampleTiming": {
+      "htmlTotalMs": 9467,
+      "apiStatusTotalMs": 11390,
+      "samplesPerEndpoint": 1,
+      "clientRetries": 0,
+      "causeIsolated": false,
+      "scope": "Client-observed intervals in the initial public GET probe include a synchronous local report checkpoint before fetch. Its cost was not isolated. These values do not measure exclusively network/server time, app-ready time, a cold start, provider generation latency or a controlled before/after comparison.",
+      "includesLocalCheckpointOverhead": true
+    },
+    "runtime": {
+      "audience": "18plus",
+      "firebase": "cloud",
+      "realAI": true,
+      "provider": "gemini"
+    },
+    "entry": "/assets/index-BIldGDqZ.js",
+    "assetReferenceChain": [
+      "/assets/index-BIldGDqZ.js",
+      "/assets/App-DIFU4aoi.js",
+      "/assets/ChatTab-CzpQTCLf.js"
+    ],
+    "chatTabAssetDownloaded": false,
+    "identityMethod": "Match public HTML and JavaScript references to names confirmed in this deployment's build log. The source revision is established by the source archive and deployment evidence, not a public commit endpoint.",
+    "initialHypothesis": {
+      "candidateEntry": "/assets/index-TQjNny0z.js",
+      "resolution": "This file is another chunk in the same published build. The observed HTML entry is index-BIldGDqZ.js; the original observation and corrected interpretation are retained in postdeploy-netlify.json."
+    },
+    "localBuildHashComparison": false,
+    "providerRequests": 0,
+    "statusTimingFollowupEvidence": "status-latency-netlify-render.json"
+  },
+  "manualBrowserVerification": {
+    "surface": "cloud browser",
+    "url": "https://vigia-aplicativo-18plus.netlify.app/",
+    "status": "limited_ui_flow_verified",
+    "checks": [
+      "18+ gate and welcome screen displayed.",
+      "Explorar como Visitante opened the application and Conversar opened successfully.",
+      "Text composer, Ouvir resposta, Histórico, Novo Chat and text/voice conversation controls displayed.",
+      "Voz Rápida and Voz Google selectors were absent from the inspected controls.",
+      "Opening the voice conversation displayed the Gemini data consent dialog before capture.",
+      "The operator explicitly cancelled consent; the interface reported Envio cancelado and Voz pausada.",
+      "Continuar por Texto returned to the text conversation; the application was left in text mode."
+    ],
+    "consentAcceptedForVoice": false,
+    "microphoneCaptured": false,
+    "audiblePlaybackEvaluated": false,
+    "providerRequests": 0,
+    "fullVoiceTurnTested": false
+  },
+  "predeploymentValidation": {
+    "evidence": "verification.json",
+    "automatedTestsPassed": 563,
+    "automatedTestsFailed": 0,
+    "testFiles": 57,
+    "buildsPassed": [
+      "build:netlify",
+      "build:publication"
+    ],
+    "notes": "These are the existing predeployment results, not newly executed or additional test scenarios."
+  },
+  "limitations": [
+    "The public probe performed GET requests only, including two static JavaScript files. It did not send chat, voice, microphone or WebSocket turns.",
+    "The manual UI inspection cancelled voice consent before capture. It does not establish audible voice quality, recognition accuracy or full voice availability.",
+    "Local automated voice tests use simulated providers. The separate limited real chat and HTTP speech sample was made against Render and is recorded in postdeploy-render.json.",
+    "No controlled before/after performance comparison, physical-device validation or latency guarantee is claimed."
+  ],
+  "historicalEvidence": {
+    "predeployment": "verification.json",
+    "previousNetlifyObservation": "postdeploy-netlify-readonly.json",
+    "policy": "Earlier observations are retained as dated snapshots. Their Netlify-pending state is superseded by this deployment record."
+  }
+}
