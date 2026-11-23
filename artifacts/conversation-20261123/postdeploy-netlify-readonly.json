@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-11-23T20:15:20.329Z",
+  "scope": "One public read-only GET; no Netlify deployment or authenticated admin access.",
+  "url": "https://vigia-aplicativo-18plus.netlify.app/",
+  "status": 200,
+  "contentType": "text/html; charset=UTF-8",
+  "entry": "/assets/index-CtqcL0zC.js",
+  "totalMs": 6422.9
+}

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-23T20:16:16.944Z",
+  "status": "render_live_other_platforms_pending",
+  "application": "Vigia",
+  "url": "https://vigia-app.onrender.com/",
+  "repository": "rodrigo12ao-bit/vigia-app",
+  "publishedRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+  "productionBranch": "codex/publicacao-vigia-20261012",
+  "branchUpdate": {
+    "previousHead": "a3e0254750cd220aee885600a119c71ec74d30c3",
+    "nextHead": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+    "fastForward": true,
+    "force": false,
+    "leaseChecked": true
+  },
+  "render": {
+    "service": "vigia-app",
+    "serviceId": "srv-da7hcqdg1s2s73fs68s0",
+    "deployId": "dep-dc29r35g1s2s73dqe2bg",
+    "status": "live",
+    "createdAt": "2026-11-23T20:09:48.714416Z",
+    "finishedAt": "2026-11-23T20:11:51.2158Z",
+    "trigger": "api",
+    "plan": "free",
+    "autoDeploy": "no",
+    "buildCommand": "npm ci --include=dev && npm run build:publication",
+    "startCommand": "npm run start:publication",
+    "healthCheckPath": "/api/status",
+    "configurationChanged": false
+  },
+  "startupVerification": {
+    "revisionPrefix": "3b69dfc16ae0",
+    "entry": "/assets/index-B4OWWpi8.js",
+    "instance": "r669x",
+    "source": "Render startup log for this deployment",
+    "timestamp": "2026-11-23T20:11:40.071857237Z"
+  },
+  "verification": {
+    "predeployment": "verification.json",
+    "postdeployment": "postdeploy-render.json",
+    "netlifyReadOnly": "postdeploy-netlify-readonly.json",
+    "browser": {
+      "surface": "cloud browser",
+      "url": "https://vigia-app.onrender.com/",
+      "checks": [
+        "18+ entrance displayed",
+        "Adult declaration accepted and guest entry opened",
+        "Text conversation and voice controls rendered",
+        "Old quick/Google voice selectors absent from inspected conversation controls",
+        "AI-data consent dialog shown before voice connection; cancelled for this UI-only inspection"
+      ],
+      "microphoneCaptured": false,
+      "voiceListeningTest": false,
+      "fullWebSocketTurnTest": false
+    }
+  },
+  "pending": [
+    {
+      "platform": "Netlify",
+      "status": "not_deployed",
+      "reason": "Authenticated dashboard access has not been completed. Need current free-credit balance and publication of frontend plus existing proxy Function; no paid credit purchase authorized.",
+      "site": "https://vigia-aplicativo-18plus.netlify.app/",
+      "observedOldEntry": "/assets/index-CtqcL0zC.js"
+    },
+    {
+      "platform": "Firebase",
+      "status": "rules_not_deployed",
+      "reason": "Installed Firebase CLI has no authorized accounts; no connected deploy capability available. Need normal authorized account access.",
+      "project": "vigia-aplicativo-7ba1a",
+      "database": "(default)",
+      "file": "firestore.rules",
+      "scope": "firestore:rules only",
+      "impact": "Render update alone does not publish the additional rules restriction against direct client creation of Sala messages."
+    }
+  ],
+  "limits": [
+    "No paid plan, billing, model selection or environment-variable change.",
+    "No production database migration or privileged test data writes.",
+    "One chat and one HTTP TTS reading; no generation retries in the diagnostic.",
+    "HTTP PCM delivery is not an audible quality or physical-device microphone test.",
+    "Initial HTTP page request remained slower in the one-shot probe; its cause was not isolated.",
+    "Prior reports retain their original predeployment wording as historical evidence."
+  ]
+}

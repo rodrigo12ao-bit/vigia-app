@@ -1,12 +1,57 @@
 # Vigia — Aprender com a Vigia
 
+## Publicação no Render — 23/11/2026
+
+O frontend e o servidor da revisão de texto e voz estão publicados em
+<https://vigia-app.onrender.com/>. O Render confirmou o deploy
+`dep-dc29r35g1s2s73dqe2bg` como `live` às 17h11 de 23/11/2026
+(America/Sao_Paulo), no commit
+`3b69dfc16ae0a93f399a69a0e4900cae168ede0c`. A branch de publicação foi avançada
+sem reescrever o histórico. O plano gratuito, as variáveis existentes e os
+comandos de build/inicialização foram preservados.
+
+O startup validou esse commit e a entrada `/assets/index-B4OWWpi8.js`; o GET
+público confirmou a mesma entrada. A compilação de produção usa outro ambiente
+e não tem o mesmo hash do pacote local. A verificação limitada fez uma pergunta
+fictícia e uma leitura da própria resposta, sem repetir gerações:
+
+- Chat: **1.100,2 ms** de ida e volta; `Server-Timing` registrou **874,5 ms**
+  na geração.
+- Leitura HTTP: primeiro bloco PCM em **570 ms** após o pedido de leitura;
+  conclusão da transmissão em **2.412,6 ms**, com 172 blocos válidos,
+  correspondentes a 13,3 segundos de áudio.
+- Sessão visitante com declaração adulta combinada: confirmada em uma chamada.
+- A primeira abertura HTTP desta sondagem levou **10.238,8 ms**; sua causa não
+  foi isolada. A amostra não é uma comparação controlada antes/depois, um
+  percentil ou garantia de tempo para todos os usuários.
+
+A inspeção manual no navegador em nuvem confirmou a entrada 18+, o acesso de
+visitante e os controles de texto/voz sem os seletores antigos. A solicitação
+de consentimento da voz foi cancelada nesta inspeção; não houve captura de
+microfone nem avaliação auditiva. O diagnóstico de áudio acima verificou a
+transmissão HTTP, não a conversa completa por microfone/WebSocket.
+
+**Publicação ainda parcial entre plataformas:** o site Netlify continua com
+`/assets/index-CtqcL0zC.js`, conforme GET público posterior ao deploy Render.
+Faltam autenticação na Netlify, verificação do saldo gratuito atual e publicação
+do frontend com a Function. Também falta autenticação Firebase e publicação
+separada de `firestore.rules` no projeto `vigia-aplicativo-7ba1a`, banco
+`(default)`. Atualizar o Render não publica essas regras; a restrição adicional
+de criação direta de mensagens ainda depende dessa etapa. Não houve alteração
+de plano, compra de créditos, migração de dados ou publicação de regras.
+
+Evidências: `artifacts/conversation-20261123/deployment-render.json`,
+`postdeploy-render.json` e `postdeploy-netlify-readonly.json`, no mesmo diretório.
+O relatório `verification.json` abaixo permanece como registro anterior à
+implantação e deve ser lido com esta atualização.
+
 ## Conversa por texto e voz — 23/11/2026
 
 Esta revisão continua a versão `df9c716b22244b1f29d602dda3c5179dd147b48b` da
-branch `review/vigia-20261123`. O código está preparado para atualização conjunta
-do frontend e do servidor. **As alterações desta seção ainda não foram
-publicadas no aplicativo em produção.** Os registros de versões mais antigas
-abaixo são históricos e não certificam esta revisão.
+branch `review/vigia-20261123`. O frontend e o servidor foram publicados no
+Render conforme a seção acima. Netlify e regras Firebase continuam pendentes.
+Os registros de versões mais antigas abaixo são históricos e não certificam
+esta revisão.
 
 ### Voz única e espera menor no caminho da resposta
 
@@ -74,8 +119,9 @@ A [documentação do Render gratuito](https://render.com/docs/free) informa que
 serviços sem tráfego por quinze minutos podem ser suspensos e levar cerca de um
 minuto para iniciar novamente. As mudanças de código não eliminam essa condição.
 Não foi ativado plano pago ou serviço para manter o servidor artificialmente
-acordado. A latência e a voz desta revisão ainda precisam ser verificadas após
-sua publicação, em navegador e aparelho reais.
+acordado. A sondagem posterior à publicação está descrita acima; o comportamento
+completo do microfone, a reprodução audível e a experiência em aparelhos reais
+ainda precisam de verificação.
 
 Roteiros antigos que verificam os dois seletores de voz permanecem como registros
 da interface anterior. Para esta revisão, use `tests/review-voice-browser.cjs`

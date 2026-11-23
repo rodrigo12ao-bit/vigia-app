@@ -1,0 +1,153 @@
+{
+  "scope": "One-shot verification of the newly deployed Render release, fictional adult text and one reading of that exact checked answer.",
+  "origin": "https://vigia-app.onrender.com",
+  "expectedRevision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+  "startedAt": "2026-11-23T20:14:31.947Z",
+  "status": "completed",
+  "localRelease": {
+    "formatVersion": 1,
+    "revision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c",
+    "index": {
+      "path": "index.html",
+      "sha256": "f0e41fe09d186b3cc7a215028cbd94b4189f8f8cb56d60a911e10402706cd4ca"
+    },
+    "entry": {
+      "path": "assets/index-CeHQWRci.js",
+      "sha256": "f107de9754f744d2a09f55a19a8d3e8f35b33f5c80f4f07c82c699a07c2aa14c"
+    }
+  },
+  "renderStartupEvidence": {
+    "instance": "r669x",
+    "source": "Render startup/deployment evidence confirmed by the publishing operator",
+    "line": "Publicação verificada: 3b69dfc16ae0 • /assets/index-B4OWWpi8.js",
+    "revision": "3b69dfc16ae0a93f399a69a0e4900cae168ede0c"
+  },
+  "expectedPublishedEntry": "/assets/index-B4OWWpi8.js",
+  "hashPolicy": "Local and published builds use different environments. Require the exact published entry confirmed in Render startup logs; record public SHA256 without treating the local SHA256 as a production expectation.",
+  "limits": {
+    "chatPosts": 1,
+    "ttsPosts": 1,
+    "clientRetries": 0,
+    "webSocketTurns": 0,
+    "timeoutMs": 55000,
+    "ttsTimeoutMs": 75000,
+    "maxAudioBytes": 2400000,
+    "maxAudioChunks": 512,
+    "maxLineCharacters": 40000
+  },
+  "attempted": {
+    "getRequests": 3,
+    "sessionPosts": 1,
+    "chatPosts": 1,
+    "ttsPosts": 1
+  },
+  "requests": [
+    {
+      "stage": "index",
+      "path": "/",
+      "method": "GET",
+      "httpStatus": 200,
+      "headersMs": 10236.5,
+      "contentType": "text/html; charset=UTF-8",
+      "serverTiming": null,
+      "totalMs": 10238.8
+    },
+    {
+      "stage": "entry",
+      "path": "/assets/index-B4OWWpi8.js",
+      "method": "GET",
+      "httpStatus": 200,
+      "headersMs": 226.8,
+      "contentType": "application/javascript; charset=UTF-8",
+      "serverTiming": null,
+      "totalMs": 227.3
+    },
+    {
+      "stage": "status",
+      "path": "/api/status",
+      "method": "GET",
+      "httpStatus": 200,
+      "headersMs": 222.8,
+      "contentType": "application/json; charset=utf-8",
+      "serverTiming": null,
+      "totalMs": 223.4
+    },
+    {
+      "stage": "guest-adult-session",
+      "path": "/api/session",
+      "method": "POST",
+      "httpStatus": 200,
+      "headersMs": 210.7,
+      "contentType": "application/json; charset=utf-8",
+      "serverTiming": null,
+      "totalMs": 211.4
+    },
+    {
+      "stage": "chat",
+      "path": "/api/chat",
+      "method": "POST",
+      "httpStatus": 200,
+      "headersMs": 1098,
+      "contentType": "application/json; charset=utf-8",
+      "serverTiming": "prehandler;dur=1.4, generation;dur=874.5, validation;dur=0, handler;dur=874.7, api;dur=876.1",
+      "totalMs": 1100.2
+    },
+    {
+      "stage": "tts",
+      "path": "/api/tts",
+      "method": "POST",
+      "httpStatus": 200,
+      "headersMs": 569.2,
+      "contentType": "application/x-ndjson; charset=utf-8",
+      "serverTiming": null,
+      "totalMs": 2414.7
+    }
+  ],
+  "limitations": [
+    "The server keeps its existing free-provider and authorization guards. This check does not independently audit account billing or provider quota.",
+    "Any provider retry or free TTS fallback remains governed by the deployed server. The diagnostic does not retry or select a model.",
+    "First PCM and done measure HTTP delivery, not audible playback, voice quality, microphone behavior or WebSocket capture.",
+    "One observation is not a percentile or a controlled latency comparison with the preserved baseline.",
+    "The published revision is independently confirmed by Render deployment/startup evidence, not claimed to be exposed by a public HTTP endpoint.",
+    "The published entry expectation is fixed from that evidence. A path mismatch stops before AI requests; it is never adopted automatically from the page."
+  ],
+  "publicIndex": {
+    "sha256": "0ba4c5729eccae9bed61552f9478723234493ecbcd90db44a2d60cf26aad10aa",
+    "bytes": 2191,
+    "entry": "/assets/index-B4OWWpi8.js"
+  },
+  "publicEntry": {
+    "path": "/assets/index-B4OWWpi8.js",
+    "sha256": "b16556791a644204c24afe6ca924921c76e3d307a70073685b880395529711ec",
+    "bytes": 4850
+  },
+  "runtime": {
+    "realAI": true,
+    "demo": false,
+    "audience": "18plus",
+    "provider": "gemini",
+    "mode": "adult-gemini",
+    "voice": true,
+    "blocked": false
+  },
+  "acceptedConsentVersion": "2026-10-13-gemini-adults-free-v1",
+  "chat": {
+    "question": "Em um exemplo fictício, onde devo guardar a lanterna e as pilhas da mochila de emergência? Responda em no máximo três frases curtas.",
+    "reply": "Na mochila de emergência, guarde a lanterna e as pilhas reservas juntas no bolso principal. O ideal é mantê-las protegidas em um saco plástico para evitar a umidade e garantir que funcionem quando precisar.",
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite"
+  },
+  "tts": {
+    "transport": "http-ndjson",
+    "sampleRate": 24000,
+    "encoding": "pcm_s16le",
+    "audioChunks": 172,
+    "pcmBytes": 639360,
+    "nonzeroSamples": 318002,
+    "firstPcmMs": 570,
+    "doneMs": 2412.6,
+    "audioSeconds": 13.3,
+    "audioSha256": "16c5ef866ca141b75bd1575956d3825bbaefc93a6c8649eebee90bbd96859392"
+  },
+  "finishedAt": "2026-11-23T20:14:46.375Z"
+}
